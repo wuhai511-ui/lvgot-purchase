@@ -29,54 +29,7 @@ jobs:
           mkdir -p dist/admin dist/miniprogram
           cp admin/src/index.html dist/admin/index.html
           cp miniprogram/src/index.html dist/miniprogram/index.html
-
-      - name: Create index page
-        run: |
-          cat > dist/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html lang="zh-CN">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>旅购通分账系统 - 首页</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-              .container { text-align: center; padding: 40px; }
-              h1 { font-size: 36px; color: #1976D2; margin-bottom: 16px; }
-              p { font-size: 18px; color: #666; margin-bottom: 32px; }
-              .links { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; }
-              .link-card { background: #fff; border-radius: 16px; padding: 32px 48px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-decoration: none; transition: transform 0.3s, box-shadow 0.3s; }
-              .link-card:hover { transform: translateY(-4px); box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
-              .link-icon { font-size: 48px; margin-bottom: 16px; }
-              .link-title { font-size: 20px; font-weight: 600; color: #333; }
-              .link-desc { font-size: 14px; color: #999; margin-top: 8px; }
-              .footer { margin-top: 48px; font-size: 14px; color: #999; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h1>🏛️ 旅购通分账系统</h1>
-              <p>基于拉卡拉支付账户的多级分账解决方案</p>
-              <div class="links">
-                <a href="./admin/index.html" class="link-card">
-                  <div class="link-icon">💼</div>
-                  <div class="link-title">管理后台</div>
-                  <div class="link-desc">商户/账户/分账管理</div>
-                </a>
-                <a href="./miniprogram/index.html" class="link-card">
-                  <div class="link-icon">📱</div>
-                  <div class="link-title">C端小程序</div>
-                  <div class="link-desc">导游/司机/个人用户</div>
-                </a>
-              </div>
-              <div class="footer">
-                <p>旅购通分账通道升级改造项目 | Powered by 拉卡拉支付</p>
-              </div>
-            </div>
-          </body>
-          </html>
-          EOF
+          cp index.html dist/index.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
