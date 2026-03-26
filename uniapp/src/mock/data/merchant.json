@@ -1,0 +1,7 @@
+{
+  "code": 0,
+  "data": [
+    { "merchantNo": "M001", "merchantName": "免税店A", "industry": "零售", "status": "active" },
+    { "merchantNo": "M002", "merchantName": "旅游大巴公司", "industry": "交通", "status": "active" }
+  ]
+}

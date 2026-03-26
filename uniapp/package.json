@@ -1,0 +1,21 @@
+{
+  "name": "lvgot-purchase",
+  "version": "1.0.0",
+  "description": "lvgot-purchase UniApp",
+  "main": "main.js",
+  "scripts": {
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "dev:h5": "uni",
+    "build:h5": "uni build",
+    "dev:app": "uni -p app",
+    "build:app": "uni build -p app"
+  },
+  "dependencies": {
+    "@vant/weapp": "^1.11.7",
+    "axios": "^1.13.6",
+    "dayjs": "^1.11.20",
+    "pinia": "^3.0.4",
+    "sass": "^1.98.0"
+  }
+}

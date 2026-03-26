@@ -1,0 +1,131 @@
+{
+  "pages": [
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/order/index",
+      "style": {
+        "navigationBarTitleText": "订单"
+      }
+    },
+    {
+      "path": "pages/split/index",
+      "style": {
+        "navigationBarTitleText": "分账"
+      }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/account/index",
+      "style": {
+        "navigationBarTitleText": "账户"
+      }
+    },
+    {
+      "path": "pages/recharge/index",
+      "style": {
+        "navigationBarTitleText": "充值"
+      }
+    },
+    {
+      "path": "pages/withdraw/index",
+      "style": {
+        "navigationBarTitleText": "提现"
+      }
+    },
+    {
+      "path": "pages/split-record/index",
+      "style": {
+        "navigationBarTitleText": "分账记录"
+      }
+    },
+    {
+      "path": "pages/qrcode/index",
+      "style": {
+        "navigationBarTitleText": "二维码"
+      }
+    },
+    {
+      "path": "pages/bankcard/index",
+      "style": {
+        "navigationBarTitleText": "银行卡"
+      }
+    },
+    {
+      "path": "pages/account-upgrade/index",
+      "style": {
+        "navigationBarTitleText": "账户升级"
+      }
+    },
+    {
+      "path": "pages/store-bind/index",
+      "style": {
+        "navigationBarTitleText": "门店绑定"
+      }
+    },
+    {
+      "path": "pages/message/index",
+      "style": {
+        "navigationBarTitleText": "消息"
+      }
+    },
+    {
+      "path": "pages/help/index",
+      "style": {
+        "navigationBarTitleText": "帮助"
+      }
+    },
+    {
+      "path": "pages/open-account/index",
+      "style": {
+        "navigationBarTitleText": "开户"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "lvgot-purchase",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F5F5"
+  },
+  "tabBar": {
+    "color": "#7A7E83",
+    "selectedColor": "#3cc51f",
+    "borderStyle": "black",
+    "backgroundColor": "#ffffff",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/order/index",
+        "text": "订单"
+      },
+      {
+        "pagePath": "pages/split/index",
+        "text": "分账"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "uniIdRouter": {},
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^van-(.*)": "@vant/weapp/$1/index"
+    }
+  }
+}

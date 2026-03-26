@@ -1,0 +1,7 @@
+{
+  "code": 0,
+  "data": [
+    { "id": "ORD2026032601", "amount": 500, "status": "paid", "createTime": "2026-03-26 10:00:00", "merchantName": "免税店A" },
+    { "id": "ORD2026032602", "amount": 1200, "status": "paid", "createTime": "2026-03-26 09:30:00", "merchantName": "旅游大巴" }
+  ]
+}

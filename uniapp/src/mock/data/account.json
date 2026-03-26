@@ -1,0 +1,16 @@
+{
+  "code": 0,
+  "data": {
+    "accountNo": "LAK2026030003",
+    "name": "李四 (导游)",
+    "type": "guide",
+    "typeName": "导游",
+    "level": 3,
+    "balance": 8560.00,
+    "frozenBalance": 0,
+    "status": "VALID",
+    "auditStatus": "not_required",
+    "livenessStatus": "passed",
+    "createTime": "2026-03-15 09:00:00"
+  }
+}

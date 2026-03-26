@@ -1,0 +1,7 @@
+{
+  "code": 0,
+  "data": [
+    { "id": "SPL2026032601", "amount": 200, "status": "success", "toType": "guide", "toName": "李四", "createTime": "2026-03-26 10:00:00" },
+    { "id": "SPL2026032602", "amount": 500, "status": "success", "toType": "driver", "toName": "张司机", "createTime": "2026-03-26 09:00:00" }
+  ]
+}
