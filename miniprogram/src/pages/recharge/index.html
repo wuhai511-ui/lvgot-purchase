@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>充值 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<style>
+.pay-method-item{display:flex;align-items:center;padding:14px 16px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:10px;cursor:pointer;transition:all 0.2s}
+.pay-method-item.selected{border-color:var(--primary);background:rgba(99,102,241,0.05)}
+.pay-method-item:active{background:rgba(99,102,241,0.03)}
+.pay-method-icon{font-size:24px;margin-right:12px}
+.pay-method-name{flex:1;font-size:14px;font-weight:600;color:var(--text)}
+.pay-method-check{font-size:18px;color:var(--primary)}
+</style>
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">充值</div>
+</div>
+
+<div class="form-card">
+<div class="form-group"><label class="form-label">账户</label><div style="font-size:14px;color:#666">{{account.accountNo}}</div></div>
+<div class="form-group"><label class="form-label">可充值余额</label><div style="font-size:24px;font-weight:700;color:#4CAF50">¥ {{account.balance.toLocaleString()}}</div></div>
+<div class="form-group">
+<label class="form-label">充值金额 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="form.amount" type="number" placeholder="请输入充值金额" style="font-size:24px;font-weight:700" />
+<div class="amount-option">
+<div v-for="amt in [100,500,1000,5000]" :key="amt" class="amount-chip" :class="{selected: form.amount==amt}" @click="form.amount=amt">{{amt}}</div>
+</div>
+</div>
+<div class="form-group"><label class="form-label">支付方式</label>
+<div class="pay-method-item" :class="{selected:form.payMethod==='bankcard'}" @click="form.payMethod='bankcard'">
+<span class="pay-method-icon">💳</span><span class="pay-method-name">银行卡支付</span><span class="pay-method-check" v-if="form.payMethod==='bankcard'">✓</span>
+</div>
+<div class="pay-method-item" :class="{selected:form.payMethod==='wechat'}" @click="form.payMethod='wechat'">
+<span class="pay-method-icon">💚</span><span class="pay-method-name">微信支付</span><span class="pay-method-check" v-if="form.payMethod==='wechat'">✓</span>
+</div>
+</div>
+</div>
+
+<div style="height:80px"></div>
+<div class="action-bar">
+<button class="action-btn" @click="doRecharge" :disabled="!form.amount || loading">
+<span v-if="loading">处理中...</span>
+<span v-else>确认充值 ¥{{form.amount||'0.00'}}</span>
+</button>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const account = computed(() => state.account);
+    const form = reactive({ amount: "", payMethod: "bankcard", accountNo: account.value.accountNo });
+    const loading = ref(false);
+
+    const doRecharge = async () => {
+      if (!form.amount || parseFloat(form.amount) <= 0) {
+        vant.showToast({ message: "请输入正确金额", position: "bottom" }); return;
+      }
+      loading.value = true;
+      const d = await LG.doRecharge(form);
+      loading.value = false;
+      if (d.code === 0) {
+        // 模拟充值成功，更新余额
+        LG.patchState(s => { s.account.balance += parseFloat(form.amount); });
+        vant.success("充值成功！");
+        setTimeout(() => { window.location.href = "../home/index.html"; }, 1200);
+      } else {
+        vant.showToast({ message: d.message || "充值失败", position: "bottom" });
+      }
+    };
+
+    return { account, form, loading, doRecharge };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

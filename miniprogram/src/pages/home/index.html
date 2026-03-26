@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>旅购通分账 - 首页</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<style>
+.menu-icon-grid{display:grid;grid-template-columns:repeat(4,1fr);padding:20px;gap:20px}
+.menu-icon-item{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:transform 0.2s}
+.menu-icon-item:active{transform:scale(0.95)}
+.menu-icon-img{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--shadow)}
+.menu-icon-text{font-size:12px;color:var(--text-muted);text-align:center;font-weight:500}
+</style>
+</head>
+<body>
+<div id="app" class="app">
+<div class="header">
+<div class="header-title">旅购通分账</div>
+<div class="header-subtitle">拉卡拉支付账户</div>
+</div>
+
+<div class="user-card" @click="go('../account/index.html')">
+<div class="user-info">
+<div class="avatar">👤</div>
+<div class="user-detail">
+<div class="user-name">{{account.name}}</div>
+<div class="user-type">{{account.typeName}} L{{account.level}}</div>
+</div>
+<van-icon name="arrow" size="18" color="#ccc"/>
+</div>
+</div>
+
+<div class="account-card">
+<div class="account-balance">
+<div class="balance-label">账户余额（元）</div>
+<div class="balance-value">¥ {{account.balance.toLocaleString()}}<span class="balance-unit"></span></div>
+<div class="frozen-balance" v-if="account.frozenBalance>0">🔒 冻结金额：¥ {{account.frozenBalance.toLocaleString()}}</div>
+<div class="balance-btn">
+<van-button type="primary" size="small" round @click.stop="go('../recharge/index.html')">充值</van-button>
+<van-button type="warning" size="small" round @click.stop="go('../withdraw/index.html')">提现</van-button>
+</div>
+</div>
+</div>
+
+<!-- 账户状态引导 -->
+<div v-if="account.status!=='VALID'" class="status-banner" :class="statusBannerClass" style="margin:0 16px">
+<div style="font-size:28px;margin-bottom:8px">⚠️</div>
+<div style="font-weight:600;margin-bottom:4px">{{statusBannerText}}</div>
+<div style="font-size:12px;opacity:0.8">{{statusBannerDesc}}</div>
+<van-button v-if="account.status==='INVALID' && account.livenessStatus==='pending'" type="primary" size="small" round style="margin-top:12px" @click="go('../account-upgrade/index.html')">📷 立即认证</van-button>
+</div>
+
+<!-- 功能菜单 -->
+<div class="section">
+<div class="section-title">全部功能<span class="more">共8个</span></div>
+<div class="menu-icon-grid">
+<div class="menu-icon-item" @click="go('../split-record/index.html')"><div class="menu-icon-img" style="background:#e3f2fd">💳</div><span class="menu-icon-text">分账记录</span></div>
+<div class="menu-icon-item" @click="go('../order/index.html')"><div class="menu-icon-img" style="background:#e8f5e9">📝</div><span class="menu-icon-text">付款订单</span></div>
+<div class="menu-icon-item" @click="go('../qrcode/index.html')"><div class="menu-icon-img" style="background:#fff8e1">☒</div><span class="menu-icon-text">收款码</span></div>
+<div class="menu-icon-item" @click="go('../bankcard/index.html')"><div class="menu-icon-img" style="background:#fce4ec">💳</div><span class="menu-icon-text">银行卡</span></div>
+<div class="menu-icon-item" @click="go('../account-upgrade/index.html')"><div class="menu-icon-img" style="background:#e0f7fa"><span style="font-size:16px">↑</span></div><span class="menu-icon-text">账户升级</span></div>
+<div class="menu-icon-item" @click="go('../store-bind/index.html')"><div class="menu-icon-img" style="background:#f3e5f5">🏫</div><span class="menu-icon-text">门店绑定</span></div>
+<div class="menu-icon-item" @click="go('../message/index.html')"><div class="menu-icon-img" style="background:#fbe9e7">🔔</div><span class="menu-icon-text">消息通知</span></div>
+<div class="menu-icon-item" @click="go('../help/index.html')"><div class="menu-icon-img" style="background:#efebed">📞</div><span class="menu-icon-text">帮助与客服</span></div>
+</div>
+</div>
+
+<!-- 最近分账 -->
+<div class="section">
+<div class="section-title">最近分账<span class="more" @click="go('../split-record/index.html')">查看全部 ></span></div>
+<div class="order-item" v-for="item in splitRecords" :key="item.id">
+<div class="order-header"><span class="order-merchant">{{item.merchant}}</span><span class="order-status" :class="{pending:item.status==='待分账'}">{{item.status}}</span></div>
+<div class="order-time">{{item.time}} 订单号: {{item.orderNo}}</div>
+<div class="order-amount">+ ¥ {{item.amount.toFixed(2)}}</div>
+</div>
+<div v-if="splitRecords.length===0" class="empty-state">
+<div class="empty-icon">📋</div>
+<div>暂无分账记录</div>
+</div>
+</div>
+
+<!-- 底部TabBar -->
+<div class="tabbar">
+<div class="tabbar-item active" @click="go('./index.html')"><span class="tabbar-icon">🏠</span><span>首页</span></div>
+<div class="tabbar-item" @click="go('../order/index.html')"><span class="tabbar-icon">📑</span><span>订单</span></div>
+<div class="tabbar-item" @click="go('../split/index.html')"><span class="tabbar-icon">💳</span><span>分账</span></div>
+<div class="tabbar-item" @click="go('../mine/index.html')"><span class="tabbar-icon">👤</span><span>我的</span></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+const LG = window.__lvgot;
+
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const account = computed(() => state.account);
+    const splitRecords = computed(() => state.splitRecords.slice(0, 3));
+
+    const statusBannerClass = computed(() => {
+      if (account.value.status === "VALID") return "valid";
+      if (account.value.auditStatus === "pending") return "pending-audit";
+      if (account.value.livenessStatus === "pending") return "pending-liveness";
+      if (account.value.auditStatus === "rejected") return "rejected";
+      return "invalid";
+    });
+    const statusBannerText = computed(() => {
+      if (account.value.status === "VALID") return "账户已激活";
+      if (account.value.auditStatus === "pending") return "开户审核中";
+      if (account.value.livenessStatus === "pending") return "待完成人脸识别";
+      if (account.value.auditStatus === "rejected") return "开户申请被驳回";
+      return "账户未激活";
+    });
+    const statusBannerDesc = computed(() => {
+      if (account.value.status === "VALID") return "您的账户已完全激活，可以使用所有功能";
+      if (account.value.auditStatus === "pending") return "请耐心等待审核，审核通过后需完成人脸识别";
+      if (account.value.livenessStatus === "pending") return "请完成人脸识别以激活账户";
+      return "";
+    });
+
+    const go = (url) => { window.location.href = url; };
+
+    return { account, splitRecords, statusBannerClass, statusBannerText, statusBannerDesc, go };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

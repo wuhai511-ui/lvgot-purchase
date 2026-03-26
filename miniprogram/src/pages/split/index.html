@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>分账 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">分账记录</div>
+</div>
+
+<div style="padding:16px">
+<div v-for="item in splitRecords" :key="item.id" class="section" style="margin:0 0 12px">
+<div class="order-item">
+<div class="order-header"><span class="order-merchant">{{item.merchant}}</span><span class="order-status" :class="{pending:item.status==='待分账'}">{{item.status}}</span></div>
+<div class="order-time">{{item.time}} 订单号: {{item.orderNo}}</div>
+<div class="order-amount">+ ¥ {{item.amount.toFixed(2)}}</div>
+</div>
+</div>
+
+<div v-if="splitRecords.length===0" class="empty-state">
+<div class="empty-icon">💳</div>
+<div>暂无分账记录</div>
+</div>
+</div>
+
+<div style="padding:16px">
+<van-button type="primary" size="large" round style="width:100%" @click="openSplitDialog">发起分账</van-button>
+</div>
+
+<!-- 分账发起弹窗 -->
+<van-overlay :show="showDialog" @click="showDialog=false">
+<div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;border-radius:16px 16px 0 0;padding:24px" @click.stop>
+<div style="font-size:16px;font-weight:700;margin-bottom:16px;text-align:center">发起分账</div>
+<div class="form-group"><label class="form-label">付款方</label>
+<input class="form-input" v-model="splitForm.payerName" placeholder="请输入付款方名称" /></div>
+<div class="form-group"><label class="form-label">付款方账号</label>
+<input class="form-input" v-model="splitForm.payerAccountNo" placeholder="LAK账号" /></div>
+<div class="form-group"><label class="form-label">分账金额 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="splitForm.amount" type="number" placeholder="请输入分账金额" style="font-size:20px;font-weight:700" /></div>
+<div class="form-group"><label class="form-label">收款方</label>
+<input class="form-input" v-model="splitForm.receiverName" placeholder="收款方名称" /></div>
+<div class="form-group"><label class="form-label">收款方账号</label>
+<input class="form-input" v-model="splitForm.receiverAccountNo" placeholder="LAK账号" /></div>
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doSplit">确认分账</van-button>
+</div>
+</van-overlay>
+
+<div class="tabbar">
+<div class="tabbar-item" @click="go('../home/index.html')"><span class="tabbar-icon">🏠</span><span>首页</span></div>
+<div class="tabbar-item" @click="go('../order/index.html')"><span class="tabbar-icon">📑</span><span>订单</span></div>
+<div class="tabbar-item active"><span class="tabbar-icon">💳</span><span>分账</span></div>
+<div class="tabbar-item" @click="go('../mine/index.html')"><span class="tabbar-icon">👤</span><span>我的</span></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const splitRecords = computed(() => state.splitRecords);
+    const authType = computed(() => state.authType || "SMS");
+    const showDialog = ref(false);
+    const splitForm = reactive({
+      payerName: "顺风旅行社",
+      payerAccountNo: "LAK2026030002",
+      amount: "",
+      receiverName: "",
+      receiverAccountNo: "",
+      receivers: [],
+      smsCode: "",
+      payPassword: ""
+    });
+
+    const go = (url) => { window.location.href = url; };
+
+    const openSplitDialog = () => { showDialog.value = true; };
+
+    const doSplit = async () => {
+      if (!splitForm.amount || parseFloat(splitForm.amount) <= 0) {
+        vant.showToast({ message: "请输入正确金额", position: "bottom" }); return;
+      }
+      splitForm.receivers = [{
+        name: splitForm.receiverName || "收款方",
+        accountNo: splitForm.receiverAccountNo || "LAK2026030001",
+        amount: parseFloat(splitForm.amount)
+      }];
+      showDialog.value = false;
+      // 直接在当前页处理
+      if (authType.value !== "NONE") {
+        vant.showToast({ message: "验证码已发送（Mock: 123456）", position: "top" });
+        splitForm.smsCode = "123456";
+      }
+      const d = await LG.doSplitPay(splitForm, authType.value);
+      if (d.code === -2) { vant.showToast({ message: "请输入验证码", position: "bottom" }); return; }
+      if (d.code === 0) {
+        LG.patchState(s => {
+          s.splitRecords.unshift({ id: Date.now(), merchant: splitForm.payerName, status: "已分账", time: "今天 " + new Date().toTimeString().slice(0,5), orderNo: "ORD" + Date.now(), amount: parseFloat(splitForm.amount) });
+          s.account.balance += parseFloat(splitForm.amount);
+        });
+        vant.success("分账成功！");
+      } else {
+        // 演示模式：模拟成功
+        LG.patchState(s => {
+          s.splitRecords.unshift({ id: Date.now(), merchant: splitForm.payerName, status: "已分账", time: "今天 " + new Date().toTimeString().slice(0,5), orderNo: "ORD" + Date.now(), amount: parseFloat(splitForm.amount) });
+          s.account.balance += parseFloat(splitForm.amount);
+        });
+        vant.success("分账成功！");
+      }
+    };
+
+    return { splitRecords, authType, showDialog, splitForm, go, openSplitDialog, doSplit };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

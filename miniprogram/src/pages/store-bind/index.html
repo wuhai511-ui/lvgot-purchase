@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>门店绑定 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">门店绑定</div>
+</div>
+
+<div class="form-card">
+<div style="font-size:13px;color:#666;line-height:1.7;margin-bottom:20px;padding:12px;background:#f0f7ff;border-radius:8px">绑定商户号和终端号后，交易资金将自动归集到您的支付账户。一个终端只能绑定一个门店。</div>
+<div class="form-group"><label class="form-label">商户号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="form.merchantNo" placeholder="请输入商户号(M开头的编号)" /></div>
+<div class="form-group"><label class="form-label">终端号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="form.terminalNo" placeholder="请输入终端号(T开头的编号)" /></div>
+<van-button type="primary" size="large" round style="width:100%" @click="doBindTerminal" :loading="loading">确认绑定</van-button>
+<div style="font-size:11px;color:#888;margin-top:12px">如终端已被其他门店绑定，请先解绑原绑定。</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const loading = ref(false);
+    const form = reactive({ merchantNo: "", terminalNo: "" });
+
+    const doBindTerminal = async () => {
+      if (!form.merchantNo || !form.terminalNo) {
+        vant.showToast({ message: "请填写完整信息", position: "bottom" }); return;
+      }
+      loading.value = true;
+      const d = await LG.doBindTerminal(form, state.account);
+      loading.value = false;
+      if (d.code === 0) {
+        vant.success("绑定成功！");
+        setTimeout(() => { window.location.href = "../home/index.html"; }, 1200);
+      } else {
+        vant.showToast({ message: d.message || "绑定失败", position: "bottom" });
+      }
+    };
+
+    return { form, loading, doBindTerminal };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

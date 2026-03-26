@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>我的 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">我的</div>
+</div>
+
+<div style="padding:16px">
+<div class="section" style="margin:0">
+<div class="list-nav-item" @click="go('../account/index.html')">
+<span style="font-size:15px">账户详情</span>
+<van-icon name="arrow" style="margin-left:auto;color:#ccc"/>
+</div>
+<div class="list-nav-item" @click="go('../store-bind/index.html')">
+<span style="font-size:15px">门店绑定</span>
+<van-icon name="arrow" style="margin-left:auto;color:#ccc"/>
+</div>
+<div class="list-nav-item" @click="go('../message/index.html')">
+<span style="font-size:15px">消息通知</span>
+<van-icon name="arrow" style="margin-left:auto;color:#ccc"/>
+</div>
+<div class="list-nav-item" @click="go('../help/index.html')">
+<span style="font-size:15px">帮助与客服</span>
+<van-icon name="arrow" style="margin-left:auto;color:#ccc"/>
+</div>
+<div class="list-nav-item" @click="go('../open-account/index.html')">
+<span style="font-size:15px">开户</span>
+<van-icon name="arrow" style="margin-left:auto;color:#ccc"/>
+</div>
+</div>
+</div>
+
+<div class="tabbar">
+<div class="tabbar-item" @click="go('../home/index.html')"><span class="tabbar-icon">🏠</span><span>首页</span></div>
+<div class="tabbar-item" @click="go('../order/index.html')"><span class="tabbar-icon">📑</span><span>订单</span></div>
+<div class="tabbar-item" @click="go('../split/index.html')"><span class="tabbar-icon">💳</span><span>分账</span></div>
+<div class="tabbar-item active"><span class="tabbar-icon">👤</span><span>我的</span></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const go = (url) => { window.location.href = url; };
+    return { go };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

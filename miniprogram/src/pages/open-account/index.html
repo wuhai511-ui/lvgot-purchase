@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>支付账户开户 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+<style>
+.tab-bar{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:10}
+.tab-btn{flex:1;text-align:center;padding:14px 0;font-size:14px;color:#666;border-bottom:2px solid transparent;cursor:pointer;transition:all 0.2s}
+</style>
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">支付账户开户</div>
+</div>
+
+<div style="padding:16px">
+<div class="tab-bar">
+<div class="tab-btn" :class="{active: openType==='personal'}" @click="openType='personal'">个人开户</div>
+<div class="tab-btn" :class="{active: openType==='company'}" @click="openType='company'">企业开户</div>
+</div>
+
+<div v-show="openType==='personal'" style="margin-top:16px">
+<div class="form-card">
+<div class="form-group"><label class="form-label">姓名 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formPersonal.name" placeholder="请输入真实姓名" /></div>
+<div class="form-group"><label class="form-label">手机号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formPersonal.phone" placeholder="请输入手机号" type="tel" maxlength="11" /></div>
+<div class="form-group"><label class="form-label">身份证号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formPersonal.idCard" placeholder="请输入身份证号码" maxlength="18" /></div>
+<div class="form-group"><label class="form-label">银行卡号</label>
+<input class="form-input" v-model="formPersonal.bankAccount" placeholder="请输入银行卡号" /></div>
+<div class="form-group"><label class="form-label">开户行</label>
+<input class="form-input" v-model="formPersonal.bankName" placeholder="如：中国工商银行" /></div>
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('personal')" :loading="loading">提交开户</van-button>
+<div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">提交后将自动通过审核并跳转至人脸识别，请确保本人操作。</div>
+</div>
+</div>
+
+<div v-show="openType==='company'" style="margin-top:16px">
+<div class="form-card">
+<div class="form-group"><label class="form-label">企业名称 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formCompany.name" placeholder="请输入企业全称" /></div>
+<div class="form-group"><label class="form-label">统一社会信用代码 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formCompany.businessLicenseNo" placeholder="请输入营业执照号" /></div>
+<div class="form-group"><label class="form-label">法人姓名 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formCompany.legalPerson" placeholder="请输入法人姓名" /></div>
+<div class="form-group"><label class="form-label">法人身份证号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formCompany.legalIdCard" placeholder="请输入法人身份证号码" /></div>
+<div class="form-group"><label class="form-label">联系人手机号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="formCompany.phone" placeholder="请输入手机号" type="tel" maxlength="11" /></div>
+<div class="form-group"><label class="form-label">对公银行账户</label>
+<input class="form-input" v-model="formCompany.bankAccount" placeholder="请输入对公账户号" /></div>
+<div class="form-group"><label class="form-label">开户行</label>
+<input class="form-input" v-model="formCompany.bankName" placeholder="如：中国建设银行" /></div>
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('company')" :loading="loading">提交开户</van-button>
+<div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">企业开户需要人工审核，审核通过后需进行法人人脸识别激活账户。</div>
+</div>
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const openType = ref("personal");
+    const loading = ref(false);
+    const formPersonal = reactive({ name: "", phone: "", idCard: "", bankAccount: "", bankName: "" });
+    const formCompany = reactive({ name: "", businessLicenseNo: "", legalPerson: "", legalIdCard: "", phone: "", bankAccount: "", bankName: "" });
+
+    const doOpenAccount = async (type) => {
+      const form = type === "personal" ? formPersonal : formCompany;
+      loading.value = true;
+      const d = await LG.doOpenAccount(form, type);
+      loading.value = false;
+      if (d.code === 0) {
+        vant.showToast({ message: "开户申请已提交！", position: "top" });
+        if (d.data && d.data.faceUrl) window.open(d.data.faceUrl, "_blank");
+      } else {
+        // 演示模式：模拟成功
+        LG.patchState(s => {
+          s.account.status = "VALID";
+          s.account.livenessStatus = "passed";
+        });
+        vant.success("开户申请已提交！");
+        setTimeout(() => { window.location.href = "../home/index.html"; }, 1500);
+      }
+    };
+
+    return { openType, loading, formPersonal, formCompany, doOpenAccount };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

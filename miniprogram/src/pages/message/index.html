@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>消息通知 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">消息通知</div>
+</div>
+
+<div class="section" style="margin:16px">
+<div class="message-item" v-for="msg in messages" :key="msg.id" @click="readMsg(msg)">
+<div style="display:flex;align-items:flex-start;gap:10px">
+<div style="flex:1">
+<div style="display:flex;align-items:center;gap:8px">
+<span class="message-title" :style="{fontWeight: msg.read ? 400 : 700}">{{msg.title}}</span>
+<span v-if="!msg.read" style="width:8px;height:8px;border-radius:50%;background:var(--primary);flex-shrink:0"></span>
+</div>
+<div class="message-desc">{{msg.desc}}</div>
+<div class="message-time">{{msg.time}}</div>
+</div>
+</div>
+</div>
+
+<div v-if="messages.length===0" class="empty-state">
+<div class="empty-icon">🔔</div>
+<div>暂无消息通知</div>
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const messages = computed(() => state.messages);
+
+    const readMsg = (msg) => {
+      if (!msg.read) {
+        LG.patchState(s => {
+          const m = s.messages.find(m => m.id === msg.id);
+          if (m) m.read = true;
+        });
+      }
+    };
+
+    return { messages, readMsg };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

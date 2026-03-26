@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>账户升级 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">账户升级</div>
+</div>
+
+<div class="status-banner" :class="statusBannerClass" style="margin:16px">
+<div style="font-size:28px;margin-bottom:8px">📷</div>
+<div style="font-weight:600;margin-bottom:4px">{{statusBannerText}}</div>
+<div style="font-size:12px;opacity:0.8">{{statusBannerDesc}}</div>
+</div>
+
+<div class="form-card">
+<div style="font-size:14px;color:#333;line-height:1.8">
+<p style="margin-bottom:12px"><strong>为什么要升级账户？</strong></p>
+<p>升级后您将获得：</p>
+<ul style="padding-left:20px;margin:8px 0">
+<li>更高的分账额度限制</li>
+<li>支持大额提现</li>
+<li>解锁更多支付功能</li>
+</ul>
+<p style="margin-top:12px">升级需要通过<strong>人脸识别</strong>完成实名认证。</p>
+</div>
+<van-button type="primary" size="large" round style="width:100%;margin-top:20px" @click="startFaceAuth" :loading="loading">📷 开始人脸识别</van-button>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const account = computed(() => state.account);
+    const loading = ref(false);
+
+    const statusBannerClass = computed(() => {
+      if (account.value.status === "VALID") return "valid";
+      if (account.value.auditStatus === "pending") return "pending-audit";
+      if (account.value.livenessStatus === "pending") return "pending-liveness";
+      if (account.value.auditStatus === "rejected") return "rejected";
+      return "invalid";
+    });
+    const statusBannerText = computed(() => {
+      if (account.value.status === "VALID") return "账户已激活";
+      if (account.value.auditStatus === "pending") return "开户审核中";
+      if (account.value.livenessStatus === "pending") return "待完成人脸识别";
+      if (account.value.auditStatus === "rejected") return "开户申请被驳回";
+      return "账户未激活";
+    });
+    const statusBannerDesc = computed(() => {
+      if (account.value.status === "VALID") return "您的账户已完全激活";
+      if (account.value.auditStatus === "pending") return "请耐心等待审核";
+      if (account.value.livenessStatus === "pending") return "请完成人脸识别以激活账户";
+      return "";
+    });
+
+    const startFaceAuth = async () => {
+      loading.value = true;
+      const d = await LG.startFaceAuth(account.value);
+      loading.value = false;
+      if (d.code === 0 && d.data && d.data.faceUrl) {
+        window.open(d.data.faceUrl, "_blank");
+        vant.showToast({ message: "已打开人脸识别页面，请在页面中完成认证", position: "top" });
+      } else {
+        // 演示模式：模拟成功
+        LG.patchState(s => {
+          s.account.status = "VALID";
+          s.account.livenessStatus = "passed";
+          s.account.level = Math.min(s.account.level + 1, 5);
+        });
+        vant.success("认证成功！账户已升级！");
+      }
+    };
+
+    return { account, loading, statusBannerClass, statusBannerText, statusBannerDesc, startFaceAuth };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

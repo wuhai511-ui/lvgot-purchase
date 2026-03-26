@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>账户详情 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">账户详情</div>
+</div>
+
+<div class="status-banner" :class="statusBannerClass" style="margin:16px">
+<div style="font-weight:700;margin-bottom:4px">{{statusBannerText}}</div>
+<div style="font-size:12px;opacity:0.8">{{statusBannerDesc}}</div>
+</div>
+
+<div class="form-card">
+<div class="form-group"><label class="form-label">支付账户号</label><div style="font-size:15px;color:#333;font-family:monospace">{{account.accountNo}}</div></div>
+<div class="form-group"><label class="form-label">账户类型</label><div style="font-size:15px;color:#333">{{account.typeName}}</div></div>
+<div class="form-group"><label class="form-label">账户等级</label><div style="font-size:15px;color:#333">L{{account.level}}</div></div>
+<div class="form-group"><label class="form-label">可用余额</label><div style="font-size:20px;color:#E6A23C;font-weight:700">¥ {{account.balance.toLocaleString()}}</div></div>
+<div class="form-group"><label class="form-label">冻结余额</label><div style="font-size:15px;color:#FF9800">¥ {{account.frozenBalance.toLocaleString()}}</div></div>
+<div class="form-group"><label class="form-label">开户时间</label><div style="font-size:15px;color:#888">{{account.createTime}}</div></div>
+</div>
+
+<van-button type="primary" size="large" round style="margin:16px;display:block" @click="go('../account-upgrade/index.html')" v-if="account.status!=='VALID'">📷 立即升级账户</van-button>
+<van-button type="default" size="large" round style="margin:16px;display:block" @click="go('../home/index.html')">返回首页</van-button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const account = computed(() => state.account);
+    const statusBannerClass = computed(() => {
+      if (account.value.status === "VALID") return "valid";
+      if (account.value.auditStatus === "pending") return "pending-audit";
+      if (account.value.livenessStatus === "pending") return "pending-liveness";
+      if (account.value.auditStatus === "rejected") return "rejected";
+      return "invalid";
+    });
+    const statusBannerText = computed(() => {
+      if (account.value.status === "VALID") return "账户已激活";
+      if (account.value.auditStatus === "pending") return "开户审核中";
+      if (account.value.livenessStatus === "pending") return "待完成人脸识别";
+      if (account.value.auditStatus === "rejected") return "开户申请被驳回";
+      return "账户未激活";
+    });
+    const statusBannerDesc = computed(() => {
+      if (account.value.status === "VALID") return "您的账户已完全激活，可以使用所有功能";
+      if (account.value.auditStatus === "pending") return "请耐心等待审核";
+      if (account.value.livenessStatus === "pending") return "请完成人脸识别以激活账户";
+      return "";
+    });
+    const go = (url) => { window.location.href = url; };
+    return { account, statusBannerClass, statusBannerText, statusBannerDesc, go };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

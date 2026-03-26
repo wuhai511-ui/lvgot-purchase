@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>分账记录 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">分账记录</div>
+</div>
+
+<div style="padding:16px">
+<div v-for="item in records" :key="item.id" class="section" style="margin:0 0 12px">
+<div class="order-item">
+<div class="order-header"><span class="order-merchant">{{item.merchant}}</span><span class="order-status" :class="{pending:item.status==='待分账'}">{{item.status}}</span></div>
+<div class="order-time">{{item.time}} 订单号: {{item.orderNo}}</div>
+<div class="order-amount">+ ¥ {{item.amount.toFixed(2)}}</div>
+</div>
+</div>
+
+<div v-if="records.length===0" class="empty-state">
+<div class="empty-icon">📋</div>
+<div>暂无分账记录</div>
+</div>
+</div>
+
+<div class="tabbar">
+<div class="tabbar-item" @click="go('../home/index.html')"><span class="tabbar-icon">🏠</span><span>首页</span></div>
+<div class="tabbar-item" @click="go('../order/index.html')"><span class="tabbar-icon">📑</span><span>订单</span></div>
+<div class="tabbar-item active"><span class="tabbar-icon">💳</span><span>分账</span></div>
+<div class="tabbar-item" @click="go('../mine/index.html')"><span class="tabbar-icon">👤</span><span>我的</span></div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const records = computed(() => state.splitRecords);
+    const go = (url) => { window.location.href = url; };
+    return { records, go };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

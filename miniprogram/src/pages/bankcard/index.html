@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>银行卡 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">银行卡</div>
+</div>
+
+<div v-for="card in bankList" :key="card.id" class="bank-card" style="margin-bottom:12px">
+<div class="bank-icon">{{card.bankIcon || '🏦'}}</div>
+<div class="bank-info"><div class="bank-name">{{card.bankName}}</div><div class="bank-no">{{card.bankAccountNo}}</div></div>
+<span class="bank-default" v-if="card.isDefault">默认</span>
+<van-icon name="arrow" size="16" color="#ccc" style="margin-left:8px"/>
+</div>
+
+<div class="bankcard-add" @click="showAdd=true">
+<van-icon name="plus" size="22"/>添加银行卡
+</div>
+
+<!-- 添加银行卡弹窗（简易版） -->
+<van-overlay :show="showAdd" @click="showAdd=false">
+<div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;border-radius:16px 16px 0 0;padding:24px" @click.stop>
+<div style="font-size:16px;font-weight:700;margin-bottom:20px;text-align:center">添加银行卡</div>
+<div class="form-group"><label class="form-label">开户行 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="addForm.bankName" placeholder="如：中国农业银行" /></div>
+<div class="form-group"><label class="form-label">银行卡号 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="addForm.bankAccountNo" placeholder="请输入银行卡号" type="tel" /></div>
+<div class="form-group"><label class="form-label">持卡人姓名 <span style="color:#E53935">*</span></label>
+<input class="form-input" v-model="addForm.ownerName" placeholder="请输入持卡人姓名" /></div>
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doAddCard" :loading="loading">确认添加</van-button>
+</div>
+</van-overlay>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const bankList = computed(() => state.bankList);
+    const showAdd = ref(false);
+    const loading = ref(false);
+    const addForm = reactive({ bankName: "", bankAccountNo: "", ownerName: "" });
+
+    const doAddCard = () => {
+      if (!addForm.bankName || !addForm.bankAccountNo) {
+        vant.showToast({ message: "请填写完整信息", position: "bottom" }); return;
+      }
+      loading.value = true;
+      setTimeout(() => {
+        LG.patchState(s => {
+          s.bankList.push({ id: Date.now(), bankName: addForm.bankName, bankAccountNo: addForm.bankAccountNo.replace(/(\d{4})\d+(\d{4})/, '$1****$2'), isDefault: false, bankIcon: '🏦' });
+        });
+        loading.value = false;
+        showAdd.value = false;
+        Object.assign(addForm, { bankName: "", bankAccountNo: "", ownerName: "" });
+        vant.success("添加成功！");
+      }, 800);
+    };
+
+    return { bankList, showAdd, loading, addForm, doAddCard };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>帮助与客服 - 旅购通</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+<link rel="stylesheet" href="../shared/styles.css">
+</head>
+<body>
+<div id="app" class="page fade-in">
+<div class="page-header">
+<a class="back-btn" href="../home/index.html">←</a>
+<div class="page-title">帮助与客服</div>
+</div>
+
+<div class="section" style="margin:16px;overflow:hidden">
+<div class="help-item" v-for="(item, idx) in helpItems" :key="idx" @click="toggle(idx)">
+<div style="display:flex;align-items:center">
+<span class="help-q">{{item.q}}</span>
+<span class="help-arrow">{{openIdx===idx ? '▲' : '▶'}}</span>
+</div>
+<div v-if="openIdx===idx" class="help-a">{{item.a}}</div>
+</div>
+
+<div v-if="helpItems.length===0" class="empty-state">
+<div class="empty-icon">📞</div>
+<div>暂无帮助内容</div>
+</div>
+</div>
+
+<div class="form-card" style="margin:0 16px">
+<div style="font-size:14px;font-weight:600;margin-bottom:12px">联系客服</div>
+<div style="font-size:13px;color:#666;line-height:1.8">
+<p>客服电话：<a href="tel:400-800-9000" style="color:var(--primary)">400-800-9000</a></p>
+<p style="margin-top:6px">服务时间：周一至周五 9:00-18:00</p>
+<p style="margin-top:6px">在线客服：<span style="color:var(--primary);cursor:pointer">点击在线咨询</span></p>
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+<script src="../shared/common.js"></script>
+<script>
+const { createApp, ref, reactive, computed } = Vue;
+const LG = window.__lvgot;
+const app = createApp({
+  setup() {
+    const state = reactive(LG.getState());
+    const helpItems = computed(() => state.helpItems || []);
+    const openIdx = ref(null);
+    const toggle = (idx) => { openIdx.value = openIdx.value === idx ? null : idx; };
+    return { helpItems, openIdx, toggle };
+  }
+});
+app.use(vant);
+app.mount("#app");
+</script>
+</body>
+</html>
