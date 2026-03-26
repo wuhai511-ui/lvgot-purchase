@@ -30,12 +30,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd uniapp
-          npm install
+          npm install --legacy-peer-deps
 
       - name: Build H5
         run: |
           cd uniapp
-          npm run build:h5
+          npm run build:h5 --legacy-peer-deps
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
