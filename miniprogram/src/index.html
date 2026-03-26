@@ -193,8 +193,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="page-title">支付账户开户</div>
 </div>
 <div style="padding:16px">
-<van-tabs v-model:active="openType">
-<van-tab title="个人开户（导游/司机）" name="personal">
+<div class="tab-container">
+<div class="tab-bar" style="display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:10">
+<div class="tab-btn" :class="{active: openType==='personal'}" @click="openType='personal'" style="flex:1;text-align:center;padding:14px 0;font-size:14px;color:#666;border-bottom:2px solid transparent;cursor:pointer">个人开户</div>
+<div class="tab-btn" :class="{active: openType==='company'}" @click="openType='company'" style="flex:1;text-align:center;padding:14px 0;font-size:14px;color:#666;border-bottom:2px solid transparent;cursor:pointer">企业开户</div>
+</div>
+<div v-show="openType==='personal'" class="tab-content">
 <div class="form-card" style="margin-top:16px">
 <div class="form-group"><label class="form-label">姓名 <span style="color:#E53935">*</span></label><input class="form-input" v-model="openFormPersonal.name" placeholder="请输入真实姓名" /></div>
 <div class="form-group"><label class="form-label">手机号 <span style="color:#E53935">*</span></label><input class="form-input" v-model="openFormPersonal.phone" placeholder="请输入手机号" type="tel" maxlength="11" /></div>
@@ -204,8 +208,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('personal')" :loading="openLoading">提交开户</van-button>
 <div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">提交后将自动通过审核并跳转至人脸识别，请确保本人操作。</div>
 </div>
-</van-tab>
-<van-tab title="企业开户（商户/旅行社）" name="company">
+<div v-show="openType==='company'" class="tab-content">
 <div class="form-card" style="margin-top:16px">
 <div class="form-group"><label class="form-label">企业名称 <span style="color:#E53935">*</span></label><input class="form-input" v-model="openFormCompany.name" placeholder="请输入企业全称" /></div>
 <div class="form-group"><label class="form-label">统一社会信用代码 <span style="color:#E53935">*</span></label><input class="form-input" v-model="openFormCompany.businessLicenseNo" placeholder="请输入营业执照号" /></div>
@@ -217,8 +220,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('company')" :loading="openLoading">提交开户</van-button>
 <div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">企业开户需要人工审核，审核通过后需进行法人人脸识别激活账户。</div>
 </div>
-</van-tab>
-</van-tabs>
+</div>
+<style>
+.tab-btn.active { color:#1976D2 !important; border-bottom-color:#1976D2 !important; font-weight:600; }
+</style>
 </div>
 </div>
 
@@ -2999,6 +3004,7 @@ const { createApp, ref, reactive, computed } = Vue;
 const app = createApp({
   setup() {
     const activeTab = ref("home");
+    const openType = ref("personal");
     const switchTab = (tab) => { activeTab.value = tab; };
     const API = "http://localhost:3001";
     const authType = ref("SMS");
@@ -3073,7 +3079,7 @@ const app = createApp({
       payPassword: ""
     });
 
-    const openType = ref("personal");
+    
     const openLoading = ref(false);
     const openFormPersonal = reactive({ name: "", phone: "", idCard: "", bankAccount: "", bankName: "" });
     const openFormCompany = reactive({ name: "", businessLicenseNo: "", legalPerson: "", legalIdCard: "", phone: "", bankAccount: "", bankName: "" });
