@@ -1,9 +1,9 @@
 import { defineConfig } from 'vite'
-import uni from '@dcloudio/vite-plugin-uni'
+import vue from '@vitejs/plugin-vue'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [uni()],
+  plugins: [vue()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src')
@@ -15,5 +15,15 @@ export default defineConfig({
         additionalData: `@import "@/static/styles/variables.scss";`
       }
     }
+  },
+  build: {
+    outDir: 'dist/build/h5',
+    assetsDir: 'static',
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index.html')
+    }
+  },
+  server: {
+    port: 3000
   }
 })

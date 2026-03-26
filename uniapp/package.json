@@ -4,18 +4,20 @@
   "description": "lvgot-purchase UniApp",
   "main": "main.js",
   "scripts": {
-    "dev:mp-weixin": "uni -p mp-weixin",
-    "build:mp-weixin": "uni build -p mp-weixin",
-    "dev:h5": "uni",
-    "build:h5": "uni build",
-    "dev:app": "uni -p app",
-    "build:app": "uni build -p app"
+    "dev:h5": "vite",
+    "build:h5": "vite build",
+    "dev": "vite"
   },
   "dependencies": {
     "@vant/weapp": "^1.11.7",
+    "@vitejs/plugin-vue": "^6.0.5",
     "axios": "^1.13.6",
     "dayjs": "^1.11.20",
     "pinia": "^3.0.4",
-    "sass": "^1.98.0"
+    "sass": "^1.98.0",
+    "vant": "^4.9.22",
+    "vite": "^8.0.3",
+    "vue": "^3.5.31",
+    "vue-router": "^5.0.4"
   }
 }
