@@ -1,0 +1,12 @@
+{
+  "name": "lvgot-purchase-mock-server",
+  "version": "1.0.0",
+  "description": "旅购通分账系统 Mock API Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "keywords": ["mock", "api", "lvgot", "lakala"],
+  "license": "MIT"
+}

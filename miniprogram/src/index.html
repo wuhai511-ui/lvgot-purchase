@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>旅购通 - 分账小程序</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib/index.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; max-width: 430px; margin: 0 auto; }
+    .app { min-height: 100vh; padding-bottom: 60px; }
+    .header { background: linear-gradient(135deg, #1976D2 0%, #42a5f5 100%); color: #fff; padding: 20px; position: relative; overflow: hidden; }
+    .header::after { content: ''; position: absolute; top: -50%; right: -20%; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+    .header-title { font-size: 18px; font-weight: 600; }
+    .header-subtitle { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+    .user-card { background: #fff; margin: -30px 16px 16px; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); position: relative; z-index: 1; }
+    .user-info { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 56px; height: 56px; border-radius: 50%; background: #E3F2FD; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+    .user-detail { flex: 1; }
+    .user-name { font-size: 18px; font-weight: 600; color: #333; }
+    .user-type { font-size: 12px; color: #1976D2; background: #E3F2FD; padding: 2px 8px; border-radius: 10px; margin-top: 4px; display: inline-block; }
+    .account-card { background: #fff; margin: 0 16px 16px; border-radius: 12px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .account-balance { text-align: center; padding: 10px 0; }
+    .balance-label { font-size: 12px; color: #999; }
+    .balance-value { font-size: 32px; font-weight: 700; color: #333; margin-top: 8px; }
+    .balance-btn { margin-top: 16px; display: flex; gap: 12px; }
+    .balance-btn button { flex: 1; }
+    .section { background: #fff; margin: 0 16px 16px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .section-title { padding: 16px; font-size: 16px; font-weight: 600; color: #333; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+    .section-title .more { font-size: 12px; color: #999; font-weight: normal; }
+    .menu-grid { display: grid; grid-template-columns: repeat(4, 1fr); padding: 16px; gap: 16px; }
+    .menu-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .menu-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+    .menu-text { font-size: 12px; color: #666; }
+    .list-item { display: flex; align-items: center; padding: 14px 16px; gap: 12px; border-bottom: 1px solid #f5f5f5; }
+    .list-item:last-child { border-bottom: none; }
+    .list-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .list-content { flex: 1; }
+    .list-title { font-size: 14px; color: #333; }
+    .list-desc { font-size: 12px; color: #999; margin-top: 2px; }
+    .list-arrow { color: #ccc; }
+    .order-item { padding: 16px; border-bottom: 1px solid #f5f5f5; }
+    .order-item:last-child { border-bottom: none; }
+    .order-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .order-merchant { font-size: 14px; font-weight: 600; color: #333; }
+    .order-status { font-size: 12px; color: #4CAF50; }
+    .order-status.pending { color: #FF9800; }
+    .order-info { display: flex; gap: 16px; font-size: 12px; color: #999; }
+    .order-amount { font-size: 16px; font-weight: 600; color: #E6A23C; }
+    .tabbar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: #fff; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-around; padding: 8px 0; }
+    .tabbar-item { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #999; }
+    .tabbar-item.active { color: #1976D2; }
+    .tabbar-icon { font-size: 20px; }
+    .van-button--primary { background: #1976D2; border-color: #1976D2; }
+    .van-button--warning { background: #FF9800; border-color: #FF9800; }
+  </style>
+</head>
+<body>
+  <div id="app" class="app">
+    <!-- 顶部Header -->
+    <div class="header">
+      <div class="header-title">旅购通分账</div>
+      <div class="header-subtitle">拉卡拉支付账户</div>
+    </div>
+
+    <!-- 用户卡片 -->
+    <div class="user-card">
+      <div class="user-info">
+        <div class="avatar">👤</div>
+        <div class="user-detail">
+          <div class="user-name">李四</div>
+          <div class="user-type">导游 L2</div>
+        </div>
+        <van-icon name="setting-o" size="22" color="#999" />
+      </div>
+    </div>
+
+    <!-- 账户余额 -->
+    <div class="account-card">
+      <div class="account-balance">
+        <div class="balance-label">账户余额（元）</div>
+        <div class="balance-value">¥ 8,560.00</div>
+        <div class="balance-btn">
+          <van-button type="primary" size="small" round>充值</van-button>
+          <van-button type="warning" size="small" round>提现</van-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 功能菜单 -->
+    <div class="section">
+      <div class="section-title">全部功能<span class="more">共8个</span></div>
+      <div class="menu-grid">
+        <div class="menu-item" onClick="switchTab('split')">
+          <div class="menu-icon" style="background:#E3F2FD">💰</div>
+          <span class="menu-text">分账记录</span>
+        </div>
+        <div class="menu-item" onClick="switchTab('order')">
+          <div class="menu-icon" style="background:#E8F5E9">📝</div>
+          <span class="menu-text">付款订单</span>
+        </div>
+        <div class="menu-item" onClick="showToast('二维码')">
+          <div class="menu-icon" style="background:#FFF3E0">⬜</div>
+          <span class="menu-text">收款码</span>
+        </div>
+        <div class="menu-item" onClick="showToast('银行卡')">
+          <div class="menu-icon" style="background:#FCE4EC">💳</div>
+          <span class="menu-text">银行卡</span>
+        </div>
+        <div class="menu-item" onClick="showToast('升级')">
+          <div class="menu-icon" style="background:#E0F7FA">⬆️</div>
+          <span class="menu-text">账户升级</span>
+        </div>
+        <div class="menu-item" onClick="showToast('发票')">
+          <div class="menu-icon" style="background:#F3E5F5">📄</div>
+          <span class="menu-text">发票管理</span>
+        </div>
+        <div class="menu-item" onClick="showToast('消息')">
+          <div class="menu-icon" style="background:#FBE9E7">🔔</div>
+          <span class="menu-text">消息通知</span>
+        </div>
+        <div class="menu-item" onClick="showToast('客服')">
+          <div class="menu-icon" style="background:#EFEBE9">📞</div>
+          <span class="menu-text">在线客服</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分账记录 -->
+    <div class="section">
+      <div class="section-title">最近分账<span class="more" onClick="switchTab('split')">查看全部 ></span></div>
+      <div class="order-item" v-for="item in splitRecords" :key="item.id">
+        <div class="order-header">
+          <span class="order-merchant">{{ item.merchant }}</span>
+          <span class="order-status" :class="{ pending: item.status === '待分账' }">{{ item.status }}</span>
+        </div>
+        <div class="order-info">
+          <span>{{ item.time }}</span>
+          <span>订单号: {{ item.orderNo }}</span>
+        </div>
+        <div class="order-amount" style="margin-top:8px">+ ¥ {{ item.amount.toFixed(2) }}</div>
+      </div>
+    </div>
+
+    <!-- 底部TabBar -->
+    <div class="tabbar">
+      <div class="tabbar-item active" onClick="switchTab('home')">
+        <span class="tabbar-icon">🏠</span>
+        <span>首页</span>
+      </div>
+      <div class="tabbar-item" onClick="switchTab('order')">
+        <span class="tabbar-icon">📋</span>
+        <span>订单</span>
+      </div>
+      <div class="tabbar-item" onClick="switchTab('split')">
+        <span class="tabbar-icon">💰</span>
+        <span>分账</span>
+      </div>
+      <div class="tabbar-item" onClick="switchTab('mine')">
+        <span class="tabbar-icon">👤</span>
+        <span>我的</span>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vant@4.8.4/lib.min.js"></script>
+  <script>
+    const { createApp, ref } = Vue;
+    const app = createApp({
+      setup() {
+        const activeTab = ref('home');
+        const splitRecords = ref([
+          { id: 1, merchant: '张三商行', status: '已分账', time: '今天 10:30', orderNo: 'ORD20260326001', amount: 350.00 },
+          { id: 2, merchant: '顺风旅行社', status: '已分账', time: '今天 09:15', orderNo: 'ORD20260325002', amount: 560.00 },
+          { id: 3, merchant: '张三商行', status: '待分账', time: '昨天 16:20', orderNo: 'ORD20260325001', amount: 280.00 }
+        ]);
+        const showToast = (msg) => { vant.showToast({ message: msg, position: 'bottom' }); };
+        const switchTab = (tab) => { activeTab.value = tab; showToast('切换到' + tab); };
+        return { activeTab, splitRecords, showToast, switchTab };
+      }
+    });
+    app.use(vant);
+    app.mount('#app');
+  </script>
+</body>
+</html>

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>旅购通分账系统 - 管理后台</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.full.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f5f7fa; }
+    .layout-container { height: 100vh; }
+    .sidebar { background: #fff; border-right: 1px solid #e6e6e6; }
+    .logo { display: flex; align-items: center; gap: 12px; padding: 20px 16px; border-bottom: 1px solid #e6e6e6; font-weight: 600; font-size: 16px; color: #1976D2; }
+    .sidebar-menu { border-right: none; }
+    .header { background: #fff; border-bottom: 1px solid #e6e6e6; display: flex; justify-content: space-between; align-items: center; padding: 0 24px; }
+    .header-left { display: flex; align-items: center; }
+    .header-right { display: flex; align-items: center; }
+    .user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .username { font-size: 14px; color: #333; }
+    .main-content { padding: 20px; overflow-y: auto; }
+    .page { animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .card-header { display: flex; justify-content: space-between; align-items: center; }
+    .stats-row { margin-bottom: 20px; }
+    .stat-card { display: flex; align-items: center; gap: 16px; padding: 8px 0; }
+    .stat-icon { width: 56px; height: 56px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+    .stat-value { font-size: 24px; font-weight: 600; color: #333; }
+    .stat-label { font-size: 14px; color: #999; margin-top: 4px; }
+    .charts-row { margin-bottom: 20px; }
+    .chart-card { height: 100%; }
+    .chart-placeholder { height: 200px; display: flex; flex-direction: column; justify-content: flex-end; }
+    .chart-bars { display: flex; justify-content: space-around; align-items: flex-end; height: 180px; padding: 0 20px; }
+    .bar { width: 40px; background: linear-gradient(180deg, #1976D2 0%, #42a5f5 100%); border-radius: 4px 4px 0 0; position: relative; transition: all 0.3s; display: flex; justify-content: center; }
+    .bar:hover { opacity: 0.8; }
+    .bar span { position: absolute; top: -24px; font-size: 10px; color: #666; white-space: nowrap; }
+    .chart-labels { display: flex; justify-content: space-around; padding: 8px 20px 0; font-size: 12px; color: #999; }
+    .pie-chart { display: flex; justify-content: center; align-items: center; height: 200px; }
+    .pie-legend { display: flex; flex-direction: column; gap: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .table-row { margin-bottom: 20px; }
+    .search-form { margin-bottom: 0; }
+    .money { color: #E6A23C; font-weight: 500; }
+    .store-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <el-container class="layout-container">
+      <el-aside width="220px" class="sidebar">
+        <div class="logo">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="#1976D2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          <span>旅购通分账</span>
+        </div>
+        <el-menu :default-active="activeMenu" class="sidebar-menu" @select="handleMenuSelect">
+          <el-menu-item index="dashboard"><el-icon><DataAnalysis /></el-icon><span>工作台</span></el-menu-item>
+          <el-sub-menu index="account">
+            <template #title><el-icon><User /></el-icon><span>账户管理</span></template>
+            <el-menu-item index="account-open">开户申请</el-menu-item>
+            <el-menu-item index="account-list">账户列表</el-menu-item>
+            <el-menu-item index="account-upgrade">账户升级</el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="split">
+            <template #title><el-icon><Coin /></el-icon><span>分账管理</span></template>
+            <el-menu-item index="split-apply">分账申请</el-menu-item>
+            <el-menu-item index="split-record">分账记录</el-menu-item>
+            <el-menu-item index="split-refund">退款申请</el-menu-item>
+          </el-sub-menu>
+          <el-sub-menu index="transaction">
+            <template #title><el-icon><Document /></el-icon><span>交易管理</span></template>
+            <el-menu-item index="transaction-order">付款订单</el-menu-item>
+            <el-menu-item index="transaction-subscribe">交易订阅</el-menu-item>
+          </el-sub-menu>
+          <el-menu-item index="withdraw"><el-icon><Wallet /></el-icon><span>提现管理</span></el-menu-item>
+          <el-menu-item index="store"><el-icon><Shop /></el-icon><span>门店管理</span></el-menu-item>
+        </el-menu>
+      </el-aside>
+      <el-container>
+        <el-header class="header">
+          <div class="header-left">
+            <el-breadcrumb separator="/">
+              <el-breadcrumb-item :to="{ path: '/' }">首页</el-breadcrumb-item>
+              <el-breadcrumb-item v-if="currentPage !== 'dashboard'">{{ getMenuName(currentPage) }}</el-breadcrumb-item>
+            </el-breadcrumb>
+          </div>
+          <div class="header-right">
+            <el-dropdown @command="handleCommand">
+              <span class="user-info">
+                <el-avatar :size="32" src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" />
+                <span class="username">管理员</span>
+                <el-icon><ArrowDown /></el-icon>
+              </span>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
+        </el-header>
+        <el-main class="main-content">
+          <!-- 工作台 -->
+          <div v-if="currentPage === 'dashboard'" class="page">
+            <el-row :gutter="20" class="stats-row">
+              <el-col :span="6">
+                <el-card class="stat-card" shadow="hover">
+                  <div class="stat-icon" style="background:#E3F2FD"><el-icon size="24" color="#1976D2"><User /></el-icon></div>
+                  <div class="stat-info"><div class="stat-value">1,234</div><div class="stat-label">账户总数</div></div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="stat-card" shadow="hover">
+                  <div class="stat-icon" style="background:#E8F5E9"><el-icon size="24" color="#4CAF50"><Coin /></el-icon></div>
+                  <div class="stat-info"><div class="stat-value">¥ 567.89万</div><div class="stat-label">今日分账金额</div></div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="stat-card" shadow="hover">
+                  <div class="stat-icon" style="background:#FFF3E0"><el-icon size="24" color="#FF9800"><Wallet /></el-icon></div>
+                  <div class="stat-info"><div class="stat-value">¥ 12.35万</div><div class="stat-label">待提现金额</div></div>
+                </el-card>
+              </el-col>
+              <el-col :span="6">
+                <el-card class="stat-card" shadow="hover">
+                  <div class="stat-icon" style="background:#FCE4EC"><el-icon size="24" color="#E91E63"><Document /></el-icon></div>
+                  <div class="stat-info"><div class="stat-value">89</div><div class="stat-label">待处理订单</div></div>
+                </el-card>
+              </el-col>
+            </el-row>
+            <el-row :gutter="20" class="charts-row">
+              <el-col :span="16">
+                <el-card class="chart-card">
+                  <template #header><div class="card-header"><span>分账趋势</span><el-radio-group v-model="chartRange" size="small"><el-radio-button label="week">近7天</el-radio-button><el-radio-button label="month">近30天</el-radio-button></el-radio-group></div></template>
+                  <div class="chart-placeholder">
+                    <div class="chart-bars">
+                      <div class="bar" style="height:60%"><span>¥12.3万</span></div>
+                      <div class="bar" style="height:80%"><span>¥16.5万</span></div>
+                      <div class="bar" style="height:45%"><span>¥9.2万</span></div>
+                      <div class="bar" style="height:90%"><span>¥18.7万</span></div>
+                      <div class="bar" style="height:70%"><span>¥14.5万</span></div>
+                      <div class="bar" style="height:85%"><span>¥17.6万</span></div>
+                      <div class="bar" style="height:95%"><span>¥19.8万</span></div>
+                    </div>
+                    <div class="chart-labels"><span>周一</span><span>周二</span><span>周三</span><span>周四</span><span>周五</span><span>周六</span><span>周日</span></div>
+                  </div>
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card class="chart-card">
+                  <template #header><span>账户类型分布</span></template>
+                  <div class="pie-chart"><div class="pie-legend"><div class="legend-item"><span class="dot" style="background:#1976D2"></span>商户 45%</div><div class="legend-item"><span class="dot" style="background:#4CAF50"></span>旅行社 25%</div><div class="legend-item"><span class="dot" style="background:#FF9800"></span>导游/司机 30%</div></div></div>
+                </el-card>
+              </el-col>
+            </el-row>
+            <el-row :gutter="20" class="table-row">
+              <el-col :span="24">
+                <el-card>
+                  <template #header><div class="card-header"><span>待处理事项</span><el-button type="primary" size="small">查看全部</el-button></div></template>
+                  <el-table :data="todoList">
+                    <el-table-column prop="type" label="类型" width="100"><template #default="{row}"><el-tag :type="row.tagType">{{row.type}}</el-tag></template></el-table-column>
+                    <el-table-column prop="title" label="事项" />
+                    <el-table-column prop="amount" label="金额" width="140"><template #default="{row}"><span v-if="row.amount">¥ {{row.amount.toLocaleString()}}</span><span v-else>-</span></template></el-table-column>
+                    <el-table-column prop="time" label="时间" width="160" />
+                    <el-table-column label="操作" width="100"><template #default><el-button type="primary" size="small">处理</el-button></template></el-table-column>
+                  </el-table>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+          <!-- 开户申请 -->
+          <div v-else-if="currentPage === 'account-open'" class="page">
+            <el-card>
+              <template #header><div class="card-header"><span>开户申请</span><el-button type="primary" onClick="alert('开户弹窗演示')"><el-icon><Plus /></el-icon>新建开户</el-button></div></template>
+              <el-form :inline="true" class="search-form">
+                <el-form-item label="账户类型"><el-select v-model="searchForm.accountType" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="商户" value="merchant" /><el-option label="旅行社" value="agency" /><el-option label="导游/司机" value="guide" /></el-select></el-form-item>
+                <el-form-item label="审核状态"><el-select v-model="searchForm.status" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="待审核" value="pending" /><el-option label="通过" value="approved" /><el-option label="拒绝" value="rejected" /></el-select></el-form-item>
+                <el-form-item label="关键词"><el-input v-model="searchForm.keyword" placeholder="名称/手机号" style="width:160px" /></el-form-item>
+                <el-form-item><el-button type="primary">查询</el-button><el-button>重置</el-button></el-form-item>
+              </el-form>
+              <el-table :data="openAccountList" style="margin-top:16px">
+                <el-table-column prop="name" label="名称" />
+                <el-table-column prop="type" label="类型" width="100"><template #default="{row}"><el-tag>{{row.typeName}}</el-tag></template></el-table-column>
+                <el-table-column prop="phone" label="手机号" width="120" />
+                <el-table-column prop="auditStatus" label="审核状态" width="100"><template #default="{row}"><el-tag :type="row.auditStatusType">{{row.auditStatus}}</el-tag></template></el-table-column>
+                <el-table-column prop="livenessStatus" label="活体状态" width="100"><template #default="{row}"><el-tag :type="row.livenessStatusType">{{row.livenessStatus}}</el-tag></template></el-table-column>
+                <el-table-column prop="accountStatus" label="账户状态" width="100"><template #default="{row}"><el-tag :type="row.accountStatusType">{{row.accountStatus}}</el-tag></template></el-table-column>
+                <el-table-column prop="createTime" label="申请时间" width="160" />
+                <el-table-column label="操作" width="200" fixed="right"><template #default="{row}"><el-button type="primary" size="small">详情</el-button><el-button v-if="row.auditStatus==='待审核'" type="success" size="small">通过</el-button><el-button v-if="row.auditStatus==='待审核'" type="danger" size="small">拒绝</el-button></template></el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <!-- 账户列表 -->
+          <div v-else-if="currentPage === 'account-list'" class="page">
+            <el-card>
+              <template #header><span>账户列表</span></template>
+              <el-form :inline="true" class="search-form">
+                <el-form-item label="账户类型"><el-select v-model="searchForm.accountType" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="商户" value="merchant" /><el-option label="旅行社" value="agency" /><el-option label="导游/司机" value="guide" /></el-select></el-form-item>
+                <el-form-item label="账户状态"><el-select v-model="searchForm.accountStatus" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="有效" value="active" /><el-option label="无效" value="inactive" /><el-option label="冻结" value="frozen" /></el-select></el-form-item>
+                <el-form-item label="关键词"><el-input v-model="searchForm.keyword" placeholder="名称/账号" style="width:160px" /></el-form-item>
+                <el-form-item><el-button type="primary">查询</el-button><el-button>重置</el-button></el-form-item>
+              </el-form>
+              <el-table :data="accountList" style="margin-top:16px">
+                <el-table-column prop="accountNo" label="账号" width="180" />
+                <el-table-column prop="name" label="名称" />
+                <el-table-column prop="type" label="类型" width="100"><template #default="{row}"><el-tag>{{row.typeName}}</el-tag></template></el-table-column>
+                <el-table-column prop="balance" label="余额" width="140" align="right"><template #default="{row}"><span class="money">¥ {{row.balance.toLocaleString()}}</span></template></el-table-column>
+                <el-table-column prop="status" label="状态" width="80"><template #default="{row}"><el-tag :type="row.statusType">{{row.statusName}}</el-tag></template></el-table-column>
+                <el-table-column prop="level" label="分账层级" width="80" />
+                <el-table-column prop="createTime" label="开户时间" width="160" />
+                <el-table-column label="操作" width="140" fixed="right"><template #default><el-button type="primary" size="small">详情</el-button><el-button type="warning" size="small">冻结</el-button></template></el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <!-- 账户升级 -->
+          <div v-else-if="currentPage === 'account-upgrade'" class="page">
+            <el-card>
+              <template #header><span>支付账户升级</span></template>
+              <el-alert title="账户升级说明：个人账户升级需要通过人脸识别进行实名认证，升级后可获得更高的分账额度和更多的功能权限。" type="info" :closable="false" style="margin-bottom:20px" />
+              <el-table :data="upgradeList">
+                <el-table-column prop="accountNo" label="账号" width="180" />
+                <el-table-column prop="name" label="名称" />
+                <el-table-column prop="phone" label="手机号" width="120" />
+                <el-table-column prop="currentLevel" label="当前等级" width="100"><template #default="{row}"><el-tag type="info">L{{row.currentLevel}}</el-tag></template></el-table-column>
+                <el-table-column prop="targetLevel" label="目标等级" width="100"><template #default="{row}"><el-tag type="success">L{{row.targetLevel}}</el-tag></template></el-table-column>
+                <el-table-column prop="status" label="状态" width="100"><template #default="{row}"><el-tag :type="row.status==='待升级'?'warning':row.status==='升级成功'?'success':'danger'">{{row.status}}</el-tag></template></el-table-column>
+                <el-table-column label="操作" width="180" fixed="right"><template #default="{row}"><el-button v-if="row.status==='待升级'" type="primary" size="small">开始升级</el-button><el-button v-else type="default" size="small" disabled>已完成</el-button></template></el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <!-- 分账申请 -->
+          <div v-else-if="currentPage === 'split-apply'" class="page">
+            <el-card>
+              <template #header><div class="card-header"><span>分账申请</span><el-button type="primary"><el-icon><Plus /></el-icon>新建分账</el-button></div></template>
+              <el-form :inline="true" class="search-form">
+                <el-form-item label="订单号"><el-input v-model="searchForm.orderNo" placeholder="订单号" style="width:180px" /></el-form-item>
+                <el-form-item label="分账状态"><el-select v-model="searchForm.splitStatus" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="待分账" value="pending" /><el-option label="分账中" value="processing" /><el-option label="已分账" value="success" /><el-option label="失败" value="failed" /></el-select></el-form-item>
+                <el-form-item label="日期"><el-date-picker v-model="searchForm.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:240px" /></el-form-item>
+                <el-form-item><el-button type="primary">查询</el-button><el-button>重置</el-button></el-form-item>
+              </el-form>
+              <el-table :data="splitList" style="margin-top:16px">
+                <el-table-column prop="orderNo" label="订单号" width="200" />
+                <el-table-column prop="merchantName" label="商户" />
+                <el-table-column prop="agencyName" label="旅行社" />
+                <el-table-column prop="guideName" label="导游/司机" />
+                <el-table-column prop="totalAmount" label="订单金额" width="120" align="right"><template #default="{row}"><span class="money">¥ {{row.totalAmount.toLocaleString()}}</span></template></el-table-column>
+                <el-table-column prop="splitAmount" label="分账金额" width="120" align="right"><template #default="{row}"><span class="money">¥ {{row.splitAmount.toLocaleString()}}</span></template></el-table-column>
+                <el-table-column prop="status" label="状态" width="100"><template #default="{row}"><el-tag :type="row.statusType">{{row.statusName}}</el-tag></template></el-table-column>
+                <el-table-column prop="createTime" label="申请时间" width="160" />
+                <el-table-column label="操作" width="100" fixed="right"><template #default><el-button type="primary" size="small">详情</el-button></template></el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <!-- 提现管理 -->
+          <div v-else-if="currentPage === 'withdraw'" class="page">
+            <el-card>
+              <template #header><span>提现管理</span></template>
+              <el-form :inline="true" class="search-form">
+                <el-form-item label="提现单号"><el-input v-model="searchForm.withdrawNo" placeholder="提现单号" style="width:180px" /></el-form-item>
+                <el-form-item label="状态"><el-select v-model="searchForm.withdrawStatus" placeholder="全部" style="width:120px"><el-option label="全部" value="" /><el-option label="待处理" value="pending" /><el-option label="处理中" value="processing" /><el-option label="已打款" value="success" /><el-option label="已拒绝" value="rejected" /></el-select></el-form-item>
+                <el-form-item label="日期"><el-date-picker v-model="searchForm.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" /></el-form-item>
+                <el-form-item><el-button type="primary">查询</el-button><el-button>重置</el-button></el-form-item>
+              </el-form>
+              <el-table :data="withdrawList" style="margin-top:16px">
+                <el-table-column prop="withdrawNo" label="提现单号" width="200" />
+                <el-table-column prop="accountName" label="账户名称" />
+                <el-table-column prop="accountNo" label="账号" width="180" />
+                <el-table-column prop="bankName" label="开户行" />
+                <el-table-column prop="amount" label="提现金额" width="120" align="right"><template #default="{row}"><span class="money">¥ {{row.amount.toLocaleString()}}</span></template></el-table-column>
+                <el-table-column prop="fee" label="手续费" width="100" align="right"><template #default="{row}"><span class="money">¥ {{row.fee.toLocaleString()}}</span></template></el-table-column>
+                <el-table-column prop="status" label="状态" width="100"><template #default="{row}"><el-tag :type="row.statusType">{{row.statusName}}</el-tag></template></el-table-column>
+                <el-table-column prop="createTime" label="申请时间" width="160" />
+                <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button v-if="row.status==='待处理'" type="success" size="small">通过</el-button><el-button v-if="row.status==='待处理'" type="danger" size="small">拒绝</el-button><el-button v-else type="primary" size="small">详情</el-button></template></el-table-column>
+              </el-table>
+            </el-card>
+          </div>
+          <!-- 门店管理 -->
+          <div v-else-if="currentPage === 'store'" class="page">
+            <el-card>
+              <template #header><div class="card-header"><span>门店管理</span><el-button type="primary"><el-icon><Plus /></el-icon>添加门店</el-button></div></template>
+              <div class="store-grid">
+                <el-card v-for="store in storeList" :key="store.id" class="store-card" shadow="hover">
+                  <template #header><span>{{store.name}}</span></template>
+                  <p><strong>商户号：</strong>{{store.merchantNo}}</p>
+                  <p><strong>终端号：</strong>{{store.terminalNo}}</p>
+                  <p><strong>绑定账户：</strong>{{store.accountName}}</p>
+                  <p><strong>状态：</strong><el-tag :type="store.statusType" size="small">{{store.statusName}}</el-tag></p>
+                  <div style="margin-top:12px"><el-button type="primary" size="small">编辑</el-button><el-button type="warning" size="small">解绑</el-button></div>
+                </el-card>
+              </div>
+            </el-card>
+          </div>
+        </el-main>
+      </el-container>
+    </el-container>
+  </div>
+  <script>
+    const { createApp, ref, reactive } = Vue;
+    const app = createApp({
+      setup() {
+        const currentPage = ref('dashboard');
+        const activeMenu = ref('dashboard');
+        const chartRange = ref('week');
+        const searchForm = reactive({ accountType: '', status: '', keyword: '', orderNo: '', dateRange: null, withdrawNo: '', withdrawStatus: '' });
+        const menuNames = { 'account-open': '开户申请', 'account-list': '账户列表', 'account-upgrade': '账户升级', 'split-apply': '分账申请', 'split-record': '分账记录', 'split-refund': '退款申请', 'transaction-order': '付款订单', 'transaction-subscribe': '交易订阅', withdraw: '提现管理', store: '门店管理' };
+        const getMenuName = (key) => menuNames[key] || key;
+        const handleMenuSelect = (index) => { currentPage.value = index; activeMenu.value = index; };
+        const handleCommand = (cmd) => { if (cmd === 'logout') { ElementPlus.ElMessage.success('已退出登录'); } };
+        const todoList = ref([{ type: '开户审核', tagType: 'warning', title: '商户"张三商行"提交开户申请', amount: null, time: '2026-03-26 10:30' }, { type: '分账申请', tagType: 'primary', title: '订单#20260326001分账处理', amount: 12500, time: '2026-03-26 09:45' }, { type: '提现申请', tagType: 'warning', title: '导游李四提交提现申请', amount: 3500, time: '2026-03-26 09:20' }]);
+        const openAccountList = ref([{ name: '张三商行', typeName: '商户', phone: '138****1234', auditStatus: '待审核', auditStatusType: 'warning', livenessStatus: '待检测', livenessStatusType: 'info', accountStatus: '无效', accountStatusType: 'info', createTime: '2026-03-26 10:30' }, { name: '顺风旅行社', typeName: '旅行社', phone: '139****5678', auditStatus: '通过', auditStatusType: 'success', livenessStatus: '待检测', livenessStatusType: 'info', accountStatus: '无效', accountStatusType: 'info', createTime: '2026-03-25 14:20' }, { name: '李四(导游)', typeName: '导游/司机', phone: '137****9012', auditStatus: '自动通过', auditStatusType: 'success', livenessStatus: '通过', livenessStatusType: 'success', accountStatus: '有效', accountStatusType: 'success', createTime: '2026-03-24 16:00' }]);
+        const accountList = ref([{ accountNo: 'LAK2026030001', name: '张三商行', typeName: '商户', balance: 125680, status: '有效', statusName: '有效', statusType: 'success', level: 1, createTime: '2026-03-20 10:00' }, { accountNo: 'LAK2026030002', name: '顺风旅行社', typeName: '旅行社', balance: 356200, status: '有效', statusName: '有效', statusType: 'success', level: 2, createTime: '2026-03-18 14:30' }, { accountNo: 'LAK2026030003', name: '李四(导游)', typeName: '导游/司机', balance: 8560, status: '有效', statusName: '有效', statusType: 'success', level: 3, createTime: '2026-03-15 09:00' }]);
+        const upgradeList = ref([{ accountNo: 'LAK2026030003', name: '李四(导游)', phone: '137****9012', currentLevel: 1, targetLevel: 2, status: '待升级' }, { accountNo: 'LAK2026030004', name: '王五(司机)', phone: '136****3456', currentLevel: 1, targetLevel: 2, status: '升级成功' }]);
+        const splitList = ref([{ orderNo: 'ORD20260326001', merchantName: '张三商行', agencyName: '顺风旅行社', guideName: '李四', totalAmount: 5000, splitAmount: 3500, status: 'pending', statusName: '待分账', statusType: 'warning', createTime: '2026-03-26 10:30' }, { orderNo: 'ORD20260326002', merchantName: '张三商行', agencyName: '顺风旅行社', guideName: '李四', totalAmount: 8000, splitAmount: 5600, status: 'success', statusName: '已分账', statusType: 'success', createTime: '2026-03-25 15:20' }]);
+        const withdrawList = ref([{ withdrawNo: 'WD20260326001', accountName: '李四(导游)', accountNo: 'LAK2026030003', bankName: '中国工商银行', amount: 5000, fee: 5, status: 'pending', statusName: '待处理', statusType: 'warning', createTime: '2026-03-26 11:00' }, { withdrawNo: 'WD20260325002', accountName: '张三商行', accountNo: 'LAK2026030001', bankName: '中国建设银行', amount: 20000, fee: 20, status: 'success', statusName: '已打款', statusType: 'success', createTime: '2026-03-25 16:30' }]);
+        const storeList = ref([{ id: 1, name: '门店一(旗舰店)', merchantNo: 'M10001', terminalNo: 'T001', accountName: '张三商行', status: '有效', statusName: '有效', statusType: 'success' }, { id: 2, name: '门店二(分店)', merchantNo: 'M10002', terminalNo: 'T002', accountName: '张三商行', status: '有效', statusName: '有效', statusType: 'success' }]);
+        return { currentPage, activeMenu, chartRange, searchForm, getMenuName, handleMenuSelect, handleCommand, todoList, openAccountList, accountList, upgradeList, splitList, withdrawList, storeList };
+      }
+    });
+    app.use(ElementPlus);
+    Object.keys(ElementPlusIconsVue).forEach(key => { app.component(key, ElementPlusIconsVue[key]); });
+    app.mount('#app');
+  </script>
+</body>
+</html>
