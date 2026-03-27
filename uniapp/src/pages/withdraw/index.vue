@@ -28,7 +28,7 @@
 
     <van-button type="primary" block round class="submit-btn" @click="showPwdDialog=true">确认提现</van-button>
 
-    <van-dialog show="{{ showPwdDialog }}" title="请输入支付密码" show-cancel-button @confirm="doWithdraw" @cancel="showPwdDialog=false">
+    <van-dialog v-model:show="showPwdDialog" title="请输入支付密码" show-cancel-button @confirm="doWithdraw" @cancel="showPwdDialog=false">
       <van-password-input :value="password" @change="password=$event.detail" />
     </van-dialog>
   </view>

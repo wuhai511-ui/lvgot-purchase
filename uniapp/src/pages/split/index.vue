@@ -27,11 +27,11 @@
       <van-button type="primary" block round @click="showConfirm=true">确认分账</van-button>
     </view>
 
-    <van-popup show="{{ showPicker }}" position="bottom" @click-overlay="showPicker=false">
+    <van-popup v-model:show="showPicker" position="bottom" @click-overlay="showPicker=false">
       <van-picker :columns="receiverColumns" @confirm="onPickReceiver" @cancel="showPicker=false" />
     </van-popup>
 
-    <van-dialog show="{{ showConfirm }}" title="确认分账" @confirm="doSplit" @cancel="showConfirm=false">
+    <van-dialog v-model:show="showConfirm" title="确认分账" @confirm="doSplit" @cancel="showConfirm=false">
       <view style="padding:20px;text-align:center">
         <view>向 <b>{{ selectedReceiver?.name }}</b> 分账</view>
         <view style="font-size:24px;font-weight:bold;color:$primary-color;margin-top:8px">¥{{ amount }}</view>

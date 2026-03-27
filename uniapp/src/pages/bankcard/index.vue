@@ -19,7 +19,7 @@
       </view>
     </view>
 
-    <van-popup show="{{ showAdd }}" position="bottom" @click-overlay="showAdd=false">
+    <van-popup v-model:show="showAdd" position="bottom" @click-overlay="showAdd=false">
       <view class="add-card-form">
         <view class="form-title">添加银行卡</view>
         <van-field v-model="newCard.name" label="持卡人" placeholder="请输入持卡人姓名" />
