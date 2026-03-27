@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import Login from '@/pages/login/index.vue'
 import Home from '@/pages/home/index.vue'
 import Account from '@/pages/account/index.vue'
 import Recharge from '@/pages/recharge/index.vue'
@@ -16,7 +17,8 @@ import Split from '@/pages/split/index.vue'
 import Mine from '@/pages/mine/index.vue'
 
 const routes = [
-  { path: '/', component: Home },
+  { path: '/', redirect: '/pages/login' },
+  { path: '/pages/login', component: Login },
   { path: '/pages/home', component: Home },
   { path: '/pages/account', component: Account },
   { path: '/pages/recharge', component: Recharge },
@@ -37,4 +39,15 @@ const routes = [
 export const router = createRouter({
   history: createWebHashHistory(),
   routes,
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('user_token') || ''
+  if (!token && to.path !== '/pages/login') {
+    // allow missing token for now, just to show how it works,
+    // wait, if we enforce it, they will be forced to log in:
+    next('/pages/login')
+  } else {
+    next()
+  }
 })

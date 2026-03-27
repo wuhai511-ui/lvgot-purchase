@@ -1,4 +1,13 @@
 // Uni API polyfill for H5/web
+const normalizeUrl = (url) => {
+  let [path, query] = url.split('?')
+  // Strip trailing /index to match vue-router routes
+  if (path.endsWith('/index')) {
+    path = path.slice(0, -6)
+  }
+  return path + (query ? '?' + query : '')
+}
+
 const uni = {
   navigateTo({ url, success, fail, complete }) {
     const handle = () => {
@@ -6,9 +15,7 @@ const uni = {
       if (complete) complete({ errMsg: 'navigateTo:ok' })
     }
     try {
-      // Use hash-based routing for SPA
-      const [path, query] = url.split('?')
-      window.location.hash = path + (query ? '?' + query : '')
+      window.location.hash = normalizeUrl(url)
       handle()
     } catch (e) {
       if (fail) fail({ errMsg: 'navigateTo:fail' })
@@ -20,7 +27,7 @@ const uni = {
     if (complete) complete({ errMsg: 'navigateBack:ok' })
   },
   switchTab({ url, success, fail, complete }) {
-    window.location.hash = url
+    window.location.hash = normalizeUrl(url)
     if (success) success({ errMsg: 'switchTab:ok' })
     if (complete) complete({ errMsg: 'switchTab:ok' })
   },
