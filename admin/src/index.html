@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN>
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -88,7 +88,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 <div id="app">
 <div class="sidebar-overlay" :class="{active:sidebarOpen}" @click="sidebarOpen=false"></div>
 <div class="layout">
-<aside class="sidebar" :class="{"mobile-open":sidebarOpen}">
+<aside class="sidebar" :class="{'mobile-open':sidebarOpen}">
 <div class="logo"><div class="logo-icon">&#128179;</div><span>&#26053;&#36141;&#36890;&#20998;&#36134;</span></div>
 <div class="menu-wrap">
 <el-menu :default-active="activeMenu" @select="handleMenuSelect" style="border-right:none">
@@ -216,7 +216,7 @@ const app = createApp({
     const storeList = ref([{name:"&#38376;&#24215;&#19968;(&#26071;&#33394;&#24215;)",merchantNo:"M10001",terminalNo:"T001",boundAccountName:"&#24352;&#19977;&#21830;&#34892;",boundAccountNo:"LAK2026030001",status:"bound"},{name:"&#38376;&#24215;&#20108;(&#20998;&#24215;)",merchantNo:"M10002",terminalNo:"T002",boundAccountName:"&#24352;&#19977;&#21830;&#34892;",boundAccountNo:"LAK2026030001",status:"bound"},{name:"&#38376;&#24215;&#19977;(&#26032;&#24215;)",merchantNo:"",terminalNo:"",boundAccountName:"",boundAccountNo:"",status:"unbound"}]);
     const storeFilters = reactive({ keyword:"" });
     const todoList = ref([
-      { time:"2026-03-26 10:30", title:"&#21830;&#25143;"&#28023;&#39118;&#26053;&#28216;&#21830;&#24215;"&#25552;&#20132;&#24320;&#25143;&#30003;&#35831;&#65288;&#24453;&#23457;&#26680;&#65289;", amount:null, action:"&#21435;&#23457;&#26680;", actionKey:"account-open" },
+      { time:"2026-03-26 10:30", title:"&#21830;&#25143;\"&#28023;&#39118;&#26053;&#28216;&#21830;&#24215;\"&#25552;&#20132;&#24320;&#25143;&#30003;&#35831;&#65288;&#24453;&#23457;&#26680;&#65289;", amount:null, action:"&#21435;&#23457;&#26680;", actionKey:"account-open" },
       { time:"2026-03-26 09:45", title:"&#35794;&#21333;#ORD20260326001&#20998;&#36134;&#22788;&#29702;", amount:5000, action:"&#26597;&#30475;", actionKey:"split-record" },
       { time:"2026-03-26 09:20", title:"&#23548;&#28216;&#26446;&#22235;&#25552;&#20132;&#25552;&#29616;&#30003;&#35831;&#65288;&#24453;&#22788;&#29702;&#65289;", amount:5000, action:"&#22788;&#29702;", actionKey:"withdraw" }
     ]);
@@ -227,7 +227,7 @@ const app = createApp({
 });
 app.use(ElementPlus);
 app.mount("#app");
-<\/script>
+</script>
 
 </body>
-n</html>
+</html>
