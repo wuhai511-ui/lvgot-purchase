@@ -21,33 +21,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build UniApp
+        run: |
+          cd uniapp
+          npm install --legacy-peer-deps
+          npm run build:h5 --legacy-peer-deps
 
       - name: Create directory structure
         run: |
-          mkdir -p dist/admin dist/miniprogram
+          mkdir -p dist/admin dist/miniprogram dist/uniapp
 
-          # Admin (existing)
+          # Admin (existing logic)
           cp admin/src/index.html dist/admin/index.html
 
-          # Miniprogram: copy all pages directory structure
-          cp -r miniprogram/src/pages dist/miniprogram/
-
-          # Redirect root index.html -> pages/home/index.html (backward compat)
-          cat > dist/miniprogram/index.html << 'REDIRECT'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="UTF-8">
-            <meta http-equiv="refresh" content="0;url=pages/home/index.html">
-            <title>旅购通 - 跳转中...</title>
-          </head>
-          <body>
-            <p>正在跳转到 <a href="pages/home/index.html">旅购通小程序</a>...</p>
-          </body>
-          </html>
-          REDIRECT
+          # UniApp deployment (new Vue3 H5 app goes to both uniapp and miniprogram paths)
+          cp -r uniapp/dist/build/h5/* dist/uniapp/
+          cp -r uniapp/dist/build/h5/* dist/miniprogram/
 
           # Root redirect
           cp index.html dist/index.html
