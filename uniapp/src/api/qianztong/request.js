@@ -48,8 +48,8 @@ function urlEncode(str) {
  */
 async function sign(content) {
   const privateKey = await loadPrivateKey()
-  const sig = new KJUR.Signature({ alg: 'SHA256withRSA' })
-  sig.init({ d: privateKey, curve: 'sec curves256r1' })
+  const sig = new KJUR.crypto.Signature({ alg: 'SHA256withRSA' })
+  sig.init(privateKey.trim())
   sig.updateString(content)
   return sig.sign()
 }
@@ -61,7 +61,7 @@ async function verify(data, signValue) {
   if (!signValue) return true
   try {
     const pubKey = await loadPlatformPublicKey()
-    const sig = new KJUR.Signature({ alg: 'SHA256withRSA' })
+    const sig = new KJUR.crypto.Signature({ alg: 'SHA256withRSA' })
     sig.init(pubKey.trim())
     sig.updateString(data)
     return sig.verify(signValue)
