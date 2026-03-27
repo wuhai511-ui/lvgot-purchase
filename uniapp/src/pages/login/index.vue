@@ -2,15 +2,23 @@
   <view class="login-page">
     <view class="header">
       <view class="title">旅购通</view>
-      <view class="subtitle">导游 / 结算方 登录</view>
+      <view class="subtitle">登录工作台</view>
     </view>
     
     <view class="form-container">
+      <view class="role-selector">
+        <text class="role-label">请选择登录身份：</text>
+        <van-radio-group v-model="role" direction="horizontal">
+          <van-radio name="merchant">商店/旅行社</van-radio>
+          <van-radio name="guide">导游/其他</van-radio>
+        </van-radio-group>
+      </view>
+
       <van-field
         v-model="phone"
         type="tel"
         label="手机号"
-        placeholder="测试账号: 15801852984"
+        placeholder="测试: 15801852984"
         clearable
         size="large"
       />
@@ -19,7 +27,7 @@
         center
         clearable
         label="验证码"
-        placeholder="测试验证码: 111111"
+        placeholder="测试: 111111"
         size="large"
       >
         <template #button>
@@ -45,6 +53,7 @@ import { ref } from 'vue'
 const phone = ref('')
 const code = ref('')
 const countdown = ref(0)
+const role = ref('guide') // default
 
 const sendCode = () => {
   if (!/^1\d{10}$/.test(phone.value)) {
@@ -86,6 +95,8 @@ const handleLogin = () => {
     // Simulated token
     uni.setStorageSync('user_token', 'token_xxxxxx')
     uni.setStorageSync('user_phone', phone.value)
+    uni.setStorageSync('user_role', role.value)
+    
     uni.showToast({ title: '登录成功' })
     setTimeout(() => {
       uni.switchTab({ url: '/pages/home/index' })
@@ -115,6 +126,15 @@ const handleLogin = () => {
 }
 .form-container {
   padding-top: 20px;
+  .role-selector {
+    padding: 0 16px 20px 16px;
+    .role-label {
+      display: block;
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+  }
   .submit-btn {
     margin-top: 40px;
     margin-bottom: 15px;

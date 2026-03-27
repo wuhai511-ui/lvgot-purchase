@@ -3,7 +3,7 @@
     <!-- 顶部渐变背景 -->
     <view class="home-header">
       <view class="user-info">
-        <view class="avatar">导</view>
+        <view class="avatar">{{ userRole === 'merchant' ? '商' : '导' }}</view>
         <view class="name">{{ accountStore.currentAccount.name }}</view>
         <view class="account-no">{{ accountStore.currentAccount.accountNo }}</view>
       </view>
@@ -15,12 +15,12 @@
       <view class="balance-amount">{{ accountStore.currentAccount.balance }}</view>
       <view class="balance-frozen">冻结：{{ accountStore.currentAccount.frozenBalance }}元</view>
       <view class="balance-actions">
-        <van-button type="primary" size="small" round @click="goRecharge">充值</van-button>
+        <van-button v-if="userRole === 'merchant'" type="primary" size="small" round @click="goRecharge">充值</van-button>
         <van-button type="warning" size="small" round @click="goWithdraw">提现</van-button>
       </view>
     </view>
 
-    <!-- 功能菜单（2行4列） -->
+    <!-- 功能菜单 -->
     <view class="menu-grid">
       <view class="menu-item" v-for="item in menuItems" :key="item.path" @click="navigateTo(item.path)">
         <view class="menu-icon" :style="{background: item.bg}">{{ item.emoji }}</view>
@@ -28,9 +28,9 @@
       </view>
     </view>
 
-    <!-- 最近分账记录 -->
+    <!-- 最近分账记录 (仅商户可见，或如果有需要都可见，暂保留) -->
     <view class="section">
-      <view class="section-title">最近分账</view>
+      <view class="section-title">最近收入/分账</view>
       <view class="split-list">
         <view class="split-item" v-for="item in splitRecords" :key="item.id">
           <view class="split-info">
@@ -45,23 +45,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useAccountStore } from '@/store/account'
 import { useSplitStore } from '@/store/split'
 
 const accountStore = useAccountStore()
 const splitStore = useSplitStore()
 
-const menuItems = [
-  { text: '充值', path: '/pages/recharge/index', emoji: '💰', bg: '#e3f2fd' },
-  { text: '提现', path: '/pages/withdraw/index', emoji: '💵', bg: '#fce4ec' },
-  { text: '收款码', path: '/pages/qrcode/index', emoji: '💴', bg: '#fff8e1' },
-  { text: '分账记录', path: '/pages/split-record/index', emoji: '📋', bg: '#e8f5e9' },
-  { text: '付款订单', path: '/pages/order/index', emoji: '📝', bg: '#f3e5f5' },
-  { text: '银行卡', path: '/pages/bankcard/index', emoji: '💳', bg: '#e0f7fa' },
-  { text: '账户升级', path: '/pages/account-upgrade/index', emoji: '⬆️', bg: '#fbe9e7' },
-  { text: '门店绑定', path: '/pages/store-bind/index', emoji: '🏫', bg: '#ede7f6' },
+const userRole = ref(uni.getStorageSync('user_role') || 'guide')
+
+const allMenuItems = [
+  { text: '充值', path: '/pages/recharge/index', emoji: '💰', bg: '#e3f2fd', roles: ['merchant'] },
+  { text: '提现', path: '/pages/withdraw/index', emoji: '💵', bg: '#fce4ec', roles: ['merchant', 'guide'] },
+  { text: '收款码', path: '/pages/qrcode/index', emoji: '💴', bg: '#fff8e1', roles: ['merchant'] },
+  { text: '分账记录', path: '/pages/split-record/index', emoji: '📋', bg: '#e8f5e9', roles: ['merchant'] },
+  { text: '付款订单', path: '/pages/order/index', emoji: '📝', bg: '#f3e5f5', roles: ['merchant'] },
+  { text: '银行卡', path: '/pages/bankcard/index', emoji: '💳', bg: '#e0f7fa', roles: ['merchant', 'guide'] },
+  { text: '账户升级', path: '/pages/account-upgrade/index', emoji: '⬆️', bg: '#fbe9e7', roles: ['guide'] },
+  { text: '门店绑定', path: '/pages/store-bind/index', emoji: '🏫', bg: '#ede7f6', roles: ['merchant'] },
 ]
+
+const menuItems = computed(() => {
+  return allMenuItems.filter(item => item.roles.includes(userRole.value))
+})
 
 const splitRecords = ref([])
 
