@@ -5,6 +5,21 @@
   box-sizing: border-box;
 }
 
+/* UniApp 标签兼容 H5 */
+view, scroll-view, swiper, swiper-item, icon, text, progress, button, checkbox-group, checkbox, form, input, label, picker, radio-group, radio, slider, switch, textarea, navigator, audio, image, video, camera, live-player, live-pusher, map, canvas {
+  box-sizing: border-box;
+}
+view, scroll-view, swiper, swiper-item, form, navigator {
+  display: block;
+}
+text {
+  display: inline;
+}
+image {
+  display: inline-block;
+  max-width: 100%;
+}
+
 /* ==================== 工具类 ==================== */
 /* Flex */
 .flex { display: flex; }
