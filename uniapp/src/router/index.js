@@ -6,6 +6,7 @@ import Recharge from '@/pages/recharge/index.vue'
 import Withdraw from '@/pages/withdraw/index.vue'
 import SplitRecord from '@/pages/split-record/index.vue'
 import Order from '@/pages/order/index.vue'
+import Flow from '@/pages/flow/index.vue'
 import Qrcode from '@/pages/qrcode/index.vue'
 import Bankcard from '@/pages/bankcard/index.vue'
 import AccountUpgrade from '@/pages/account-upgrade/index.vue'
@@ -25,6 +26,7 @@ const routes = [
   { path: '/pages/withdraw', component: Withdraw },
   { path: '/pages/split-record', component: SplitRecord },
   { path: '/pages/order', component: Order },
+  { path: '/pages/flow', component: Flow },
   { path: '/pages/qrcode', component: Qrcode },
   { path: '/pages/bankcard', component: Bankcard },
   { path: '/pages/account-upgrade', component: AccountUpgrade },
@@ -44,8 +46,6 @@ export const router = createRouter({
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('user_token') || ''
   if (!token && to.path !== '/pages/login') {
-    // allow missing token for now, just to show how it works,
-    // wait, if we enforce it, they will be forced to log in:
     next('/pages/login')
   } else {
     next()
