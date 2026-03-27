@@ -10,7 +10,7 @@
         v-model="phone"
         type="tel"
         label="手机号"
-        placeholder="请输入注册手机号"
+        placeholder="测试账号: 15801852984"
         clearable
         size="large"
       />
@@ -19,7 +19,7 @@
         center
         clearable
         label="验证码"
-        placeholder="请输入短信验证码"
+        placeholder="测试验证码: 111111"
         size="large"
       >
         <template #button>
@@ -56,7 +56,13 @@ const sendCode = () => {
     countdown.value--
     if (countdown.value <= 0) clearInterval(timer)
   }, 1000)
-  uni.showToast({ title: '验证码发送成功', icon: 'success' })
+  
+  if (phone.value === '15801852984') {
+    code.value = '111111'
+    uni.showToast({ title: '测试环境：验证码自动获取成功', icon: 'none' })
+  } else {
+    uni.showToast({ title: '体验账号未被授权', icon: 'none' })
+  }
 }
 
 const handleLogin = () => {
@@ -66,6 +72,11 @@ const handleLogin = () => {
   }
   if (!code.value) {
     uni.showToast({ title: '请输入验证码', icon: 'none' })
+    return
+  }
+  
+  if (phone.value !== '15801852984' || code.value !== '111111') {
+    uni.showToast({ title: '手机号或验证码错误，请使用测试账号', icon: 'none' })
     return
   }
   
