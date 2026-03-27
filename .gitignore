@@ -3,3 +3,5 @@ dist/
 .DS_Store
 *.log
 .env
+# 钱账通密钥（敏感）
+uniapp/src/config/keys/
