@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const { KJUR } = require('jsrsasign');
-const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
 require('express-async-errors');
@@ -22,21 +21,21 @@ const QZT_CONFIG = {
   publicKey: fs.readFileSync(path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
 
-// --- 初始化 SQLite 数据库 ---
-const db = new sqlite3.Database('./database.sqlite');
-db.serialize(() => {
-  // 交易流水存储表
-  db.run(`CREATE TABLE IF NOT EXISTS trade_flows (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    merchant_no TEXT,
-    order_no TEXT,
-    trade_type TEXT,
-    amount REAL,
-    status TEXT,
-    raw_data TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-});
+// --- 初始化 JSON 数据库 ---
+const DB_FILE = path.join(__dirname, 'database.json');
+if (!fs.existsSync(DB_FILE)) {
+  fs.writeFileSync(DB_FILE, JSON.stringify([]));
+}
+function getFlows() {
+  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+}
+function saveFlow(flow) {
+  const flows = getFlows();
+  flow.id = Date.now();
+  flow.created_at = new Date().toISOString();
+  flows.unshift(flow);
+  fs.writeFileSync(DB_FILE, JSON.stringify(flows, null, 2));
+}
 
 // --- 加签 / 验签工具 ---
 function signData(content) {
@@ -64,7 +63,7 @@ app.post('/api/qzt/proxy', async (req, res) => {
   if (!service) return res.status(400).json({ error: 'Missing service name' });
 
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const paramsStr = params ? JSON.stringify(params) : '{}';
+  const paramsStr = params && Object.keys(params).length ? JSON.stringify(params) : '{}';
   const signContent = QZT_CONFIG.appId + timestamp + QZT_CONFIG.version + service + paramsStr;
   
   const signValue = signData(signContent);
@@ -95,36 +94,25 @@ app.post('/api/qzt/proxy', async (req, res) => {
 // ================= API: 门店绑定 (示例) =================
 app.post('/api/merchant/bind', async (req, res) => {
   const { merchant_no } = req.body;
-  // TODO: 如果需要调钱账通接口绑定商户号可在此构造内部调用
   res.json({ code: 0, message: '绑定模拟成功', merchant_no });
 });
 
 // ================= WEBHOOK: 接收交易流水通知 =================
 app.post('/webhook/trade-flow', (req, res) => {
-  // 1. 接收钱账通发来的通知体
   const payload = req.body;
-  
-  // 2. 验签 (真实情况请严格判断参数并组合验签)
-  // const isValid = verifyData(payload.result, payload.sign);
-  // if (!isValid) return res.status(403).send('FAIL');
-
   try {
-    // 假设 result 包含明文 JSON (如: { merchant_no: 'xxx', amount: 100 })
     const data = JSON.parse(payload.result || '{}');
-    
-    // 3. 落库
-    db.run(
-      `INSERT INTO trade_flows (merchant_no, order_no, trade_type, amount, status, raw_data) VALUES (?, ?, ?, ?, ?, ?)`,
-      [data.merchant_no, data.order_no, data.trade_type, data.amount, data.status, JSON.stringify(data)],
-      function(err) {
-        if (err) {
-          console.error('Insert flow err:', err);
-          return res.status(500).send('FAIL');
-        }
-        console.log('✔ 已记录一笔真实交易流水:', data.order_no);
-        // 4. 返回标准成功的 ACK，防止钱账通持续堆积重复推送
-        res.send('SUCCESS'); 
-    });
+    const dbData = { 
+      merchant_no: data.merchant_no, 
+      order_no: data.order_no, 
+      trade_type: data.trade_type, 
+      amount: data.amount, 
+      status: data.status, 
+      raw_data: JSON.stringify(data) 
+    };
+    saveFlow(dbData);
+    console.log('✔ 已记录一笔真实交易流水:', data.order_no);
+    res.send('SUCCESS');
   } catch (e) {
     res.status(400).send('FAIL');
   }
@@ -132,10 +120,12 @@ app.post('/webhook/trade-flow', (req, res) => {
 
 // ================= API: 前端获取交易流水记录 (展示用) =================
 app.get('/api/flows', (req, res) => {
-  db.all(`SELECT * FROM trade_flows ORDER BY created_at DESC`, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const rows = getFlows();
     res.json({ code: 0, data: rows });
-  });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 统一错误捕获
@@ -147,5 +137,4 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`[BFF Server] 钱账通真实对接服务已启动运行在 http://localhost:${port}`);
-  console.log(`[BFF Server] 请在钱账通管理后台将商户 Webhook 配置为: http://您的公网IP/webhook/trade-flow`);
 });
