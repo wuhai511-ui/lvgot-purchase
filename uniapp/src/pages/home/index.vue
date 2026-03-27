@@ -52,14 +52,14 @@ import { useSplitStore } from '@/store/split'
 const accountStore = useAccountStore()
 const splitStore = useSplitStore()
 
-const userRole = ref(uni.getStorageSync('user_role') || 'guide')
+const userRole = computed(() => accountStore.currentAccount.type)
 
 const allMenuItems = [
   { text: '充值', path: '/pages/recharge/index', emoji: '💰', bg: '#e3f2fd', roles: ['merchant'] },
   { text: '提现', path: '/pages/withdraw/index', emoji: '💵', bg: '#fce4ec', roles: ['merchant', 'guide'] },
   { text: '收款码', path: '/pages/qrcode/index', emoji: '💴', bg: '#fff8e1', roles: ['merchant'] },
   { text: '分账记录', path: '/pages/split-record/index', emoji: '📋', bg: '#e8f5e9', roles: ['merchant'] },
-  { text: '付款订单', path: '/pages/order/index', emoji: '📝', bg: '#f3e5f5', roles: ['merchant'] },
+  { text: '交易流水', path: '/pages/order/index', emoji: '📝', bg: '#f3e5f5', roles: ['merchant'] },
   { text: '银行卡', path: '/pages/bankcard/index', emoji: '💳', bg: '#e0f7fa', roles: ['merchant', 'guide'] },
   { text: '账户升级', path: '/pages/account-upgrade/index', emoji: '⬆️', bg: '#fbe9e7', roles: ['guide'] },
   { text: '门店绑定', path: '/pages/store-bind/index', emoji: '🏫', bg: '#ede7f6', roles: ['merchant'] },

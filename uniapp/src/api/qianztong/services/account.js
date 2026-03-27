@@ -36,6 +36,19 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{out_request_no, url, merchant_id}>}
  */
 export async function getOpenPageUrl(params) {
+  // Demo Mode: Mock the URL directly since front-end doesn't have secure private key access for real signing
+  if (true) {
+     return new Promise((resolve) => {
+        setTimeout(() => {
+           resolve({
+             out_request_no: params.out_request_no,
+             url: 'https://qztuat.xc-fintech.com/qzt-h5/open-account?mock=1',
+             merchant_id: '82230000100'
+           })
+        }, 800)
+     })
+  }
+
   return qztRequest('open.pay.account.page.url', params)
 }
 

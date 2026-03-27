@@ -49,11 +49,13 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useAccountStore } from '@/store/account'
 
 const phone = ref('')
 const code = ref('')
 const countdown = ref(0)
 const role = ref('guide') // default
+const accountStore = useAccountStore()
 
 const sendCode = () => {
   if (!/^1\d{10}$/.test(phone.value)) {
@@ -96,6 +98,9 @@ const handleLogin = () => {
     uni.setStorageSync('user_token', 'token_xxxxxx')
     uni.setStorageSync('user_phone', phone.value)
     uni.setStorageSync('user_role', role.value)
+    accountStore.currentAccount.type = role.value
+    accountStore.currentAccount.typeName = role.value === 'merchant' ? '商店/旅行社' : '导游'
+    accountStore.currentAccount.name = role.value === 'merchant' ? '测试旅游商店' : '李四 (导游)'
     
     uni.showToast({ title: '登录成功' })
     setTimeout(() => {
