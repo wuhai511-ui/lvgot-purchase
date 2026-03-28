@@ -82,7 +82,7 @@
 
         <view class="upload-section">
           <view class="upload-label">法人身份证正面 *</view>
-          <view class="upload-box" @click="chooseImage('legal_id_card_front')">
+          <view class="upload-box" @click="handleChooseImage('legal_id_card_front')">
             <image v-if="form.legal_id_card_front" :src="form.legal_id_card_front" mode="aspectFit" class="preview-img" />
             <view v-else class="upload-placeholder">
               <text class="icon">📷</text>
@@ -93,7 +93,7 @@
 
         <view class="upload-section">
           <view class="upload-label">法人身份证背面 *</view>
-          <view class="upload-box" @click="chooseImage('legal_id_card_back')">
+          <view class="upload-box" @click="handleChooseImage('legal_id_card_back')">
             <image v-if="form.legal_id_card_back" :src="form.legal_id_card_back" mode="aspectFit" class="preview-img" />
             <view v-else class="upload-placeholder">
               <text class="icon">📷</text>
@@ -104,7 +104,7 @@
 
         <view class="upload-section">
           <view class="upload-label">营业执照 *</view>
-          <view class="upload-box" @click="chooseImage('business_license_img')">
+          <view class="upload-box" @click="handleChooseImage('business_license_img')">
             <image v-if="form.business_license_img" :src="form.business_license_img" mode="aspectFit" class="preview-img" />
             <view v-else class="upload-placeholder">
               <text class="icon">📷</text>
@@ -115,7 +115,7 @@
 
         <view class="upload-section">
           <view class="upload-label">银行账户证明（开户许可证）</view>
-          <view class="upload-box" @click="chooseImage('bank_account_permit')">
+          <view class="upload-box" @click="handleChooseImage('bank_account_permit')">
             <image v-if="form.bank_account_permit" :src="form.bank_account_permit" mode="aspectFit" class="preview-img" />
             <view v-else class="upload-placeholder">
               <text class="icon">📷</text>
@@ -163,8 +163,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { chooseImage } from '@/utils/uni.js'
-import { uploadFile, submitMerchantApply } from '@/api/merchant.js'
+
+import { uploadFile, submitMerchantApply } from '@/api/merchant/index.js'
 
 const step = ref(1)
 const loading = ref(false)
@@ -252,10 +252,7 @@ async function handleChooseImage(field) {
   }
 }
 
-// 兼容 uniapp 的 chooseImage
-function chooseImage(field) {
-  handleChooseImage(field)
-}
+
 
 // ---------- Step 1: 提交基本信息 ----------
 function submitStep1() {
