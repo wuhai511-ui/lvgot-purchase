@@ -225,8 +225,16 @@ const app = createApp({
     return { page, activeMenu, sidebarOpen, handleMenuSelect, pageTitle, pageTitles, appConfig, saveAppConfig, auditQueue, auditFilters, loadAudit, doApprove, showRejectDialog, showDetail, accountList, accountFilters, accountTotal, accountPage, loadAccounts, showAccountDetail, typeNameMap, orderList, orderFilters, splitList, splitFilters, withdrawList, wdFilters, webhookList, storeList, storeFilters, rechargeList, rechargeFilters, todoList, pendingCount };
   }
 });
-app.use(ElementPlus);
-app.mount("#app");
+// 确保 DOM 加载完毕后再挂载
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    app.use(ElementPlus);
+    app.mount("#app");
+  });
+} else {
+  app.use(ElementPlus);
+  app.mount("#app");
+}
 </script>
 
 </body>
