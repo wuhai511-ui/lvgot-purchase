@@ -1274,7 +1274,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 </div><!-- end app -->
 
 <script>
-const { createApp, ref, reactive, computed } = Vue;
+const { createApp, ref, reactive } = Vue;
 const app = createApp({
   setup() {
     const page = ref("dashboard");
@@ -1308,7 +1308,12 @@ const app = createApp({
     const auditFilters = reactive({ status:"", keyword:"" });
     const loadAudit = () => {
       fetch("https://bgualqb.cn/api/audit/list" + (auditFilters.status ? '?status=' + auditFilters.status : ''))
-        .then(r=>r.json()).then(d=>{ if(d.code===0) auditQueue.value=d.data.list; }).catch(()=>{});
+        .then(r=>r.json()).then(d=>{ 
+          if(d.code===0){ 
+            auditQueue.value=d.data.list; 
+            pendingCount.value = d.data.list ? d.data.list.length : 0;
+          } 
+        }).catch(()=>{});
     };
     const doApprove = (row) => {
       fetch("https://bgualqb.cn/api/audit/approve", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({accountNo:row.accountNo}) })
@@ -1356,8 +1361,19 @@ const app = createApp({
     loadAccounts();
     loadAudit();
 
-    // 待审核数量
-    const pendingCount = computed(() => auditQueue.value ? auditQueue.value.length : 0);
+    // 待审核数量（初始值0，由loadAudit触发更新）
+    const pendingCount = ref(0);
+    // loadAudit完成后同步pendingCount
+    const _doApprove = doApprove;
+    const _showReject = showRejectDialog;
+    const doApprove = (row) => {
+      _doApprove(row);
+      setTimeout(() => { pendingCount.value = auditQueue.value ? auditQueue.value.length : 0; }, 200);
+    };
+    const showRejectDialog = (row) => {
+      _showReject(row);
+      setTimeout(() => { pendingCount.value = auditQueue.value ? auditQueue.value.length : 0; }, 200);
+    };
 
     // HTML实体解码
     const decodeHTML = (str) => {
