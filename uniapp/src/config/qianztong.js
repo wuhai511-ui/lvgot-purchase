@@ -6,7 +6,7 @@
 // 测试环境
 const QZT_CONFIG = {
   appId: '7348882579718766592',
-  gateway: 'https://qztuat.xc-fintech.com/gateway/soa',
+  gateway: 'https://bgualqb.cn/api/qzt/proxy',
   version: '4.0',
   // 签名私钥（绝对路径，从环境变量或本地文件读取）
   privateKeyPath: '/workspace/uniapp/src/config/keys/private_key.pem',

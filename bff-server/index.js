@@ -50,8 +50,7 @@ function getMerchantById(id) {
   return merchants.find(m => String(m.id) === String(id));
 }
 
-// --- 流水数据库（原有） ---
-const DB_FILE = path.join(__dirname, 'database.json');
+// --- 流水数据库（原有） ---const DB_FILE = path.join(__dirname, 'database.json');
 if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify([]));
 }
@@ -89,8 +88,7 @@ function verifyData(data, signValue) {
 // --- 调用钱账通网关 ---
 async function callQzt(service, params) {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const paramsStr = JSON.stringify(params);
-  const signContent = QZT_CONFIG.appId + timestamp + QZT_CONFIG.version + service + paramsStr;
+  const paramsStr = JSON.stringify(params);  const signContent = QZT_CONFIG.appId + timestamp + QZT_CONFIG.version + service + paramsStr;
   const signValue = signData(signContent);
 
   const body = {
@@ -389,8 +387,7 @@ app.post('/webhook/trade-flow', (req, res) => {
       trade_type: data.trade_type,
       amount: data.amount,
       status: data.status,
-      raw_data: JSON.stringify(data)
-    };
+      raw_data: JSON.stringify(data)    };
     saveFlow(dbData);
     console.log('✔ 已记录一笔真实交易流水:', data.order_no);
     res.send('SUCCESS');
