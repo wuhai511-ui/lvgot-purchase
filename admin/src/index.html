@@ -141,7 +141,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 <div><div class="timeline-dot" :class="{'timeline-dot-gray':item.done}"></div><div class="timeline-line" v-if="i<todoList.length-1"></div></div>
 <div class="timeline-content">
 <div class="timeline-time">{{item.time}}</div>
-<div class="timeline-title">{{item.title}}</div>
+<div class="timeline-title">{{decodeHTML(item.title)}}</div>
 <div class="timeline-desc" v-if="item.amount">&#37329;&#39069;&#65306;<span class="money">&#165; {{item.amount.toLocaleString()}}</span></div>
 <el-button v-if="item.action" type="primary" size="small" style="margin-top:8px" @click="handleMenuSelect(item.actionKey)">{{item.action}}</el-button>
 </div>
@@ -153,7 +153,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 </div></div></div></div></div>
 
 <script>
-const { createApp, ref, reactive } = Vue;
+const { createApp, ref, reactive, computed } = Vue;
 const app = createApp({
   setup() {
     const page = ref("dashboard");
@@ -220,9 +220,15 @@ const app = createApp({
       { time:"2026-03-26 09:45", title:"&#35794;&#21333;#ORD20260326001&#20998;&#36134;&#22788;&#29702;", amount:5000, action:"&#26597;&#30475;", actionKey:"split-record" },
       { time:"2026-03-26 09:20", title:"&#23548;&#28216;&#26446;&#22235;&#25552;&#20132;&#25552;&#29616;&#30003;&#35831;&#65288;&#24453;&#22788;&#29702;&#65289;", amount:5000, action:"&#22788;&#29702;", actionKey:"withdraw" }
     ]);
-    const pendingCount = ref(3);
+    const pendingCount = computed(() => auditQueue.value.length);
+    const decodeHTML = (str) => {
+      const txt = document.createElement('textarea');
+      txt.innerHTML = str;
+      return txt.value;
+    };
     loadAccounts();
-    return { page, activeMenu, sidebarOpen, handleMenuSelect, pageTitle, pageTitles, appConfig, saveAppConfig, auditQueue, auditFilters, loadAudit, doApprove, showRejectDialog, showDetail, accountList, accountFilters, accountTotal, accountPage, loadAccounts, showAccountDetail, typeNameMap, orderList, orderFilters, splitList, splitFilters, withdrawList, wdFilters, webhookList, storeList, storeFilters, rechargeList, rechargeFilters, todoList, pendingCount };
+    loadAudit();
+    return { page, activeMenu, sidebarOpen, handleMenuSelect, pageTitle, pageTitles, appConfig, saveAppConfig, auditQueue, auditFilters, loadAudit, doApprove, showRejectDialog, showDetail, accountList, accountFilters, accountTotal, accountPage, loadAccounts, showAccountDetail, typeNameMap, orderList, orderFilters, splitList, splitFilters, withdrawList, wdFilters, webhookList, storeList, storeFilters, rechargeList, rechargeFilters, todoList, pendingCount, decodeHTML };
   }
 });
 // 确保 DOM 加载完毕后再挂载
