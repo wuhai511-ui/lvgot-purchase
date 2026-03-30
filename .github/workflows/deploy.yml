@@ -26,6 +26,14 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Build Admin (Vue3 + Element Plus)
+        run: |
+          cd admin
+          npm install
+          npm run build
+        env:
+          NODE_OPTIONS: ""
+
       - name: Build UniApp
         run: |
           cd uniapp
@@ -36,8 +44,8 @@ jobs:
         run: |
           mkdir -p dist/admin dist/miniprogram dist/uniapp
 
-          # Admin (existing logic)
-          cp admin/src/index.html dist/admin/index.html
+          # Admin (Vite build output)
+          cp -r admin/dist/* dist/admin/
 
           # UniApp deployment (new Vue3 H5 app goes to both uniapp and miniprogram paths)
           cp -r uniapp/dist/build/h5/* dist/uniapp/
