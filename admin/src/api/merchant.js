@@ -1,68 +1,59 @@
 /**
- * 商户模块 API
+ * 商户相关 API
  */
 import { get, post, upload } from './request.js'
 
 /**
- * 商户登录（手机号+验证码）
- * @param {string} phone - 手机号
- * @param {string} code - 验证码
+ * 手机号+验证码登录
+ * @param {string} phone 手机号
+ * @param {string} code 验证码
  */
-export function merchantLogin(phone, code) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      token: 'mock_jwt_token_' + Date.now(),
-      merchantId: 'M0001',
-      merchantName: '测试商户',
-    },
-  })
+export const merchantLogin = (phone, code) => {
+  return post('/api/merchant/login', { phone, code })
 }
 
 /**
- * 商户登录（用户名+密码）
- * @param {string} username - 用户名
- * @param {string} password - 密码
+ * 文件上传（通用）
+ * @param {File} file 文件对象
+ * @returns {Promise<string>} file_key
  */
-export function login(username, password) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      token: 'mock_token_' + Date.now(),
-      merchantId: 'M0001',
-      merchantName: '测试商户',
-    },
+export const uploadFile = (file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+  // Mock: 返回模拟 file_key
+  return new Promise((resolve) => {
+    setTimeout(() => resolve('file_key_' + Date.now()), 800)
   })
+  // 真实实现：
+  // return upload('/api/file/upload', formData).then(r => r.data.file_key)
 }
 
 /**
- * 申请商户账号
- * @param {Object} data - 申请数据
+ * 商户开户申请
+ * @param {Object} data 开户表单数据
  */
-export function applyAccount(data) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      applyId: 'A' + Date.now(),
-      status: 'pending',
-    },
+export const openAccount = (data) => {
+  // Mock: 返回模拟跳转URL
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve({
+        code: 0,
+        message: '提交成功',
+        data: {
+          redirectUrl: 'https://qzt.example.com/h5/account/open?merchantId=mock_' + Date.now(),
+          accountNo: 'LAK' + Date.now()
+        }
+      })
+    }, 2000)
   })
+  // 真实实现：
+  // return post('/api/open/account/apply', data)
 }
 
 /**
- * 文件上传
- * @param {FormData} formData - 文件表单数据
+ * 查询商户开户状态
+ * @param {string} merchantId
  */
-export function uploadFile(formData) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      fileUrl: 'https://bgualqb.cn/files/' + Date.now(),
-      fileId: 'F' + Date.now(),
-    },
-  })
+export const getMerchantStatus = (merchantId) => {
+  return get('/api/merchant/status', { merchantId })
 }
