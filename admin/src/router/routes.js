@@ -55,6 +55,12 @@ const routes = [
     component: TradeMessage,
   },
   {
+    path: '/payment',
+    name: 'PaymentOrder',
+    meta: { requiresAuth: true },
+    component: PaymentOrder,
+  },
+  {
     path: '/split-rule',
     name: 'SplitRule',
     meta: { requiresAuth: true },
