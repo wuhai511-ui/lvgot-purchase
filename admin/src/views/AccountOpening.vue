@@ -176,18 +176,26 @@
       <el-button type="primary" :loading="submitting" @click="handleSubmit">提交开户申请</el-button>
     </div>
 
-    <!-- 开户结果 -->
-    <el-dialog v-model="showResult" title="开户申请状态" width="450px" :close-on-click-modal="false">
-      <el-result
-        v-if="submitResult"
-        :icon="submitResult.code === 0 ? 'success' : 'error'"
-        :title="submitResult.code === 0 ? '提交成功' : '提交失败'"
-        :sub-title="submitResult.message || ''"
-      >
-        <template #extra v-if="submitResult.code === 0 && submitResult.data?.redirectUrl">
-          <el-button type="primary" @click="redirectToQZT">前往钱账通完成认证</el-button>
-        </template>
-      </el-result>
+    <!-- 开户结果：扫码认证 -->
+    <el-dialog v-model="showResult" title="扫码认证" width="450px" :close-on-click-modal="false" :show-close="false">
+      <div v-if="submitResult && submitResult.code === 0 && submitResult.data?.redirectUrl" class="qr-wrapper">
+        <div class="qr-tip">请使用手机微信/支付宝扫码完成实名认证</div>
+        <div class="qr-box">
+          <qrcode-vue :value="submitResult.data.redirectUrl" :size="200" level="M" />
+        </div>
+        <div class="qr-url">{{ submitResult.data.redirectUrl }}</div>
+        <div class="qr-status">
+          <el-tag v-if="verifyStatus === 'pending'" type="warning" effect="plain">⏳ 等待认证中...</el-tag>
+          <el-tag v-else-if="verifyStatus === 'success'" type="success">✅ 认证成功</el-tag>
+          <el-tag v-else-if="verifyStatus === 'failed'" type="danger">❌ 认证失败</el-tag>
+        </div>
+        <div v-if="verifyStatus === 'success'" class="qr-success-action">
+          <el-button type="primary" @click="$router.push('/')">返回工作台</el-button>
+        </div>
+      </div>
+      <div v-else-if="submitResult" class="qr-error">
+        <el-result icon="error" title="提交失败" :sub-title="submitResult.message || '请重试'" />
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -197,12 +205,14 @@ import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { uploadFile } from '@/api/merchant'
 import { openAccount } from '@/api/merchant'
+import QrcodeVue from 'qrcode.vue'
 
 const formRef = ref()
 const formRef2 = ref()
 const submitting = ref(false)
 const showResult = ref(false)
 const submitResult = ref(null)
+const verifyStatus = ref('pending') // pending | success | failed
 
 // 文件列表
 const idCardFrontList = ref([])
@@ -347,18 +357,13 @@ const handleSubmit = async () => {
     // 2. 调用钱账通开户接口
     const result = await openAccount(form)
     submitResult.value = result
+    verifyStatus.value = 'pending'  // 扫码后等待用户在手机端完成认证
     showResult.value = true
   } catch (e) {
     submitResult.value = { code: -1, message: e.message || '提交失败，请重试' }
     showResult.value = true
   } finally {
     submitting.value = false
-  }
-}
-
-const redirectToQZT = () => {
-  if (submitResult.value?.data?.redirectUrl) {
-    window.location.href = submitResult.value.data.redirectUrl
   }
 }
 </script>
@@ -372,4 +377,11 @@ const redirectToQZT = () => {
 .upload-item { }
 .upload-label { font-size: 14px; color: #333; margin-bottom: 8px; }
 .submit-area { display: flex; justify-content: center; gap: 16px; padding: 24px 0; }
+.qr-wrapper { text-align: center; padding: 20px 0; }
+.qr-tip { font-size: 15px; color: #333; margin-bottom: 20px; font-weight: 500; }
+.qr-box { display: flex; justify-content: center; background: #fafafa; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
+.qr-url { font-size: 11px; color: #aaa; word-break: break-all; margin-bottom: 16px; max-width: 300px; margin: 0 auto 16px; }
+.qr-status { margin-bottom: 16px; }
+.qr-success-action { margin-top: 12px; }
+.qr-error { padding: 20px 0; }
 </style>
