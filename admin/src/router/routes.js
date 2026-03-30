@@ -11,6 +11,7 @@ import TradeMessage from '../views/TradeMessage.vue'
 import PaymentOrder from '../views/PaymentOrder.vue'
 import SplitRule from '../views/SplitRule.vue'
 import SplitRecord from '../views/SplitRecord.vue'
+import Store from '../views/Store.vue'
 
 const routes = [
   {
@@ -71,6 +72,12 @@ const routes = [
     name: 'SplitRecord',
     meta: { requiresAuth: true },
     component: SplitRecord,
+  },
+  {
+    path: '/store',
+    name: 'Store',
+    meta: { requiresAuth: true },
+    component: Store,
   },
   {
     // 未匹配路由重定向到 /
