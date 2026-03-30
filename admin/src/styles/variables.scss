@@ -1,0 +1,17 @@
+// 主题颜色变量
+$primary-color: #1976D2;
+$success-color: #4CAF50;
+$warning-color: #F57C00;
+$danger-color: #E53935;
+$bg-color: #f0f2f5;
+$text-color: #1a1a1a;
+
+// Element Plus 主题覆盖变量
+$--color-primary: $primary-color;
+$--color-success: $success-color;
+$--color-warning: $warning-color;
+$--color-danger: $danger-color;
+$--color-info: #909399;
+
+$--background-color-base: $bg-color;
+$--text-color-base: $text-color;

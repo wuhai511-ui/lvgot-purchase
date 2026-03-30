@@ -1,19 +1,20 @@
 /**
  * 基础路由配置
- * 页面组件将在后续任务中填充
  */
+import Login from '../views/Login.vue'
+import Dashboard from '../views/Dashboard.vue'
+
 const routes = [
   {
     path: '/login',
     name: 'Login',
-    // TODO: 替换为 import('../pages/Login.vue')
-    component: { template: '<div></div>' },
+    component: Login,
   },
   {
     path: '/',
     name: 'Dashboard',
-    // TODO: 替换为 import('../pages/Dashboard.vue')
-    component: { template: '<div></div>' },
+    meta: { requiresAuth: true },
+    component: Dashboard,
   },
   {
     // 未匹配路由重定向到 /
