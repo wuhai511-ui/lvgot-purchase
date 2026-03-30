@@ -7,6 +7,10 @@ import AccountOpening from '../views/AccountOpening.vue'
 import BankCard from '../views/BankCard.vue'
 import Recharge from '../views/Recharge.vue'
 import Withdraw from '../views/Withdraw.vue'
+import TradeMessage from '../views/TradeMessage.vue'
+import PaymentOrder from '../views/PaymentOrder.vue'
+import SplitRule from '../views/SplitRule.vue'
+import SplitRecord from '../views/SplitRecord.vue'
 
 const routes = [
   {
@@ -43,6 +47,24 @@ const routes = [
     name: 'Withdraw',
     meta: { requiresAuth: true },
     component: Withdraw,
+  },
+  {
+    path: '/trade-message',
+    name: 'TradeMessage',
+    meta: { requiresAuth: true },
+    component: TradeMessage,
+  },
+  {
+    path: '/split-rule',
+    name: 'SplitRule',
+    meta: { requiresAuth: true },
+    component: SplitRule,
+  },
+  {
+    path: '/split-record',
+    name: 'SplitRecord',
+    meta: { requiresAuth: true },
+    component: SplitRecord,
   },
   {
     // 未匹配路由重定向到 /
