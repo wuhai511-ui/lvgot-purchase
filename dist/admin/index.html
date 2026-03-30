@@ -3,70 +3,85 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>旅购通分账系统 - 钱账通运营后台</title>
+<title>&#26053;&#36141;&#36890;&#20998;&#36134;&#31995;&#32479; - &#36816;&#33829;&#21518;&#21488;</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.css">
 <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.full.min.min.js"></script>
 <style>
+:root{--primary:#6366f1;--primary-dark:#4f46e5;--primary-light:#818cf8;--secondary:#8b5cf6;--green:#10b981;--green-light:#d1fae5;--red:#ef4444;--red-light:#fee2e2;--orange:#f59e0b;--orange-light:#fef3c7;--blue-light:#dbeafe;--bg:#f8fafc;--card-bg:#ffffff;--border:#e2e8f0;--text:#1e293b;--text-muted:#64748b;--shadow:0 1px 3px rgba(0,0,0,0.08),0 4px 12px rgba(0,0,0,0.05);--shadow-lg:0 4px 16px rgba(0,0,0,0.1),0 8px 32px rgba(0,0,0,0.08);--radius:10px;--radius-sm:6px}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f0f2f5}
-.layout{display:flex;height:100vh;position:relative}
-/* Sidebar overlay for mobile */
-.sidebar-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);z-index:998;display:none;transition:opacity 0.3s}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;font-size:14px;min-height:100vh}
+.layout{display:flex;height:100vh}
+.sidebar-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:998;display:none;backdrop-filter:blur(2px)}
 .sidebar-overlay.active{display:block}
-/* Desktop: sidebar is part of flex layout */
-.sidebar{width:220px;background:#fff;border-right:1px solid #e6e8eb;flex-shrink:0;display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;transition:transform 0.3s ease}
-/* Mobile: sidebar becomes a fixed overlay */
-@media(max-width:768px){
-  .sidebar-overlay{position:fixed;top:0;left:0;right:0;bottom:0;width:220px;z-index:999}
-  .sidebar{position:fixed;top:0;left:0;bottom:0;width:220px;transform:translateX(-100%);z-index:999}
-  .sidebar.mobile-open{transform:translateX(0)}
-  .hamburger{display:block!important}
-}
-
-.menu-wrap{flex:1;overflow-y:auto;padding:8px 0}
+.sidebar{width:240px;background:linear-gradient(180deg,#4f46e5 0%,#6366f1 100%);flex-shrink:0;display:flex;flex-direction:column;height:100vh;position:relative;z-index:1;transition:transform 0.3s ease;box-shadow:2px 0 12px rgba(79,70,229,0.15)}
+.logo{padding:20px 24px;color:#fff;font-weight:700;font-size:18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.1)}
+.logo-icon{width:36px;height:36px;background:rgba(255,255,255,0.2);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.menu-wrap{flex:1;overflow-y:auto;padding:12px 0}
+.menu-wrap .el-menu{background:transparent!important;border-right:none}
+.menu-wrap .el-menu-item,.menu-wrap .el-sub-menu__title{color:rgba(255,255,255,0.85)!important;border-radius:var(--radius-sm);margin:4px 12px;transition:all 0.2s}
+.menu-wrap .el-menu-item:hover,.menu-wrap .el-sub-menu__title:hover{background:rgba(255,255,255,0.15)!important;color:#fff!important}
+.menu-wrap .el-menu-item.is-active{background:rgba(255,255,255,0.2)!important;color:#fff!important}
+.menu-wrap .el-menu-item.is-active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:20px;background:#fff;border-radius:0 2px 2px 0}
+@media(max-width:768px){.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;transform:translateX(-100%);z-index:999}.sidebar.mobile-open{transform:translateX(0)}.hamburger{display:block!important}}
+.hamburger{display:none;background:none;border:none;cursor:pointer;font-size:22px;padding:4px;line-height:1;color:#fff}
 .main{flex:1;display:flex;flex-direction:column;min-width:0}
-.topbar{background:#fff;border-bottom:1px solid #e6e8eb;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between}
-.breadcrumb{display:flex;align-items:center;gap:8px;font-size:14px;color:#666}
-.breadcrumb-sep{color:#ccc}
-.breadcrumb-current{color:#333;font-weight:600}
-.topbar-right{display:flex;align-items:center;gap:16px}
-.avatar{width:36px;height:36px;border-radius:50%;background:#1976D2;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer}
-.content{flex:1;overflow-y:auto;padding:20px 24px}
-.page-title{font-size:20px;font-weight:700;color:#1a1a1a;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between}
-.card{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px}
-.card-header{padding:16px 20px;border-bottom:1px solid #f0f0f0;display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:600;color:#1a1a1a}
-.card-body{padding:20px}
-.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
-.stat-card{background:#fff;border-radius:12px;padding:20px;display:flex;align-items:center;gap:16px;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:box-shadow 0.2s}
-.stat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1)}
-.stat-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.topbar{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);position:sticky;top:0;z-index:10}
+.breadcrumb{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text-muted)}
+.breadcrumb-sep{color:var(--border)}
+.breadcrumb-current{color:var(--text);font-weight:600}
+.topbar-right{display:flex;align-items:center;gap:20px}
+.avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--primary) 0%,var(--secondary) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;box-shadow:var(--shadow)}
+.content{flex:1;overflow-y:auto;padding:24px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%)}
+.page-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;position:relative}
+.page-title::after{content:'';position:absolute;bottom:-8px;left:0;width:40px;height:3px;background:linear-gradient(90deg,var(--primary) 0%,var(--secondary) 100%);border-radius:2px}
+.page{animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.card{background:var(--card-bg);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;border:1px solid var(--border);overflow:hidden}
+.card-header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:15px;font-weight:600;color:var(--text);background:linear-gradient(90deg,rgba(99,102,241,0.03) 0%,transparent 100%)}
+.card-body{padding:24px}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:24px}
+.stat-card{background:var(--card-bg);border-radius:var(--radius);padding:24px;display:flex;align-items:center;gap:16px;box-shadow:var(--shadow);transition:all 0.3s;border:1px solid var(--border)}
+.stat-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--primary-light)}
+.stat-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
 .stat-info{flex:1}
-.stat-value{font-size:22px;font-weight:700;color:#1a1a1a;line-height:1.2}
-.stat-label{font-size:13px;color:#888;margin-top:4px}
-.stat-change{font-size:12px;color:#4CAF50;margin-top:2px}
-.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:4px;font-size:12px}
-.tag-success{background:#e8f5e9;color:#4CAF50}
-.tag-warning{background:#fff8e1;color:#F57C00}
-.tag-danger{background:#ffebee;color:#E53935}
-.tag-info{background:#e3f2fd;color:#1976D2}
-.tag-default{background:#f5f5f5;color:#666}
-.money{color:#E6A23C;font-weight:600}
-.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
-.config-card{background:#fafbfc;border:1px solid #f0f0f0;border-radius:12px;padding:20px}
-.config-card-title{font-size:15px;font-weight:600;color:#1a1a1a;margin-bottom:8px;display:flex;align-items:center;gap:8px}
-.config-card-desc{font-size:13px;color:#888;margin-bottom:16px;line-height:1.6}
-.toggle-desc{font-size:12px;color:#888;margin-top:6px}
-.timeline-item{display:flex;gap:12px;padding-bottom:20px;position:relative}
-.timeline-dot{width:10px;height:10px;border-radius:50%;background:#1976D2;flex-shrink:0;margin-top:4px}
-.timeline-dot-gray{background:#ccc}
-.timeline-line{position:absolute;left:4px;top:14px;bottom:0;width:2px;background:#e6e8eb}
+.stat-value{font-size:24px;font-weight:700;line-height:1.2;background:linear-gradient(135deg,var(--text),var(--primary-dark));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:13px;color:var(--text-muted);margin-top:6px;font-weight:500}
+.stat-change{font-size:12px;color:var(--green);margin-top:4px;font-weight:500}
+.tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.tag-success{background:var(--green-light);color:var(--green)}
+.tag-warning{background:var(--orange-light);color:var(--orange)}
+.tag-danger{background:var(--red-light);color:var(--red)}
+.tag-info{background:var(--blue-light);color:#3b82f6}
+.tag-default{background:#f1f5f9;color:var(--text-muted)}
+.money{color:var(--orange);font-weight:600}
+.timeline-item{display:flex;gap:16px;padding-bottom:24px;position:relative}
+.timeline-dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--primary) 0%,var(--secondary) 100%);flex-shrink:0;margin-top:4px;box-shadow:0 0 0 4px rgba(99,102,241,0.2)}
+.timeline-dot-gray{background:var(--border);box-shadow:none}
+.timeline-line{position:absolute;left:5px;top:16px;bottom:0;width:2px;background:linear-gradient(180deg,var(--primary-light) 0%,var(--border) 100%)}
 .timeline-content{flex:1}
-.timeline-time{font-size:12px;color:#888}
-.timeline-title{font-size:14px;color:#333;margin-top:2px}
-.timeline-desc{font-size:12px;color:#888;margin-top:4px}
-.page{animation:fadeIn 0.25s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.timeline-time{font-size:12px;color:var(--text-muted);font-weight:500}
+.timeline-title{font-size:15px;color:var(--text);margin-top:6px;font-weight:500}
+.timeline-desc{font-size:13px;color:var(--text-muted);margin-top:6px}
+.config-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px;margin-top:24px}
+.config-card{background:#fafbfc;border:1px solid var(--border);border-radius:var(--radius);padding:24px;transition:all 0.2s}
+.config-card:hover{border-color:var(--primary-light);box-shadow:var(--shadow)}
+.config-card-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:10px}
+.config-card-desc{font-size:13px;color:var(--text-muted);margin-bottom:20px;line-height:1.7}
+.toggle-desc{font-size:12px;color:var(--text-muted);margin-top:8px}
+.el-button--primary{background:linear-gradient(135deg,var(--primary) 0%,var(--secondary) 100%)!important;border:none!important;font-weight:600}
+.el-button--primary:hover{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%)!important;transform:translateY(-1px);box-shadow:0 4px 12px rgba(99,102,241,0.35)}
+.el-button--success{background:var(--green)!important;border-color:var(--green)!important}
+.el-button--danger{background:var(--red)!important;border-color:var(--red)!important}
+.el-table{--el-table-border-color:var(--border);--el-table-header-bg-color:var(--bg)}
+.el-table th{background:linear-gradient(90deg,var(--bg) 0%,#f1f5f9 100%)!important;font-weight:600!important;color:var(--text-muted)!important}
+.el-table tr:hover td{background:rgba(99,102,241,0.04)!important}
+.el-input__wrapper{box-shadow:none!important;border:1px solid var(--border)!important;border-radius:var(--radius-sm)!important}
+.el-input__wrapper:hover{border-color:var(--primary-light)!important}
+.el-input__wrapper.is-focus{border-color:var(--primary)!important;box-shadow:0 0 0 3px rgba(99,102,241,0.1)!important}
+@media(max-width:1200px){.stat-row{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:768px){.stat-row{grid-template-columns:1fr}.config-grid{grid-template-columns:1fr}.content{padding:16px}}
+
 </style>
 </head>
 <body>
@@ -74,25 +89,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="sidebar-overlay" :class="{active:sidebarOpen}" @click="sidebarOpen=false"></div>
 <div class="layout">
 <aside class="sidebar" :class="{'mobile-open':sidebarOpen}">
-<div class="logo"><div class="logo-icon">L</div><span>旅购通分账</span></div>
+<div class="logo"><div class="logo-icon">&#128179;</div><span>&#26053;&#36141;&#36890;&#20998;&#36134;</span></div>
 <div class="menu-wrap">
 <el-menu :default-active="activeMenu" @select="handleMenuSelect" style="border-right:none">
-<el-menu-item index="dashboard">工作台</el-menu-item>
-<el-sub-menu index="account"><template #title>账户管理</template>
-<el-menu-item index="account-open">开户申请</el-menu-item>
-<el-menu-item index="account-list">账户列表</el-menu-item>
+<el-menu-item index="dashboard">&#24037;&#20316;&#21488;</el-menu-item>
+<el-sub-menu index="account"><template #title>&#36134;&#25143;&#31649;&#29702;</template>
+<el-menu-item index="account-open">&#24320;&#25143;&#30003;&#35831;</el-menu-item>
+<el-menu-item index="account-list">&#36134;&#25143;&#21015;&#34920;</el-menu-item>
 </el-sub-menu>
-<el-sub-menu index="transaction"><template #title>交易管理</template>
-<el-menu-item index="transaction-recharge">账户方充值转账</el-menu-item>
-<el-menu-item index="transaction-withdraw">支付账户提现</el-menu-item>
-<el-menu-item index="split-record">余额分账</el-menu-item>
-<el-menu-item index="transaction-orders">付款订单</el-menu-item>
-<el-menu-item index="transaction-subscribe">交易订阅</el-menu-item>
+<el-sub-menu index="transaction"><template #title>&#20132;&#26131;&#31649;&#29702;</template>
+<el-menu-item index="transaction-recharge">&#36134;&#25143;&#26041;&#20805;&#20540;&#36716;&#36151;</el-menu-item>
+<el-menu-item index="transaction-withdraw">&#25903;&#20184;&#36134;&#25143;&#25552;&#29616;</el-menu-item>
+<el-menu-item index="split-record">&#20313;&#39069;&#20998;&#36134;</el-menu-item>
+<el-menu-item index="transaction-orders">&#20184;&#27454;&#35718;&#21333;</el-menu-item>
+<el-menu-item index="transaction-subscribe">&#20132;&#26131;&#35746;&#38405;</el-menu-item>
 </el-sub-menu>
-<el-menu-item index="withdraw">提现管理</el-menu-item>
-<el-menu-item index="store">门店管理</el-menu-item>
-<el-sub-menu index="app"><template #title>应用配置</template>
-<el-menu-item index="app-config">基本配置</el-menu-item>
+<el-menu-item index="withdraw">&#25552;&#29616;&#31649;&#29702;</el-menu-item>
+<el-menu-item index="store">&#38376;&#24215;&#31649;&#29702;</el-menu-item>
+<el-sub-menu index="app"><template #title>&#24212;&#29992;&#37197;&#32622;</template>
+<el-menu-item index="app-config">&#22522;&#26412;&#37197;&#32622;</el-menu-item>
 </el-sub-menu>
 </el-menu>
 </div>
@@ -100,13 +115,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div class="main">
 <header class="topbar">
 <div style="display:flex;align-items:center;gap:12px">
-<button class="hamburger" @click="toggleSidebar" style="display:none;background:none;border:none;cursor:pointer;font-size:22px;padding:4px;line-height:1" title="菜单">
-  <span v-if="!sidebarOpen">&#9776;</span>
-  <span v-else>&#10005;</span>
-</button>
-<div class="breadcrumb"><span>首页</span><span class="breadcrumb-sep">/</span><span class="breadcrumb-current">{{pageTitle}}</span></div>
+<button class="hamburger" @click="sidebarOpen=!sidebarOpen">&#9776;</button>
+<div class="breadcrumb"><span>&#39318;&#39029;</span><span class="breadcrumb-sep">/</span><span class="breadcrumb-current">{{pageTitle}}</span></div>
 </div>
-<div class="topbar-right"><el-badge :value="3" type="primary"><span style="font-size:18px;cursor:pointer">&#128276;</span></el-badge><div class="avatar">管</div></div>
+<div class="topbar-right">
+<el-badge :value="3" type="primary"><span style="font-size:18px;cursor:pointer">&#128276;</span></el-badge>
+<div class="avatar">&#31649;</div>
+</div>
 </header>
 <div class="content">
 
@@ -114,1182 +129,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <div v-if="page==='dashboard'" class="page">
 <div class="page-title">工作台</div>
 <div class="stat-row">
-<div class="stat-card"><div class="stat-icon" style="background:#e3f2fd">&#128100;</div><div class="stat-info"><div class="stat-value">1,234</div><div class="stat-label">账户总数</div><div class="stat-change">&#9650; 本月新增 12</div></div></div>
-<div class="stat-card"><div class="stat-icon" style="background:#e8f5e9">&#128179;</div><div class="stat-info"><div class="stat-value">&#165;567.89万</div><div class="stat-label">今日分账金额</div><div class="stat-change">&#9650; 较昨日 +8.5%</div></div></div>
-<div class="stat-card"><div class="stat-icon" style="background:#fff8e1">&#128181;</div><div class="stat-info"><div class="stat-value">3</div><div class="stat-label">待处理提现</div><div class="stat-change">共 3 笔</div></div></div>
-<div class="stat-card"><div class="stat-icon" style="background:#fce4ec">&#128209;</div><div class="stat-info"><div class="stat-value">1</div><div class="stat-label">待审核开户</div><div class="stat-change" style="color:#FF5722">&#9888; 需要处理</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#818cf8,#6366f1)">&#128100;</div><div class="stat-info"><div class="stat-value">1,234</div><div class="stat-label">&#36130;&#25143;&#24635;&#25968;</div><div class="stat-change">&#9650; &#26412;&#26376;&#26032;&#22686; 12</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#34d399,#10b981)">&#128179;</div><div class="stat-info"><div class="stat-value" style="background:linear-gradient(135deg,#10b981,#059669);-webkit-background-clip:text;-webkit-text-fill-color:transparent">&#165;&#567.89&#19975;</div><div class="stat-label">&#20170;&#26085;&#20998;&#36134;&#37329;&#39069;</div><div class="stat-change">&#9650; &#36739;&#26082;&#26085; +8.5%</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">&#128181;</div><div class="stat-info"><div class="stat-value" style="background:linear-gradient(135deg,#f59e0b,#d97706);-webkit-background-clip:text;-webkit-text-fill-color:transparent">3</div><div class="stat-label">&#24453;&#22788;&#29702;&#25552;&#29616;</div><div class="stat-change">&#20849; 3 &#31508;</div></div></div>
+<div class="stat-card"><div class="stat-icon" style="background:linear-gradient(135deg,#f87171,#ef4444)">&#128203;</div><div class="stat-info"><div class="stat-value" style="background:linear-gradient(135deg,#ef4444,#dc2626);-webkit-background-clip:text;-webkit-text-fill-color:transparent">1</div><div class="stat-label">&#24453;&#23457;&#26680;&#24320;&#25143;</div><div class="stat-change" style="color:var(--red)">&#9888; &#38656;&#35201;&#22788;&#29702;</div></div></div>
 </div>
-<div class="card"><div class="card-header">待处理事项</div>
+<div class="card">
+<div class="card-header"><span>&#24453;&#22788;&#29702;&#20107;&#39033;</span><el-tag type="warning" size="small">{{pendingCount}} &#24453;&#22788;&#29702;</el-tag></div>
 <div class="card-body">
 <div v-for="(item,i) in todoList" :key="i" class="timeline-item">
 <div><div class="timeline-dot" :class="{'timeline-dot-gray':item.done}"></div><div class="timeline-line" v-if="i<todoList.length-1"></div></div>
 <div class="timeline-content">
 <div class="timeline-time">{{item.time}}</div>
 <div class="timeline-title">{{item.title}}</div>
-<div class="timeline-desc" v-if="item.amount">金额：<span class="money">&#165; {{item.amount.toLocaleString()}}</span></div>
+<div class="timeline-desc" v-if="item.amount">&#37329;&#39069;&#65306;<span class="money">&#165; {{item.amount.toLocaleString()}}</span></div>
 <el-button v-if="item.action" type="primary" size="small" style="margin-top:8px" @click="handleMenuSelect(item.actionKey)">{{item.action}}</el-button>
 </div>
 </div>
+<div v-if="todoList.length===0" style="text-align:center;color:#888;padding:20px">&#26242;&#26080;&#24453;&#22788;&#29702;&#20107;&#39033;</div>
 </div>
 </div>
 </div>
-
-<!-- 开户申请 -->
-<div v-if="page==='account-open'" class="page">
-<div class="page-title">开户申请 <span style="font-size:13px;font-weight:400;color:#888;font-weight:400">— 对公账户审核</span></div>
-<div class="card">
-<div class="card-header"><span>对公开户审核</span><el-tag type="warning" size="small">{{auditQueue.filter(a=>a.auditStatus==='PENDING').length}} 待审核</el-tag></div>
-<div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-select v-model="auditFilters.status" placeholder="审核状态" style="width:140px"><el-option label="全部" value=""/><el-option label="待审核" value="PENDING"/><el-option label="已通过" value="PASSED"/><el-option label="已驳回" value="REJECTED"/></el-select>
-<el-select v-model="auditFilters.type" placeholder="账户类型" style="width:140px"><el-option label="全部类型" value=""/><el-option label="对公账户" value="CORP"/><el-option label="个人账户" value="PERSONAL"/></el-select>
-<el-input v-model="auditFilters.keyword" placeholder="搜索账户号/名称/手机号" style="width:200px" clearable/>
-<el-button type="primary" @click="loadAudit">查询</el-button>
-<el-button @click="auditFilters={status:'',type:'',keyword:''}">重置</el-button>
-</div>
-<el-table :data="auditQueue" border stripe>
-<el-table-column prop="accountNo" label="账户号" width="170"/>
-<el-table-column prop="name" label="名称" min-width="150"/>
-<el-table-column prop="accountType" label="账户类型" width="110"><template #default="{row}"><el-tag size="small" :type="row.accountType==='CORP'?'danger':'success'">{{row.accountType==='CORP'?'对公账户':'个人账户'}}</el-tag></template></el-table-column>
-<el-table-column prop="phone" label="手机号" width="130"/>
-<el-table-column prop="submitTime" label="申请时间" width="170"/>
-<el-table-column prop="auditStatus" label="审核状态" width="110"><template #default="{row}"><span :class="'tag '+(row.auditStatus==='PENDING'?'tag-warning':row.auditStatus==='PASSED'?'tag-success':'tag-danger')">{{row.auditStatus==='PENDING'?'待审核':row.auditStatus==='PASSED'?'已通过':'已驳回'}}</span></template></el-table-column>
-<el-table-column prop="rejectReason" label="驳回原因" min-width="150" show-overflow-tooltip/>
-<el-table-column label="操作" width="220" fixed="right"><template #default="{row}">
-<el-button v-if="row.auditStatus==='PENDING'" type="success" size="small" @click="doApprove(row)">通过</el-button>
-<el-button v-if="row.auditStatus==='PENDING'" type="danger" size="small" @click="showRejectDialog(row)">驳回</el-button>
-<el-button v-if="row.auditStatus==='PENDING'" type="info" size="small" @click="showDetail(row)">详情</el-button>
-<span v-if="row.auditStatus!=='PENDING'" style="color:#ccc;font-size:12px">—</span>
-</template></el-table-column>
-</el-table>
-</div>
-</div>
-</div>
-
-<!-- 账户列表 -->
-<div v-if="page==='account-list'" class="page">
-<div class="page-title">账户列表</div>
-<div class="card">
-<div class="card-header"><span>支付账户</span><el-button type="default" size="small" @click="ElMessage.info('导出 Excel 功能演示')">&#128229; 导出</el-button></div>
-<div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-<el-select v-model="accountFilters.type" placeholder="账户类型" style="width:130px"><el-option label="全部类型" value=""/><el-option label="商户" value="merchant"/><el-option label="旅行社" value="agency"/><el-option label="导游" value="guide"/><el-option label="司机" value="driver"/></el-select>
-<el-select v-model="accountFilters.status" placeholder="账户状态" style="width:130px"><el-option label="全部状态" value=""/><el-option label="有效" value="VALID"/><el-option label="无效" value="INVALID"/></el-select>
-<el-input v-model="accountFilters.keyword" placeholder="搜索支付账户号/名称/手机号" style="width:240px" clearable/>
-<el-button type="primary" @click="loadAccounts">查询</el-button>
-<el-button @click="accountFilters={type:'',status:'',keyword:''}">重置</el-button>
-</div>
-<el-table :data="accountList" border stripe>
-<el-table-column prop="accountNo" label="支付账户号" width="170"/>
-<el-table-column prop="name" label="名称" min-width="150"/>
-<el-table-column prop="type" label="类型" width="90"><template #default="{row}"><el-tag size="small" :type="row.type==='merchant'?'danger':row.type==='agency'?'warning':'info'">{{row.type==='merchant'?'商户':row.type==='agency'?'旅行社':row.type==='guide'?'导游':'司机'}}</el-tag></template></el-table-column>
-<el-table-column prop="phone" label="手机号" width="130"/>
-<el-table-column prop="balance" label="余额" width="130" align="right"><template #default="{row}"><span class="money">&#165; {{row.balance.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="frozenBalance" label="冻结余额" width="110" align="right"><template #default="{row}"><span style="color:#888">&#165; {{row.frozenBalance.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="status" label="账户状态" width="100"><template #default="{row}"><span :class="'tag '+(row.status==='VALID'?'tag-success':'tag-danger')">{{row.status==='VALID'?'有效':'无效'}}</span></template></el-table-column>
-<el-table-column prop="level" label="等级" width="70"><template #default="{row}"><el-tag size="small" type="info">L{{row.level}}</el-tag></template></el-table-column>
-<el-table-column prop="createTime" label="开户时间" width="170"/>
-<el-table-column label="操作" width="120" fixed="right"><template #default="{row}"><el-button type="primary" size="small" @click="showAccountDetail(row)">详情</el-button></template></el-table-column>
-</el-table>
-<el-pagination style="margin-top:16px;justify-content:flex-end" :page-size="20" :total="accountTotal" v-model:current-page="accountPage" layout="total, prev, pager, next"/>
-</div>
-</div>
-</div>
-
-<!-- 付款订单 -->
-<div v-if="page==='transaction-orders'" class="page">
-<div class="page-title">付款订单</div>
-<div class="card"><div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-input v-model="orderFilters.orderNo" placeholder="订单号" style="width:200px" clearable/>
-<el-input v-model="orderFilters.accountNo" placeholder="支付账户号" style="width:180px" clearable/>
-<el-select v-model="orderFilters.status" placeholder="状态" style="width:130px"><el-option label="全部" value=""/><el-option label="成功" value="success"/><el-option label="处理中" value="processing"/><el-option label="失败" value="failed"/></el-select>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="orderList" border stripe>
-<el-table-column prop="orderNo" label="订单号" width="190"/>
-<el-table-column prop="outOrderNo" label="外部订单号" width="190"/>
-<el-table-column prop="payerName" label="付款方" min-width="130"/>
-<el-table-column prop="payerAccountNo" label="付款方账户" width="170"/>
-<el-table-column prop="totalAmount" label="金额" width="120" align="right"><template #default="{row}"><span class="money">&#165; {{row.totalAmount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="status" label="状态" width="90"><template #default="{row}"><span :class="'tag '+(row.status==='success'?'tag-success':row.status==='processing'?'tag-warning':'tag-danger')">{{row.status}}</span></template></el-table-column>
-<el-table-column prop="createTime" label="创建时间" width="170"/>
-<el-table-column label="操作" width="80"><template #default><el-button type="primary" size="small">详情</el-button></template></el-table-column>
-</el-table>
-</div></div>
-</div>
-
-<!-- 余额分账（新增导出按钮） -->
-<div v-if="page==='split-record'" class="page">
-<div class="page-title">
-  <span>余额分账</span>
-  <div style="display:flex;gap:8px">
-    <el-button type="primary" size="small" @click="ElMessage.success('导出成功，已生成 Excel 文件')">&#128229; 导出</el-button>
-    <el-button type="default" size="small" @click="ElMessage.info('新建分账演示')">&#10010; 新建分账</el-button>
-  </div>
-</div>
-<div class="card">
-<div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-input v-model="splitFilters.keyword" placeholder="收款方账户/名称" style="width:200px" clearable/>
-<el-select v-model="splitFilters.status" placeholder="分账状态" style="width:130px"><el-option label="全部" value=""/><el-option label="成功" value="success"/><el-option label="处理中" value="processing"/><el-option label="失败" value="failed"/></el-select>
-<el-date-picker v-model="splitFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" style="width:260px"/>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="splitList" border stripe>
-<el-table-column prop="splitNo" label="分账单号" width="190"/>
-<el-table-column prop="orderNo" label="关联订单" width="190"/>
-<el-table-column prop="payerName" label="付款方" min-width="130"/>
-<el-table-column prop="receiverName" label="收款方" min-width="130"/>
-<el-table-column prop="receiverAccountNo" label="收款方账户" width="170"/>
-<el-table-column prop="amount" label="分账金额" width="120" align="right"><template #default="{row}"><span class="money">&#165; {{row.amount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="status" label="状态" width="90"><template #default="{row}"><span :class="'tag '+(row.status==='success'?'tag-success':'tag-warning')">{{row.status}}</span></template></el-table-column>
-<el-table-column prop="createTime" label="分账时间" width="170"/>
-<el-table-column label="操作" width="80"><template #default><el-button type="primary" size="small">详情</el-button></template></el-table-column>
-</el-table>
-</div>
-</div>
-</div>
-
-<!-- 账户方充值转账（从账户管理移到交易管理下） -->
-<div v-if="page==='transaction-recharge'" class="page">
-<div class="page-title">账户方充值转账</div>
-<div class="card"><div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-input v-model="rechargeFilters.accountNo" placeholder="账户号" style="width:180px" clearable/>
-<el-select v-model="rechargeFilters.type" placeholder="类型" style="width:120px"><el-option label="全部" value=""/><el-option label="充值" value="recharge"/><el-option label="转账" value="transfer"/></el-select>
-<el-date-picker v-model="rechargeFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:260px"/>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="rechargeList" border stripe>
-<el-table-column prop="accountNo" label="账户号" width="170"/>
-<el-table-column prop="accountName" label="账户名称" min-width="130"/>
-<el-table-column prop="type" label="类型" width="80"><template #default="{row}"><el-tag size="small">{{row.type==='recharge'?'充值':'转账'}}</el-tag></template></el-table-column>
-<el-table-column prop="amount" label="金额" width="120" align="right"><template #default="{row}"><span class="money">&#165; {{row.amount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="balanceBefore" label="变动前余额" width="120" align="right"><template #default="{row}"><span style="color:#888">&#165; {{row.balanceBefore.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="balanceAfter" label="变动后余额" width="120" align="right"><template #default="{row}"><span style="color:#4CAF50">&#165; {{row.balanceAfter.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="operator" label="操作人" width="100"/>
-<el-table-column prop="createTime" label="时间" width="170"/>
-<el-table-column label="操作" width="80"><template #default><el-button type="primary" size="small">详情</el-button></template></el-table-column>
-</el-table>
-</div></div>
-</div>
-
-<!-- 支付账户提现（结算单改名） -->
-<div v-if="page==='transaction-withdraw'" class="page">
-<div class="page-title">支付账户提现</div>
-<div class="card"><div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-input v-model="wdFilters.withdrawNo" placeholder="提现单号" style="width:190px" clearable/>
-<el-input v-model="wdFilters.accountNo" placeholder="支付账户号" style="width:180px" clearable/>
-<el-select v-model="wdFilters.status" placeholder="状态" style="width:120px"><el-option label="全部" value=""/><el-option label="待处理" value="pending"/><el-option label="成功" value="success"/><el-option label="拒绝" value="rejected"/></el-select>
-<el-date-picker v-model="wdFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:260px"/>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="withdrawList" border stripe>
-<el-table-column prop="withdrawNo" label="提现单号" width="190"/>
-<el-table-column prop="accountName" label="账户名称" min-width="130"/>
-<el-table-column prop="accountNo" label="账户号" width="170"/>
-<el-table-column prop="bankName" label="开户行" width="130"/>
-<el-table-column prop="amount" label="提现金额" width="110" align="right"><template #default="{row}"><span class="money">&#165; {{row.amount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="fee" label="手续费" width="90" align="right"><template #default="{row}"><span style="color:#888">&#165; {{row.fee}}</span></template></el-table-column>
-<el-table-column prop="realAmount" label="实际到账" width="110" align="right"><template #default="{row}"><span style="color:#4CAF50">&#165; {{row.realAmount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="status" label="状态" width="90"><template #default="{row}"><span :class="'tag '+(row.status==='success'?'tag-success':row.status==='pending'?'tag-warning':'tag-danger')">{{row.status}}</span></template></el-table-column>
-<el-table-column prop="createTime" label="申请时间" width="170"/>
-<el-table-column label="操作" width="140" fixed="right"><template #default="{row}"><el-button v-if="row.status==='pending'" type="success" size="small">通过</el-button><el-button v-if="row.status==='pending'" type="danger" size="small">拒绝</el-button><el-button v-else type="primary" size="small">详情</el-button></template></el-table-column>
-</el-table>
-</div></div>
-</div>
-
-<!-- 交易订阅 -->
-<div v-if="page==='transaction-subscribe'" class="page">
-<div class="page-title"><span>交易订阅</span><el-button type="primary" size="small" @click="ElMessage.info('添加订阅演示')">&#10010; 添加订阅</el-button></div>
-<div class="card">
-<div class="card-body">
-<el-alert title="Webhook 订阅：交易状态变更时，钱账通主动通知小冲系统。支持事件：trade_success / trade_failed / withdraw_success / withdraw_failed" type="info" :closable="false" style="margin-bottom:16px"/>
-<el-table :data="webhookList" border stripe>
-<el-table-column prop="name" label="订阅名称" min-width="150"/>
-<el-table-column prop="eventType" label="事件类型" width="150"><template #default="{row}"><el-tag size="small" type="info">{{row.eventType}}</el-tag></template></el-table-column>
-<el-table-column prop="url" label="回调地址" min-width="250" show-overflow-tooltip/>
-<el-table-column prop="status" label="状态" width="120"><template #default="{row}"><el-switch :model-value="row.status" active-text="启用" inactive-text="停用" size="small"/></template></el-table-column>
-<el-table-column prop="createTime" label="创建时间" width="170"/>
-<el-table-column label="操作" width="140"><template #default><el-button type="primary" size="small">编辑</el-button><el-button type="danger" size="small">删除</el-button></template></el-table-column>
-</el-table>
-</div>
-</div>
-</div>
-
-<!-- 提现管理 -->
-<div v-if="page==='withdraw'" class="page">
-<div class="page-title">提现管理</div>
-<div class="card"><div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-<el-input v-model="wdFilters.withdrawNo" placeholder="提现单号" style="width:190px" clearable/>
-<el-select v-model="wdFilters.status" placeholder="状态" style="width:120px"><el-option label="全部" value=""/><el-option label="待处理" value="pending"/><el-option label="成功" value="success"/><el-option label="拒绝" value="rejected"/></el-select>
-<el-date-picker v-model="wdFilters.dateRange" type="daterange" range-separator="至" start-placeholder="开始" end-placeholder="结束" style="width:260px"/>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="withdrawList" border stripe>
-<el-table-column prop="withdrawNo" label="提现单号" width="190"/>
-<el-table-column prop="accountName" label="账户名称" min-width="130"/>
-<el-table-column prop="accountNo" label="账户号" width="170"/>
-<el-table-column prop="bankName" label="开户行" width="130"/>
-<el-table-column prop="amount" label="提现金额" width="110" align="right"><template #default="{row}"><span class="money">&#165; {{row.amount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="fee" label="手续费" width="90" align="right"><template #default="{row}"><span style="color:#888">&#165; {{row.fee}}</span></template></el-table-column>
-<el-table-column prop="realAmount" label="实际到账" width="110" align="right"><template #default="{row}"><span style="color:#4CAF50">&#165; {{row.realAmount.toLocaleString()}}</span></template></el-table-column>
-<el-table-column prop="status" label="状态" width="90"><template #default="{row}"><span :class="'tag '+(row.status==='success'?'tag-success':row.status==='pending'?'tag-warning':'tag-danger')">{{row.status}}</span></template></el-table-column>
-<el-table-column prop="createTime" label="申请时间" width="170"/>
-<el-table-column label="操作" width="140" fixed="right"><template #default="{row}"><el-button v-if="row.status==='pending'" type="success" size="small">通过</el-button><el-button v-if="row.status==='pending'" type="danger" size="small">拒绝</el-button><el-button v-else type="primary" size="small">详情</el-button></template></el-table-column>
-</el-table>
-</div></div>
-</div>
-
-<!-- 门店管理 -->
-<div v-if="page==='store'" class="page">
-<div class="page-title"><span>门店管理</span><el-button type="primary" size="small" @click="ElMessage.info('添加门店演示')">&#10010; 添加门店</el-button></div>
-<div class="card">
-<div class="card-body">
-<div style="display:flex;gap:12px;margin-bottom:16px">
-<el-input v-model="storeFilters.keyword" placeholder="门店名称/商户号" style="width:200px" clearable/>
-<el-button type="primary">查询</el-button>
-</div>
-<el-table :data="storeList" border stripe>
-<el-table-column prop="name" label="门店名称" min-width="150"/>
-<el-table-column prop="merchantNo" label="商户号" width="150"/>
-<el-table-column prop="terminalNo" label="终端号" width="130"/>
-<el-table-column prop="boundAccountName" label="绑定账户" min-width="150"/>
-<el-table-column prop="boundAccountNo" label="账户号" width="170"/>
-<el-table-column prop="status" label="状态" width="90"><template #default="{row}"><span :class="'tag '+(row.status==='bound'?'tag-success':'tag-default')">{{row.status==='bound'?'已绑定':'未绑定'}}</span></template></el-table-column>
-<el-table-column label="操作" width="180"><template #default="{row}"><el-button type="primary" size="small">编辑</el-button><el-button v-if="row.status==='bound'" type="warning" size="small">解绑</el-button><el-button v-else type="success" size="small">绑定账户</el-button></template></el-table-column>
-</el-table>
-</div>
-</div>
-</div>
-
-<!-- 应用配置（新增 Toggle 开关） -->
-<div v-if="page==='app-config'" class="page">
-<div class="page-title"><span>应用配置</span><el-button type="primary" size="small" @click="saveAppConfig">保存配置</el-button></div>
-<div class="card"><div class="card-body">
-<div class="config-grid">
-<div class="config-card">
-<div class="config-card-title">&#128279; 开通银行内部户</div>
-<div class="config-card-desc">开启后，新用户开户流程将包含银行内部户开立步骤。<br>关闭（默认）则跳过此步骤，用户直接开立支付账户。</div>
-<el-switch v-model="appConfig.enableBankInternalAccount" active-text="是" inactive-text="否"/>
-<div class="toggle-desc">当前值：{{appConfig.enableBankInternalAccount?'开启':'关闭'}}</div>
-</div>
-<div class="config-card">
-<div class="config-card-title">&#128221; 电子签约</div>
-<div class="config-card-desc">开启后，新用户开户流程将包含电子签约步骤。<br>关闭（默认）则跳过此步骤。</div>
-<el-switch v-model="appConfig.enableEContract" active-text="是" inactive-text="否"/>
-<div class="toggle-desc">当前值：{{appConfig.enableEContract?'开启':'关闭'}}</div>
-</div>
-<div class="config-card">
-<div class="config-card-title">&#128179; 分账鉴权方式</div>
-<div class="config-card-desc">用户发起分账时的身份验证方式。<br>NONE=免密直接提交；SMS=短信验证码；PWD=支付密码</div>
-<el-select v-model="appConfig.paymentAuthType" style="width:160px"><el-option label="免密(NONE)" value="NONE"/><el-option label="短信(SMS)" value="SMS"/><el-option label="支付密码(PWD)" value="PWD"/></el-select>
-<div class="toggle-desc">当前值：{{appConfig.paymentAuthType}}</div>
-</div>
-<div class="config-card">
-<div class="config-card-title">&#128176; 提现鉴权方式</div>
-<div class="config-card-desc">用户发起提现时的身份验证方式。</div>
-<el-select v-model="appConfig.withdrawAuthType" style="width:160px"><el-option label="免密(NONE)" value="NONE"/><el-option label="短信(SMS)" value="SMS"/><el-option label="支付密码(PWD)" value="PWD"/></el-select>
-<div class="toggle-desc">当前值：{{appConfig.withdrawAuthType}}</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-
-</div><!-- end content -->
-</div><!-- end main -->
-</div><!-- end layout -->
-</div><!-- end app -->
+</div></div></div></div></div>
 
 <script>
 const { createApp, ref, reactive } = Vue;
@@ -1298,34 +159,28 @@ const app = createApp({
     const page = ref("dashboard");
     const activeMenu = ref("dashboard");
     const sidebarOpen = ref(false);
-    const toggleSidebar = () => { sidebarOpen.value = !sidebarOpen.value; };
     const handleMenuSelect = (idx) => { page.value = idx; activeMenu.value = idx; pageTitle.value = pageTitles[idx] || idx; sidebarOpen.value = false; };
     const pageTitles = {
-      "dashboard": "工作台",
-      "account-open": "开户申请",
-      "account-list": "账户列表",
-      "transaction-orders": "付款订单",
-      "split-record": "余额分账",
-      "transaction-recharge": "账户方充值转账",
-      "transaction-withdraw": "支付账户提现",
-      "transaction-subscribe": "交易订阅",
-      "withdraw": "提现管理",
-      "store": "门店管理",
-      "app-config": "应用配置"
+      "dashboard": "&#24037;&#20316;&#21488;",
+      "account-open": "&#24320;&#25143;&#30003;&#35831;",
+      "account-list": "&#36134;&#25143;&#21015;&#34920;",
+      "transaction-orders": "&#20184;&#27454;&#35718;&#21333;",
+      "split-record": "&#20313;&#39069;&#20998;&#36134;",
+      "transaction-recharge": "&#36134;&#25143;&#26041;&#20805;&#20540;&#36716;&#36151;",
+      "transaction-withdraw": "&#25903;&#20184;&#36134;&#25143;&#25552;&#29616;",
+      "transaction-subscribe": "&#20132;&#26131;&#35746;&#38405;",
+      "withdraw": "&#25552;&#29616;&#31649;&#29702;",
+      "store": "&#38376;&#24215;&#31649;&#29702;",
+      "app-config": "&#24212;&#29992;&#37197;&#32622;"
     };
-    const pageTitle = ref("工作台");
-    const handleMenuSelect = (idx) => { page.value = idx; activeMenu.value = idx; pageTitle.value = pageTitles[idx] || idx; };
-
-    // 应用配置
+    const pageTitle = ref("&#24037;&#20316;&#21488;");
+    const typeNameMap = { merchant:"&#21830;&#25143;", agency:"&#26053;&#34892;&#31038;", guide:"&#23548;&#28216;", driver:"&#39542;&#26426;" };
     const appConfig = reactive({ enableBankInternalAccount: false, enableEContract: false, paymentAuthType: "SMS", withdrawAuthType: "SMS" });
     const saveAppConfig = () => {
       fetch("http://localhost:3001/api/app/config/update", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(appConfig) })
-        .then(r => r.json()).then(d => { if(d.code===0) ElMessage.success("配置保存成功"); else ElMessage.error("保存失败："+d.message); })
-        .catch(() => ElMessage.error("请求失败，请检查Mock服务器是否运行"));
-    };
-
-    // 开户审核
-    const auditQueue = ref([{ accountNo:"LAK2026030005", name:"海风旅游商店", accountType:"CORP", phone:"135****5005", submitTime:"2026-03-25 09:00:00", auditStatus:"PENDING", rejectReason:"" }]);
+        .then(r => r.json()).then(d => { if(d.code===0) ElMessage.success("&#37197;&#32622;&#20445;&#23384;&#25104;&#21151"); else ElMessage.error("&#20445;&#23384;&#22833;&#36133;&#65306;"+d.message); })
+        .catch(() => ElMessage.error("&#35831;&#27714;&#22833;&#36133;&#65292;&#35831;&#26816;&#26597;Mock&#26381;&#21153;&#22120;&#26159;&#21542;&#36816;&#34892;")); };
+    const auditQueue = ref([{ accountNo:"LAK2026030005", name:"&#28023;&#39118;&#26053;&#28216;&#21830;&#24215;", type:"CORP", phone:"135****5005", submitTime:"2026-03-25 09:00:00", status:"pending", rejectReason:"" }]);
     const auditFilters = reactive({ status:"", type:"", keyword:"" });
     const loadAudit = () => {
       const params = new URLSearchParams({ auditStatus: auditFilters.status, accountType: auditFilters.type, keyword: auditFilters.keyword });
@@ -1334,14 +189,11 @@ const app = createApp({
     };
     const doApprove = (row) => {
       fetch("http://localhost:3001/api/audit/approve", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({accountNo:row.accountNo}) })
-        .then(r=>r.json()).then(d=>{ if(d.code===0){ElMessage.success("审核通过"); loadAudit();}else ElMessage.error(d.message);}).catch(()=>ElMessage.error("请求失败"));
-    };
-    const showRejectDialog = (row) => { ElMessageBox.prompt("请输入驳回原因", "驳回审核", { confirmButtonText:"确认驳回", cancelButtonText:"取消" })
+        .then(r=>r.json()).then(d=>{ if(d.code===0){ElMessage.success("&#23457;&#26680;&#36890;&#36807"); loadAudit();}else ElMessage.error(d.message);}).catch(()=>ElMessage.error("&#35831;&#27714;&#22833;&#36133;")); };
+    const showRejectDialog = (row) => { ElMessageBox.prompt("&#35831;&#36755;&#20837;&#39578;&#22238;&#21407;&#22240;", "&#39578;&#22238;&#23457;&#26680;", { confirmButtonText:"&#30830;&#35748;&#39578;&#22238;", cancelButtonText:"&#21462;&#28040;" })
       .then(({value}) => { fetch("http://localhost:3001/api/audit/reject", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountNo:row.accountNo,reason:value})})
-        .then(r=>r.json()).then(d=>{ if(d.code===0){ElMessage.success("已驳回");loadAudit();}else ElMessage.error(d.message);}).catch(()=>ElMessage.error("请求失败")); }).catch(()=>{}); };
-    const showDetail = (row) => { ElMessageBox.alert("账户号："+row.accountNo+"\\n名称："+row.name+"\\n账户类型："+(row.accountType==="CORP"?"对公账户":"个人账户")+"\\n手机号："+row.phone+"\\n审核状态："+(row.auditStatus==="PENDING"?"待审核":row.auditStatus==="PASSED"?"已通过":"已驳回")+"\\n提交时间："+row.submitTime, "账户详情"); };
-
-    // 账户列表
+        .then(r=>r.json()).then(d=>{ if(d.code===0){ElMessage.success("&#24050;&#39578;&#22238");loadAudit();}else ElMessage.error(d.message);}).catch(()=>ElMessage.error("&#35831;&#27714;&#22833;&#36133;")); }).catch(()=>{}); };
+    const showDetail = (row) => { ElMessageBox.alert("&#36134;&#25143;&#21495;&#65306;"+row.accountNo+"\n&#21517;&#31216;&#65306;"+row.name+"\n&#36134;&#25143;&#31867;&#22411;&#65306;"+(row.type==="CORP"?"&#23545;&#20844;&#36134;&#25143;":"&#20010;&#20154;&#36134;&#25143;")+"\n&#25163;&#26426;&#21495;&#65306;"+row.phone+"\n&#23457;&#26680;&#29366;&#24577;&#65306;"+(row.status==="pending"?"&#24453;&#23457;&#26680;":"&#24050;&#23457;&#26680;")+"\n&#25552;&#20132;&#26102;&#38388;&#65306;"+row.submitTime, "&#36134;&#25143;&#35780;&#24773;"); };
     const accountList = ref([]);
     const accountFilters = reactive({ type:"", status:"", keyword:"" });
     const accountTotal = ref(0);
@@ -1351,38 +203,39 @@ const app = createApp({
       fetch("http://localhost:3001/api/account/list?"+params.toString())
         .then(r=>r.json()).then(d=>{ if(d.code===0){ accountList.value=d.data.list; accountTotal.value=d.data.total; } }).catch(()=>{});
     };
-    const showAccountDetail = (row) => { ElMessageBox.alert("账户号："+row.accountNo+"\\n名称："+row.name+"\\n类型："+row.type+"\\n余额：¥"+row.balance.toLocaleString()+"\\n状态："+row.status+"\\n等级：L"+row.level, "账户详情"); };
-
-    // 订单/分账/充值/提现/订阅数据
-    const orderList = ref([{orderNo:"ORD20260326001",outOrderNo:"XC20260326001",payerName:"顺风旅行社",payerAccountNo:"LAK2026030002",totalAmount:5000,status:"success",createTime:"2026-03-26 10:30:00"},{orderNo:"ORD20260326002",outOrderNo:"XC20260326002",payerName:"顺风旅行社",payerAccountNo:"LAK2026030002",totalAmount:8000,status:"success",createTime:"2026-03-25 15:20:00"}]);
+    const showAccountDetail = (row) => { ElMessageBox.alert("&#36134;&#25143;&#21495;&#65306;"+row.accountNo+"\n&#21517;&#31216;&#65306;"+row.name+"\n&#31867;&#22411;&#65306;"+typeNameMap[row.type]+"\n&#20313;&#39069;&#65306;&#165;"+row.balance.toLocaleString()+"\n&#29366;&#24577;&#65306;"+row.status+"\n&#31561;&#32423;&#65306;L"+row.level, "&#36134;&#25143;&#35780;&#24773;"); };
+    const orderList = ref([{orderNo:"ORD20260326001",outOrderNo:"XC20260326001",payerName:"&#39034;&#39118;&#26053;&#34892;&#31038;",payerAccountNo:"LAK2026030002",totalAmount:5000,status:"success",createTime:"2026-03-26 10:30:00"},{orderNo:"ORD20260326002",outOrderNo:"XC20260326002",payerName:"&#39034;&#39118;&#26053;&#34892;&#31038;",payerAccountNo:"LAK2026030002",totalAmount:8000,status:"success",createTime:"2026-03-25 15:20:00"}]);
     const orderFilters = reactive({ orderNo:"", accountNo:"", status:"" });
-    const splitList = ref([{splitNo:"SP20260326001",orderNo:"ORD20260326001",payerName:"顺风旅行社",receiverName:"李四 (导游)",receiverAccountNo:"LAK2026030003",amount:750,status:"success",createTime:"2026-03-26 10:30:00"},{splitNo:"SP20260325001",orderNo:"ORD20260326002",payerName:"顺风旅行社",receiverName:"李四 (导游)",receiverAccountNo:"LAK2026030003",amount:1200,status:"success",createTime:"2026-03-25 15:20:00"}]);
+    const splitList = ref([{splitNo:"SP20260326001",orderNo:"ORD20260326001",payerName:"&#39034;&#39118;&#26053;&#34892;&#31038;",receiverName:"&#26446;&#22235; (&#23548;&#28216;)",receiverAccountNo:"LAK2026030003",amount:750,status:"success",createTime:"2026-03-26 10:30:00"},{splitNo:"SP20260325001",orderNo:"ORD20260326002",payerName:"&#39034;&#39118;&#26053;&#34892;&#31038;",receiverName:"&#26446;&#22235; (&#23548;&#28216;)",receiverAccountNo:"LAK2026030003",amount:1200,status:"success",createTime:"2026-03-25 15:20:00"}]);
     const splitFilters = reactive({ keyword:"", status:"", dateRange:null });
-    const rechargeList = ref([{accountNo:"LAK2026030001",accountName:"张三商行",type:"recharge",amount:50000,balanceBefore:75680,balanceAfter:125680,operator:"系统",createTime:"2026-03-20 10:00:00"}]);
+    const rechargeList = ref([{accountNo:"LAK2026030001",accountName:"&#24352;&#19977;&#21830;&#34892;",type:"recharge",amount:50000,balanceBefore:75680,balanceAfter:125680,operator:"&#31995;&#32479;",createTime:"2026-03-20 10:00:00"}]);
     const rechargeFilters = reactive({ accountNo:"", type:"", dateRange:null });
-    const withdrawList = ref([{withdrawNo:"WD20260326001",accountName:"李四 (导游)",accountNo:"LAK2026030003",bankName:"中国农业银行",amount:5000,fee:5,realAmount:4995,status:"pending",createTime:"2026-03-26 11:00:00"},{withdrawNo:"WD20260325002",accountName:"张三商行",accountNo:"LAK2026030001",bankName:"中国工商银行",amount:20000,fee:20,realAmount:19980,status:"success",createTime:"2026-03-25 16:30:00"}]);
+    const withdrawList = ref([{withdrawNo:"WD20260326001",accountName:"&#26446;&#22235; (&#23548;&#28216;)",accountNo:"LAK2026030003",bankName:"&#20013;&#22269;&#20892;&#19994;&#38134;&#34892;",amount:5000,fee:5,realAmount:4995,status:"pending",createTime:"2026-03-26 11:00:00"},{withdrawNo:"WD20260325002",accountName:"&#24352;&#19977;&#21830;&#34892;",accountNo:"LAK2026030001",bankName:"&#20013;&#22269;&#24037;&#21830;&#38134;&#34892;",amount:20000,fee:20,realAmount:19980,status:"success",createTime:"2026-03-25 16:30:00"}]);
     const wdFilters = reactive({ withdrawNo:"", accountNo:"", status:"", dateRange:null });
-    const webhookList = ref([{name:"小冲交易通知",eventType:"trade_success",url:"https://xc.lvgot.com/webhook/trade",status:true,createTime:"2026-03-20 10:00:00"},{name:"小冲提现通知",eventType:"withdraw_success",url:"https://xc.lvgot.com/webhook/withdraw",status:true,createTime:"2026-03-20 10:00:00"}]);
-    const storeList = ref([{name:"门店一(旗舰店)",merchantNo:"M10001",terminalNo:"T001",boundAccountName:"张三商行",boundAccountNo:"LAK2026030001",status:"bound"},{name:"门店二(分店)",merchantNo:"M10002",terminalNo:"T002",boundAccountName:"张三商行",boundAccountNo:"LAK2026030001",status:"bound"},{name:"门店三(新店)",merchantNo:"",terminalNo:"",boundAccountName:"",boundAccountNo:"",status:"unbound"}]);
+    const webhookList = ref([{name:"&#23567;&#20914;&#20132;&#26131;&#36890;&#30693;",eventType:"trade_success",url:"https://xc.lvgot.com/webhook/trade",status:true,createTime:"2026-03-20 10:00:00"},{name:"&#23567;&#20914;&#25552;&#29616;&#36890;&#30693;",eventType:"withdraw_success",url:"https://xc.lvgot.com/webhook/withdraw",status:true,createTime:"2026-03-20 10:00:00"}]);
+    const storeList = ref([{name:"&#38376;&#24215;&#19968;(&#26071;&#33394;&#24215;)",merchantNo:"M10001",terminalNo:"T001",boundAccountName:"&#24352;&#19977;&#21830;&#34892;",boundAccountNo:"LAK2026030001",status:"bound"},{name:"&#38376;&#24215;&#20108;(&#20998;&#24215;)",merchantNo:"M10002",terminalNo:"T002",boundAccountName:"&#24352;&#19977;&#21830;&#34892;",boundAccountNo:"LAK2026030001",status:"bound"},{name:"&#38376;&#24215;&#19977;(&#26032;&#24215;)",merchantNo:"",terminalNo:"",boundAccountName:"",boundAccountNo:"",status:"unbound"}]);
     const storeFilters = reactive({ keyword:"" });
-
-    // 工作台待办
     const todoList = ref([
-      { time:"2026-03-26 10:30", title:"商户"海风旅游商店"提交开户申请（待审核）", amount:null, action:"去审核", actionKey:"account-open" },
-      { time:"2026-03-26 09:45", title:"订单#ORD20260326001分账处理", amount:5000, action:"查看", actionKey:"split-record" },
-      { time:"2026-03-26 09:20", title:"导游李四提交提现申请（待处理）", amount:5000, action:"处理", actionKey:"withdraw" }
+      { time:"2026-03-26 10:30", title:"&#21830;&#25143;\"&#28023;&#39118;&#26053;&#28216;&#21830;&#24215;\"&#25552;&#20132;&#24320;&#25143;&#30003;&#35831;&#65288;&#24453;&#23457;&#26680;&#65289;", amount:null, action:"&#21435;&#23457;&#26680;", actionKey:"account-open" },
+      { time:"2026-03-26 09:45", title:"&#35794;&#21333;#ORD20260326001&#20998;&#36134;&#22788;&#29702;", amount:5000, action:"&#26597;&#30475;", actionKey:"split-record" },
+      { time:"2026-03-26 09:20", title:"&#23548;&#28216;&#26446;&#22235;&#25552;&#20132;&#25552;&#29616;&#30003;&#35831;&#65288;&#24453;&#22788;&#29702;&#65289;", amount:5000, action:"&#22788;&#29702;", actionKey:"withdraw" }
     ]);
-    const handleTodoAction = (item) => { handleMenuSelect(item.actionKey); };
-
-    // 初始加载账户列表
+    const pendingCount = ref(3);
     loadAccounts();
-
-    return { page, activeMenu, sidebarOpen, toggleSidebar, pageTitle, pageTitles, handleMenuSelect, appConfig, saveAppConfig, auditQueue, auditFilters, loadAudit, doApprove, showRejectDialog, showDetail, accountList, accountFilters, accountTotal, accountPage, loadAccounts, showAccountDetail, orderList, orderFilters, splitList, splitFilters, withdrawList, wdFilters, webhookList, storeList, storeFilters, rechargeList, rechargeFilters, todoList, handleTodoAction };
+    return { page, activeMenu, sidebarOpen, handleMenuSelect, pageTitle, pageTitles, appConfig, saveAppConfig, auditQueue, auditFilters, loadAudit, doApprove, showRejectDialog, showDetail, accountList, accountFilters, accountTotal, accountPage, loadAccounts, showAccountDetail, typeNameMap, orderList, orderFilters, splitList, splitFilters, withdrawList, wdFilters, webhookList, storeList, storeFilters, rechargeList, rechargeFilters, todoList, pendingCount };
   }
 });
-app.use(ElementPlus);
-app.mount("#app");
+// 确保 DOM 加载完毕后再挂载
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    app.use(ElementPlus);
+    app.mount("#app");
+  });
+} else {
+  app.use(ElementPlus);
+  app.mount("#app");
+}
 </script>
+
 </body>
 </html>
-

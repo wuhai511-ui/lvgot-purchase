@@ -68,7 +68,7 @@
           <div class="card-header">📌 今日待办 <span style="font-size:12px;color:#999;font-weight:400">（共 {{ todoList.length }} 项）</span></div>
           <div class="card-body">
             <div v-for="(item,idx) in todoList" :key="idx" class="todo-item" @click="handleTodoAction(item)">
-              <div class="todo-left"><div class="todo-time">{{ item.time }}</div><div class="todo-title">{{{ item.title }}}</div></div>
+              <div class="todo-left"><div class="todo-time">{{ item.time }}</div><div class="todo-title">{{ item.title }}</div></div>
               <el-tag v-if="item.amount" type="warning" size="small">¥{{ item.amount.toLocaleString() }}</el-tag>
               <el-tag size="small" style="cursor:pointer;color:#1976D2;border-color:#1976D2">{{ item.action }}</el-tag>
             </div>
