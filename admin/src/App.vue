@@ -63,23 +63,34 @@ const route = useRoute()
 const merchantName = ref('钱账通运营后台')
 const isCollapse = ref(false)
 
-const menuList = [
-  { name: '工作台', path: '/', icon: '📊' },
-  { name: '账户总览', path: '/account', icon: '💰' },
-  { name: '开户申请', path: '/account-opening', icon: '📝' },
-  { name: '银行卡管理', path: '/bank-card', icon: '💳' },
-  { name: '充值', path: '/recharge', icon: '🔄' },
-  { name: '提现申请', path: '/withdraw', icon: '📤' },
-  { name: '付款订单', path: '/payment', icon: '📋' },
-  { name: '分账规则', path: '/split-rule', icon: '📐' },
-  { name: '分账记录', path: '/split-record', icon: '📜' },
-  { name: '交易消息', path: '/trade-message', icon: '🔔' },
-  { name: '门店管理', path: '/store', icon: '🏪' },
-  { name: '员工管理', path: '/employee', icon: '👥' },
-  { name: '部门管理', path: '/department', icon: '🏢' },
-  { name: '角色管理', path: '/role', icon: '🔐' },
-  { name: '权限管理', path: '/permission', icon: '⚙️' },
-]
+// 动态菜单列表：未开户（pending）只显示2个，已开户（active）显示全部
+const menuList = computed(() => {
+  if (!merchantInfo.value || merchantInfo.value.status !== 'active') {
+    return [
+      { name: '工作台', path: '/', icon: '📊' },
+      { name: '申请开户', path: '/account-opening', icon: '📝' },
+    ]
+  }
+  return [
+    { name: '工作台', path: '/', icon: '📊' },
+    { name: '账户总览', path: '/account', icon: '💰' },
+    { name: '开户申请', path: '/account-opening', icon: '📝' },
+    { name: '银行卡管理', path: '/bank-card', icon: '💳' },
+    { name: '充值', path: '/recharge', icon: '🔄' },
+    { name: '提现申请', path: '/withdraw', icon: '📤' },
+    { name: '付款订单', path: '/payment', icon: '📋' },
+    { name: '分账规则', path: '/split-rule', icon: '📐' },
+    { name: '分账记录', path: '/split-record', icon: '📜' },
+    { name: '交易消息', path: '/trade-message', icon: '🔔' },
+    { name: '门店管理', path: '/store', icon: '🏪' },
+    { name: '员工管理', path: '/employee', icon: '👥' },
+    { name: '部门管理', path: '/department', icon: '🏢' },
+    { name: '角色管理', path: '/role', icon: '🔐' },
+    { name: '权限管理', path: '/permission', icon: '⚙️' },
+  ]
+})
+
+const merchantInfo = ref(getMerchantInfo())
 
 const activePath = computed(() => route.path)
 
@@ -94,9 +105,9 @@ const handleLogout = () => {
 }
 
 onMounted(() => {
-  const info = getMerchantInfo()
-  if (info && info.name) {
-    merchantName.value = info.name
+  merchantInfo.value = getMerchantInfo()
+  if (merchantInfo.value && merchantInfo.value.name) {
+    merchantName.value = merchantInfo.value.name
   }
 })
 </script>
