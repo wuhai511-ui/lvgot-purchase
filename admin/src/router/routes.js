@@ -12,6 +12,10 @@ import PaymentOrder from '../views/PaymentOrder.vue'
 import SplitRule from '../views/SplitRule.vue'
 import SplitRecord from '../views/SplitRecord.vue'
 import Store from '../views/Store.vue'
+import Role from '../views/Role.vue'
+import Permission from '../views/Permission.vue'
+import Department from '../views/Department.vue'
+import Employee from '../views/Employee.vue'
 
 const routes = [
   {
@@ -78,6 +82,30 @@ const routes = [
     name: 'Store',
     meta: { requiresAuth: true },
     component: Store,
+  },
+  {
+    path: '/role',
+    name: 'Role',
+    meta: { requiresAuth: true },
+    component: Role,
+  },
+  {
+    path: '/permission',
+    name: 'Permission',
+    meta: { requiresAuth: true },
+    component: Permission,
+  },
+  {
+    path: '/department',
+    name: 'Department',
+    meta: { requiresAuth: true },
+    component: Department,
+  },
+  {
+    path: '/employee',
+    name: 'Employee',
+    meta: { requiresAuth: true },
+    component: Employee,
   },
   {
     // 未匹配路由重定向到 /
