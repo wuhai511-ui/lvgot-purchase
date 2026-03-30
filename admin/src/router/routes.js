@@ -3,6 +3,10 @@
  */
 import Login from '../views/Login.vue'
 import Dashboard from '../views/Dashboard.vue'
+import AccountOpening from '../views/AccountOpening.vue'
+import BankCard from '../views/BankCard.vue'
+import Recharge from '../views/Recharge.vue'
+import Withdraw from '../views/Withdraw.vue'
 
 const routes = [
   {
@@ -15,6 +19,30 @@ const routes = [
     name: 'Dashboard',
     meta: { requiresAuth: true },
     component: Dashboard,
+  },
+  {
+    path: '/account-opening',
+    name: 'AccountOpening',
+    meta: { requiresAuth: true },
+    component: AccountOpening,
+  },
+  {
+    path: '/bank-card',
+    name: 'BankCard',
+    meta: { requiresAuth: true },
+    component: BankCard,
+  },
+  {
+    path: '/recharge',
+    name: 'Recharge',
+    meta: { requiresAuth: true },
+    component: Recharge,
+  },
+  {
+    path: '/withdraw',
+    name: 'Withdraw',
+    meta: { requiresAuth: true },
+    component: Withdraw,
   },
   {
     // 未匹配路由重定向到 /
