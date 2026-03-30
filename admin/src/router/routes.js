@@ -6,13 +6,14 @@ const routes = [
   {
     path: '/login',
     name: 'Login',
-    // 组件在后续任务中创建
-    component: () => import('../pages/Login.vue'),
+    // TODO: 替换为 import('../pages/Login.vue')
+    component: { template: '<div></div>' },
   },
   {
     path: '/',
     name: 'Dashboard',
-    component: () => import('../pages/Dashboard.vue'),
+    // TODO: 替换为 import('../pages/Dashboard.vue')
+    component: { template: '<div></div>' },
   },
   {
     // 未匹配路由重定向到 /
