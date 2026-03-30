@@ -6,9 +6,6 @@ export default defineConfig({
   plugins: [vue()],
   build: {
     outDir: 'dist',
-    assetsDir: 'static',
-    rollupOptions: {
-      input: 'src/index.html'
-    }
+    assetsDir: 'static'
   }
 })
