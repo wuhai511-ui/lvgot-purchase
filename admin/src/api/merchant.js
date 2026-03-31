@@ -1,9 +1,9 @@
 /**
  * 商户相关 API（BFF → 钱账通）
  * BFF Base URL: https://bgualqb.cn
- * 钱账通签名/加密由 BFF 后端处理
+ * 所有请求由 BFF 代理转发到钱账通，解决前端 CORS 问题
  */
-import { post } from './request.js'
+import { post, upload } from './request.js'
 
 const BASE = '/api/v1/merchants'
 
@@ -31,8 +31,7 @@ export const merchantLogin = (phone, code) => {
 }
 
 /**
- * 文件上传
- * 前端将文件传给 BFF，BFF 调用钱账通 file.upload.commn，返回 file_key
+ * 文件上传（通过 BFF 代理到钱账通）
  * @param {File} file
  * @returns {Promise<string>} file_key
  */
@@ -41,21 +40,16 @@ export const uploadFile = (file) => {
   formData.append('file', file)
   formData.append('file_type', file.name.split('.').pop())
   formData.append('file_name', file.name)
-  return post('/api/v1/merchants/upload', formData, true)
+  return upload('/api/v1/merchants/upload', formData)
     .then(r => r.data?.file_key || '')
-  // 真实接口由 BFF 转发到钱账通 file.upload.commn
-  // 返回格式: { code: 0, data: { file_key: "xxx" } }
 }
 
 /**
- * 商户开户申请
- * 前端上传所有证件 + 填写完整表单 → BFF → 钱账通 open.pay.account.page.url
- * BFF 返回钱账通 H5 跳转 URL
- * @param {Object} data 开户表单数据（含 file_key）
+ * 商户开户申请（通过 BFF 代理到钱账通）
+ * BFF 内部调用钱账通 open.pay.account.page.url，返回 redirect_url
  */
 export const openAccount = (data) => {
   return post(BASE, {
-    // 商户基本信息
     name: data.name,
     enterprise_type: data.businessType,
     legal_name: data.legalName,
@@ -65,53 +59,116 @@ export const openAccount = (data) => {
     industry: data.industryCode,
     business_address: data.businessAddress,
     business_scope: data.businessScope,
-
-    // 结算账户信息
     account_type: data.accountType,
     settlement_bank: data.bankName,
     settlement_account: data.bankCardNo,
     settlement_account_name: data.bankAccountName,
     settlement_bank_branch: data.bankBranchName,
     open_permit_no: data.openPermitNo,
-
-    // 证件照片 file_key（由 uploadFile 上传到钱账通后获得）
     business_license_photo: data.licenseKey,
     legal_id_card_front: data.idCardFrontKey,
     legal_id_card_back: data.idCardBackKey,
     settlement_account_photo: data.bankCardKey,
-
-    // 回调地址（钱账通认证完成后回调我们的 BFF）
-    back_url: window.location.origin + '/merchant/callback',
-
-    // 来源标记
+    back_url: location.origin + '/merchant/callback',
     source: 'WORKBENCH'
   })
-  // 真实接口由 BFF 完成：
-  // 1. 保存商户信息到数据库（状态=pending）
-  // 2. BFF 调用钱账通 open.pay.account.page.url（RSA签名+加密）
-  // 3. BFF 返回 { code: 0, data: { redirect_url: "https://qzt.xc-fintech.com/..." } }
 }
 
-/**
- * 查询商户开户状态
- * @param {string} merchantId
- */
 export const getMerchantStatus = (merchantId) => {
   return post(`${BASE}/status`, { merchant_id: merchantId })
 }
 
-/**
- * 获取商户详情
- * @param {string} merchantId
- */
 export const getMerchantInfo = (merchantId) => {
   return post(`${BASE}/detail`, { merchant_id: merchantId })
 }
 
-/**
- * 商户列表
- * @param {Object} params page, pageSize, status, industry
- */
 export const getMerchantList = (params) => {
   return post(`${BASE}/list`, params)
+}
+
+/**
+ * 个人商户开户申请（导游/咨询师等）
+ * POST /api/merchant/apply-personal
+ */
+export const applyPersonal = (data) => {
+  return post(`${BASE}/apply-personal`, {
+    name: data.name,
+    mobile: data.mobile,
+    id_card_no: data.idCardNo,
+    id_card_front_key: data.idCardFrontKey,
+    id_card_back_key: data.idCardBackKey,
+    bank_name: data.bankName,
+    bank_card_no: data.bankCardNo,
+    bank_account_name: data.bankAccountName,
+    bank_province: data.bankProvince,
+    bank_city: data.bankCity,
+    bank_branch_name: data.bankBranchName,
+    role_type: data.roleType,   // GUIDE=导游, CONSULTANT=咨询师, OTHER=其他
+    source: 'WORKBENCH'
+  })
+}
+
+/**
+ * 调用 BFF OCR 识别接口
+ * POST /api/merchant/ocr
+ * @param {string} fileKey - 上传后得到的 file_key
+ * @param {string} type - front=身份证正面, back=身份证反面, license=营业执照
+ */
+export const callOCR = (fileKey, type) => {
+  const typeMap = { front: '2', back: '3', license: '1' }
+  return post(`${BASE}/ocr`, {
+    file_key: fileKey,
+    doc_type: typeMap[type] || '2',
+  })
+}
+
+/**
+ * 充值预下单
+ * POST /api/qzt/recharge/pre-order
+ */
+export const rechargePreOrder = (data) => {
+  return post('/api/qzt/recharge/pre-order', {
+    amount: data.amount,
+    account_type: data.accountType || 'lakala',
+  })
+}
+
+/**
+ * 充值状态查询
+ * GET /api/qzt/recharge/status?order_no=xxx
+ */
+export const rechargeStatus = (orderNo) => {
+  return post('/api/qzt/recharge/status', { order_no: orderNo })
+}
+
+/**
+ * 分账预下单
+ * POST /api/qzt/split/pre-order
+ */
+export const splitPreOrder = (data) => {
+  return post('/api/qzt/split/pre-order', data)
+}
+
+/**
+ * 分账确认
+ * POST /api/qzt/split/confirm
+ */
+export const splitConfirm = (data) => {
+  return post('/api/qzt/split/confirm', data)
+}
+
+/**
+ * 提现预下单
+ * POST /api/qzt/withdraw/pre-order
+ */
+export const withdrawPreOrder = (data) => {
+  return post('/api/qzt/withdraw/pre-order', data)
+}
+
+/**
+ * 获取商户人脸识别URL
+ * GET /api/merchant/:id/face-recognition-url
+ */
+export const getFaceRecognitionUrl = (merchantId) => {
+  return post(`${BASE}/${merchantId}/face-recognition-url`, {})
 }

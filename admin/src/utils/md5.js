@@ -1,6 +1,5 @@
 /**
- * MD5 工具（用于钱账通文件 hash 计算）
- * 使用 js-md5 库
+ * MD5 工具（使用 js-md5）
  */
 import md5 from 'js-md5'
 
@@ -12,14 +11,11 @@ import md5 from 'js-md5'
 export const md5String = (str) => md5(str)
 
 /**
- * 计算 ArrayBuffer 的 MD5
+ * 计算 ArrayBuffer 的 MD5，返回 hex 字符串
  * @param {ArrayBuffer} buffer
  * @returns {string} 32位十六进制小写
  */
 export const md5ArrayBuffer = (buffer) => {
-  const word = md5.ArrayBuffer(buffer)
-  // md5.js ArrayBuffer returns WordArray, convert to hex
-  return word.toString()
+  // js-md5 的 ArrayBuffer 支持
+  return md5(buffer)
 }
-
-export { md5 }

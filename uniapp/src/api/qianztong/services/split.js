@@ -3,7 +3,7 @@
  * 文档：Chapter 6.3 / 6.10-6.12 / 7.1-7.2 / 7.8-7.9
  * 通知：SPLIT_ACCOUNT_OPEN_NOTIFY（Chapter 8.3）/ TRADE_BALANCE_SPLIT_NOTIFY（Chapter 8.5）
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 获取分账方开户页面 URL
@@ -19,7 +19,7 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{out_request_no, url}>}
  */
 export async function getOpenPageUrl(params) {
-  return qztRequest('open.split.account.page.url', params)
+  return request.post('/api/qzt/split/pre-order', params)
 }
 
 /**
@@ -38,7 +38,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, split_apply_no}>}
  */
 export async function applyOpen(params) {
-  return qztRequest('split.account.apply', params)
+  return request.post('/api/qzt/proxy', { service: 'split.account.apply', params })
 }
 
 /**
@@ -50,7 +50,7 @@ export async function applyOpen(params) {
  * @returns {Promise<{out_request_no, split_id}>}
  */
 export async function confirmOpen(params) {
-  return qztRequest('split.account.confirm', params)
+  return request.post('/api/qzt/proxy', { service: 'split.account.confirm', params })
 }
 
 /**
@@ -60,7 +60,7 @@ export async function confirmOpen(params) {
  * @returns {Promise<{out_request_no, merchant_id, split_id, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return qztRequest('split.account.query', params)
+  return request.post('/api/qzt/proxy', { service: 'split.account.query', params })
 }
 
 /**
@@ -72,7 +72,7 @@ export async function queryOpenResult(params) {
  * @returns {Promise<{out_request_no, url}>}
  */
 export async function supplementAgreement(params) {
-  return qztRequest('split.account.agreement.supplement', params)
+  return request.post('/api/qzt/proxy', { service: 'split.account.agreement.supplement', params })
 }
 
 /**
@@ -85,7 +85,7 @@ export async function supplementAgreement(params) {
  * @returns {Promise<{out_request_no, split_status}>}
  */
 export async function split(params) {
-  return qztRequest('trade.balance.split', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split', params })
 }
 
 /**
@@ -97,7 +97,7 @@ export async function split(params) {
  * @returns {Promise<{out_request_no, split_status, split_list}>}
  */
 export async function querySplitResult(params) {
-  return qztRequest('trade.balance.split.query', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.query', params })
 }
 
 /**
@@ -111,5 +111,5 @@ export async function querySplitResult(params) {
  * @returns {Promise<{total, records: Array}>}
  */
 export async function querySplitRecords(params) {
-  return qztRequest('trade.split.list', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.split.list', params })
 }

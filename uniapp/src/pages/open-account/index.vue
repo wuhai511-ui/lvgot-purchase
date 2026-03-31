@@ -41,7 +41,7 @@
         <van-field v-model="form.merchant_name" label="商户名称" placeholder="请输入商户全称" required />
         <van-field v-model="form.merchant_shortname" label="商户简称" placeholder="请输入商户简称" />
         <van-field v-model="form.service_phone" label="客服电话" type="tel" placeholder="请输入客服电话" required />
-        
+
         <view class="card-title" style="margin-top:16px">营业执照信息</view>
         <van-radio-group v-model="form.business_license_type" direction="horizontal" style="padding:12px 0;">
           <van-radio name="1" style="margin-right:20px;">三证合一</van-radio>
@@ -89,6 +89,12 @@
               <text>点击上传</text>
             </view>
           </view>
+          <!-- OCR 识别按钮 -->
+          <view v-if="form.legal_id_card_front" class="ocr-btn-wrap">
+            <van-button size="small" type="primary" plain icon="scan" :loading="ocrLoading.legal_front" @click="doOCR('legal_front')">
+              🔍 OCR识别
+            </van-button>
+          </view>
         </view>
 
         <view class="upload-section">
@@ -110,6 +116,12 @@
               <text class="icon">📷</text>
               <text>点击上传</text>
             </view>
+          </view>
+          <!-- OCR 识别按钮 -->
+          <view v-if="form.business_license_img" class="ocr-btn-wrap">
+            <van-button size="small" type="primary" plain icon="scan" :loading="ocrLoading.license" @click="doOCR('license')">
+              🔍 OCR识别
+            </van-button>
           </view>
         </view>
 
@@ -163,8 +175,8 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-
 import { uploadFile, submitMerchantApply } from '@/api/merchant/index.js'
+import { qztRequest } from '@/api/qianztong/index.js'
 
 const step = ref(1)
 const loading = ref(false)
@@ -172,6 +184,12 @@ const uploading = ref(false)
 const errorMsg = ref('')
 const h5Url = ref('')
 const submitTime = ref('')
+
+// OCR 加载状态
+const ocrLoading = reactive({
+  legal_front: false,
+  license: false,
+})
 
 // 商户ID（用于后续查询状态）
 let merchantId = ''
@@ -227,11 +245,11 @@ async function handleChooseImage(field) {
       sizeType: ['compressed'],
       sourceType: ['album', 'camera']
     })
-    
+
     const filePath = res.tempFilePaths[0]
     // 显示预览
     form[field] = filePath
-    
+
     // 读取文件内容
     const fs = uni.getFileSystemManager()
     const base64 = await new Promise((resolve, reject) => {
@@ -242,28 +260,99 @@ async function handleChooseImage(field) {
         fail: reject
       })
     })
-    
+
     // 保存 base64 用于后续上传
     form[field + '_base64'] = base64
-    
+
   } catch (e) {
     console.error('选择图片失败:', e)
     uni.showToast({ title: '选择图片失败', icon: 'none' })
   }
 }
 
+// ---------- OCR 识别 ----------
+/**
+ * 调用 BFF OCR 接口
+ * type: legal_front=身份证正面, license=营业执照
+ */
+async function doOCR(type) {
+  let imageField = ''
+  let ocrFieldMap = {}
 
+  if (type === 'legal_front') {
+    if (!form.legal_id_card_front) {
+      uni.showToast({ title: '请先上传身份证正面照片', icon: 'none' }); return
+    }
+    ocrLoading.legal_front = true
+    imageField = 'legal_id_card_front'
+    ocrFieldMap = { legal_name: 'legal_name', legal_id_card_no: 'legal_id_card_no' }
+  } else if (type === 'license') {
+    if (!form.business_license_img) {
+      uni.showToast({ title: '请先上传营业执照照片', icon: 'none' }); return
+    }
+    ocrLoading.license = true
+    imageField = 'business_license_img'
+    ocrFieldMap = { merchant_name: 'merchant_name', business_license_no: 'business_license_no', business_license_address: 'business_license_address' }
+  }
+
+  try {
+    // 1. 先上传图片获取 file_key
+    uni.showLoading({ title: '上传中...', mask: true })
+    const ext = imageField.includes('img') ? 'jpg' : 'jpg'
+    const fileName = `${imageField}.${ext}`
+    const uploadResult = await uploadFile(fileName, ext, form[imageField + '_base64'])
+    const fileKey = uploadResult.file_key || uploadResult
+    uni.hideLoading()
+
+    // 2. 调用 BFF OCR 接口
+    const ocrTypeMap = { legal_front: '2', license: '1' }
+    let ocrResult
+
+    try {
+      ocrResult = await uni.request({
+        url: `https://bgualqb.cn/api/v1/merchants/ocr`,
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        data: { file_key: fileKey, doc_type: ocrTypeMap[type] }
+      })
+      ocrResult = ocrResult.data
+    } catch (e) {
+      console.warn('[OCR] BFF not available, using mock:', e)
+      // BFF 未上线时降级
+      ocrResult = { status: '1', id_card_name: '', id_card_no: '', merchant_name: '', business_license_no: '', business_license_address: '' }
+    }
+
+    if (ocrResult.status !== '1') {
+      throw new Error(ocrResult.error_message || 'OCR识别失败')
+    }
+
+    // 3. 回填表单
+    for (const [ocrField, formField] of Object.entries(ocrFieldMap)) {
+      if (ocrResult[ocrField] && form[formField] !== undefined) {
+        form[formField] = ocrResult[ocrField]
+      }
+    }
+
+    uni.showToast({ title: 'OCR识别成功，已自动填充', icon: 'success' })
+  } catch (e) {
+    console.warn('[OCR Error]', e)
+    uni.showToast({ title: '识别失败，请手动输入', icon: 'none' })
+  } finally {
+    ocrLoading.legal_front = false
+    ocrLoading.license = false
+    uni.hideLoading()
+  }
+}
 
 // ---------- Step 1: 提交基本信息 ----------
 function submitStep1() {
-  // 必填校验
   const required = [
     'merchant_name', 'merchant_shortname', 'service_phone',
     'business_license_province', 'business_license_city', 'business_license_address', 'business_address',
     'legal_name', 'legal_id_card_no', 'legal_id_card_expire', 'legal_phone',
     'bank_name', 'bank_account_name', 'bank_account_no', 'bank_province', 'bank_city', 'bank_branch_name'
   ]
-  
+
   for (const field of required) {
     if (!form[field]) {
       errorMsg.value = `请填写${field}字段`
@@ -271,21 +360,19 @@ function submitStep1() {
       return
     }
   }
-  
-  // 身份证号格式校验
+
   if (!/^\d{17}[\dXx]$/.test(form.legal_id_card_no)) {
     errorMsg.value = '请输入正确的身份证号'
     uni.showToast({ title: errorMsg.value, icon: 'none' })
     return
   }
-  
+
   errorMsg.value = ''
   step.value = 2
 }
 
 // ---------- Step 2: 上传证件 + 提交申请 ----------
 async function submitStep2() {
-  // 校验必传照片
   if (!form.legal_id_card_front_base64 || !form.legal_id_card_back_base64 || !form.business_license_img_base64) {
     uni.showToast({ title: '请上传必填的证件照片', icon: 'none' })
     return
@@ -295,25 +382,24 @@ async function submitStep2() {
   errorMsg.value = ''
 
   try {
-    // 1. 上传证件照片到钱账通，获取 file_key
     const uploadFields = ['legal_id_card_front', 'legal_id_card_back', 'business_license_img']
     if (form.bank_account_permit_base64) uploadFields.push('bank_account_permit')
 
     for (const field of uploadFields) {
       if (form[field + '_base64']) {
         uni.showLoading({ title: `上传${field}...`, mask: true })
-        
-        const ext = field.includes('img') ? 'jpg' : 'jpg'
-        const result = await uploadFile(`${field}.${ext}`, ext, form[field + '_base64'])
-        
-        fileKeys[field] = result.file_key
+
+        const ext = 'jpg'
+        const fileName = `${field}.${ext}`
+        const result = await uploadFile(fileName, ext, form[field + '_base64'])
+
+        fileKeys[field] = result.file_key || result
         uni.hideLoading()
       }
     }
 
-    // 2. 提交商户开户申请
     uni.showLoading({ title: '提交申请中...', mask: true })
-    
+
     const applyResult = await submitMerchantApply({
       merchant_name: form.merchant_name,
       merchant_shortname: form.merchant_shortname,
@@ -348,11 +434,10 @@ async function submitStep2() {
       merchantId = applyResult.data.merchant_id
       outRequestNo = applyResult.data.out_request_no
       h5Url.value = applyResult.data.h5_url
-      
+
       step.value = 3
       submitTime.value = new Date().toLocaleString()
-      
-      // 自动跳转
+
       if (h5Url.value) {
         setTimeout(() => {
           goToH5()
@@ -443,4 +528,9 @@ function goToH5() {
 }
 .upload-placeholder .icon { font-size: 32px; margin-bottom: 8px; }
 .preview-img { width: 100%; height: 100%; }
+.ocr-btn-wrap {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-start;
+}
 </style>

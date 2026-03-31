@@ -3,7 +3,7 @@
  * 文档：Chapter 10
  * service_type: 01=拉卡拉电签，02=安心签（默认）
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 企业电签账户开户
@@ -22,7 +22,7 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{user_id, operator_id}>}
  */
 export async function openEnterpriseAccount(params) {
-  return qztRequest('esign.open.enterprise.account', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.open.enterprise.account', params })
 }
 
 /**
@@ -36,7 +36,7 @@ export async function openEnterpriseAccount(params) {
  * @returns {Promise<{user_id}>}
  */
 export async function openPersonalAccount(params) {
-  return qztRequest('esign.open.person.account', { enterprise_type: '3', ...params })
+  return request.post('/api/qzt/proxy', { service: 'esign.open.person.account', { enterprise_type: '3', ...params })
 }
 
 /**
@@ -47,7 +47,7 @@ export async function openPersonalAccount(params) {
  * @returns {Promise<{sys_seq_no}>}
  */
 export async function initContract(params) {
-  return qztRequest('esign.contract.init', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.init', params })
 }
 
 /**
@@ -61,7 +61,7 @@ export async function initContract(params) {
  * @returns {Promise<{sys_seq_no, contract_no}>}
  */
 export async function createContract(params) {
-  return qztRequest('esign.contract.create', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.create', params })
 }
 
 /**
@@ -72,7 +72,7 @@ export async function createContract(params) {
  * @returns {Promise<{contract_no, contract_content}>} contract_content 为 Base64 编码
  */
 export async function downloadContract(params) {
-  return qztRequest('esign.contract.download', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.download', params })
 }
 
 /**
@@ -85,7 +85,7 @@ export async function downloadContract(params) {
  * @returns {Promise<{status, error_message?}>}
  */
 export async function sendSignSms(params) {
-  return qztRequest('esign.contract.sms.send', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.sms.send', params })
 }
 
 /**
@@ -99,7 +99,7 @@ export async function sendSignSms(params) {
  * @returns {Promise<{status, error_message?}>}
  */
 export async function validSignSms(params) {
-  return qztRequest('esign.contract.sms.valid', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.sms.valid', params })
 }
 
 /**
@@ -113,7 +113,7 @@ export async function validSignSms(params) {
  * @returns {Promise<{status, error_message?}>}
  */
 export async function signContract(params) {
-  return qztRequest('esign.contract.sign', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.contract.sign', params })
 }
 
 /**
@@ -125,7 +125,7 @@ export async function signContract(params) {
  * @returns {Promise<{status, error_message?}>}
  */
 export async function modifyMobile(params) {
-  return qztRequest('esign.user.mobile.modify', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.user.mobile.modify', params })
 }
 
 /**
@@ -136,5 +136,5 @@ export async function modifyMobile(params) {
  * @returns {Promise<{mobile}>}
  */
 export async function queryMobile(params) {
-  return qztRequest('esign.user.mobile.query', params)
+  return request.post('/api/qzt/proxy', { service: 'esign.user.mobile.query', params })
 }

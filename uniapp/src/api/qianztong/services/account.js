@@ -3,7 +3,7 @@
  * 文档：Chapter 6.2 - 支付账户开户
  * 通知：PAY_ACCOUNT_OPEN_NOTIFY（Chapter 8.1）
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 获取支付账户开户页面 URL
@@ -49,7 +49,7 @@ export async function getOpenPageUrl(params) {
      })
   }
 
-  return qztRequest('open.pay.account.page.url', params)
+  return request.post('/api/qzt/proxy', { service: 'open.pay.account.page.url', params })
 }
 
 /**
@@ -59,7 +59,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, merchant_id, account_no, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return qztRequest('payaccount.open.query', params)
+  return request.post('/api/qzt/proxy', { service: 'payaccount.open.query', params })
 }
 
 /**
@@ -73,7 +73,7 @@ export async function queryOpenResult(params) {
  * @returns {Promise<{out_request_no, recharge_seq_no, recharge_state, ...}>}
  */
 export async function recharge(params) {
-  return qztRequest('account.recharge.apply', params)
+  return request.post('/api/qzt/recharge/pre-order', params)
 }
 
 /**
@@ -84,7 +84,7 @@ export async function recharge(params) {
  * @returns {Promise<{recharge_seq_no, recharge_state, recharge_amount, ...}>}
  */
 export async function queryRecharge(params) {
-  return qztRequest('account.recharge.query', params)
+  return request.get('/api/qzt/recharge/status', params)
 }
 
 /**
@@ -96,7 +96,7 @@ export async function queryRecharge(params) {
  * trans_amount: 挂账余额（分）
  */
 export async function queryBalance(params) {
-  return qztRequest('account.balance.query', params)
+  return request.post('/api/qzt/proxy', { service: 'account.balance.query', params })
 }
 
 /**
@@ -112,7 +112,7 @@ export async function queryBalance(params) {
  * @returns {Promise<{total, records: [{flow_no, cur_amount, chg_amount, loan_flag, chg_time, chg_type, chg_sub_type, busi_desc}]}>}
  */
 export async function queryFlow(params) {
-  return qztRequest('account.flow.query', params)
+  return request.post('/api/qzt/proxy', { service: 'account.flow.query', params })
 }
 
 /**
@@ -125,7 +125,7 @@ export async function queryFlow(params) {
  * @returns {Promise<{out_request_no, seq_no}>}
  */
 export async function ocrRecognize(params) {
-  return qztRequest('ocr.recognize', params)
+  return request.post('/api/qzt/proxy', { service: 'ocr.recognize', params })
 }
 
 /**
@@ -134,5 +134,5 @@ export async function ocrRecognize(params) {
  * @returns {Promise<{status, id_card_name, id_card_no, id_card_sex, ...}>}
  */
 export async function queryOcrResult(seqNo) {
-  return qztRequest('ocr.recognize.query', { seq_no: seqNo })
+  return request.post('/api/qzt/proxy', { service: 'ocr.recognize.query', { seq_no: seqNo })
 }

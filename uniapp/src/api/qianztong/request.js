@@ -1,34 +1,16 @@
-import axios from 'axios'
+import request from '@/utils/request.js'
 import QZT_CONFIG from '@/config/qianztong.js'
 
 export async function qztRequest(service, params = {}) {
-  try {
-    const response = await axios.post(QZT_CONFIG.gateway, {
-      service,
-      params
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 30000
-    })
-
-    const res = response.data
-
-    if (res.status === 'FAIL') {
-      const err = new Error(res.message || '钱账通接口调用失败')
-      err.code = res.error_code
-      throw err
-    }
-
-    return res.result
-  } catch (error) {
-    if (error.response) {
-      throw new Error(error.response.data?.error || '接口请求异常')
-    }
-    throw error
-  }
+  // 不再直调钱账通网关，走BFF代理层
+  return request.post('/api/qzt/proxy', {
+    service,
+    params
+  })
 }
 
 export async function qztFileUpload(fileName, fileType, fileHash, fileContentBase64, extraParams = {}) {
-  const params = { file_name: fileName, file_type: fileType, file_hash: fileHash, ...extraParams }
+  // 文件上传如果也有BFF的接口可以提出来，或者继续走 qztRequest /api/qzt/proxy 但带上内容
+  const params = { file_name: fileName, file_type: fileType, file_hash: fileHash, file_content: fileContentBase64, ...extraParams }
   return await qztRequest('file.upload.commn', params)
 }

@@ -1,93 +1,46 @@
 /**
  * 钱账通客户端
  *
- * 前端直调钱账通测试环境
- *
- * 钱账通接口签名规则（RSA-SHA1 + PKCS1）：
- * signStr = app_id + timestamp + version + service + params.toJSONString()
- * sign = RSA-SHA1签名(signStr, 商户RSA私钥)
- *
- * 文件上传签名：
- * params = { file_name, file_type, file_hash, file_content }
- * signStr = app_id + timestamp + version + service + params.toJSONString()
+ * 通过BFF代理层调用钱账通，取代前端直调
  */
 
 import { md5ArrayBuffer } from './md5.js'
-import { RSA } from './rsa.js'
-
-// ==================== 钱账通测试环境配置 ====================
-const QZT = {
-  appId: '7348882579718766592',
-  serviceUrl: 'https://qztuat.xc-fintech.com/gateway/soa', // 测试环境
-  version: '4.0',
-}
-
-// 商户RSA私钥（替换为真实私钥）
-const PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-MIIEugIBADANBgkqhkiG9w0BAQEFAASCBKQwggSgAgEAAoIBAQC5
------END PRIVATE KEY-----`
-
-// 钱账通RSA公钥（用于验签）
-const CLOUD_PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwx+Q
------END PUBLIC KEY-----`
-
-/**
- * 生成唯一请求号
- */
-const generateRequestNo = () =>
-  `${Date.now()}${Math.random().toString(36).slice(2, 10)}`
 
 /**
  * 统一请求入口
  * @param {string} service  服务名，如 'file.upload.commn'
- * @param {Object} params   业务参数（不含 out_request_no）
+ * @param {Object} params   业务参数
  */
 export const qztRequest = async (service, params) => {
-  const timestamp = String(Math.floor(Date.now() / 1000))
-  const outRequestNo = generateRequestNo()
-
-  const requestParams = { ...params, out_request_no: outRequestNo }
-
-  // 签名原文 = app_id + timestamp + version + service + paramsJSON
-  const signStr =
-    QZT.appId + timestamp + QZT.version + service + JSON.stringify(requestParams)
-
-  // RSA-SHA1 签名
-  const signature = RSA.sign(signStr, PRIVATE_KEY)
-
   const requestBody = {
-    app_id: QZT.appId,
-    timestamp,
-    version: QZT.version,
     service,
-    params: requestParams,
-    sign: signature,
+    params,
   }
 
-  console.log('[QZT Request]', JSON.stringify(requestBody, null, 2))
-
-  const resp = await fetch(QZT.serviceUrl, {
+  const resp = await fetch('/api/qzt/proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(requestBody),
   })
 
-  if (!resp.ok) throw new Error(`QZT HTTP ${resp.status}`)
+  if (!resp.ok) throw new Error(`QZT Proxy HTTP ${resp.status}`)
 
   const data = await resp.json()
-  console.log('[QZT Response]', JSON.stringify(data, null, 2))
-
-  const body = data.body || data
-  if (body.status !== 'SUCCESS') {
-    throw new Error(`${body.error_code}: ${body.message}`)
+  
+  if (data.status === 'FAIL') {
+    throw new Error(`${data.error_code}: ${data.message}`)
   }
 
-  // 验签（生产环境必须）
-  const verifyOk = RSA.verify(CLOUD_PUBLIC_KEY, body.result, body.sign)
-  if (!verifyOk) throw new Error('QZT 响应验签失败')
-
-  return JSON.parse(body.result)
+  // 服务端返回的 result 可能是 base64 或者是对象
+  let result = data.result
+  if (typeof result === 'string') {
+     try {
+       result = JSON.parse(atob(result))
+     } catch (e) {
+       // do nothing
+     }
+  }
+  return result
 }
 
 // ==================== 文件上传 ====================
@@ -123,16 +76,21 @@ export const qztFileUpload = async (file, fileName, fileType) => {
 // ==================== 商户开户 ====================
 
 /**
- * 申请开通支付账户
+ * 申请开通支付账户（兼容方法，实际由 BFF 提供开户接口）
  * @param {Object} data
  */
 export const qztOpenPayAccount = async (data) => {
+  // 发送到 BFF 代为处理，如果是走 H5 页面获取 url
+  // 可以继续使用 qztRequest('open.pay.account.page.url', ...) 
   const result = await qztRequest('open.pay.account.page.url', {
     register_name: data.registerName,
     enterprise_type: data.enterpriseType,    // 1=有限责任公司
     legal_name: data.legalName,
     legal_mobile: data.legalMobile,
-    business_license: RSA.encrypt(data.businessLicense, CLOUD_PUBLIC_KEY),
+    // business_license: encrypt(data.businessLicense, CLOUD_PUBLIC_KEY), 
+    // ^加密应该转到BFF或者保留原来逻辑但BFF直传
+    // 这里做个简单传递，要求BFF负责加密处理
+    business_license: data.businessLicense,
     back_url: data.backUrl || location.origin + '/merchant/callback',
   })
   return {

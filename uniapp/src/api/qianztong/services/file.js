@@ -2,7 +2,7 @@
  * 钱账通·文件服务
  * 文档：Chapter 5.1 - 5.2
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 文件上传（身份证、营业执照等）
@@ -13,7 +13,7 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{file_no: string}>}
  */
 export async function upload(fileName, fileType, fileHash, fileContent) {
-  return qztRequest('file.upload.commn', {
+  return request.post('/api/qzt/proxy', { service: 'file.upload.commn', {
     file_name: fileName,
     file_type: fileType,
     file_hash: fileHash,
@@ -27,5 +27,5 @@ export async function upload(fileName, fileType, fileHash, fileContent) {
  * @returns {Promise<{file_type, file_name, file_content}>}
  */
 export async function download(fileNo) {
-  return qztRequest('file.download.commn', { file_no: fileNo })
+  return request.post('/api/qzt/proxy', { service: 'file.download.commn', { file_no: fileNo })
 }

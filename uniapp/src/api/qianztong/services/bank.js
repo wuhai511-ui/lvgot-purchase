@@ -3,7 +3,7 @@
  * 文档：Chapter 6.1 / 6.4-6.9 / 7.4-7.6
  * 通知：BANK_ACCOUNT_OPEN_NOTIFY（Chapter 8.2）
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 获取银行卡开户页面 URL
@@ -32,7 +32,7 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{out_request_no, url}>}
  */
 export async function getOpenPageUrl(params) {
-  return qztRequest('open.bank.account.page.url', params)
+  return request.post('/api/qzt/proxy', { service: 'open.bank.account.page.url', params })
 }
 
 /**
@@ -42,7 +42,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, merchant_id, bank_account_no, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return qztRequest('merchant.query.final', params)
+  return request.post('/api/qzt/proxy', { service: 'merchant.query.final', params })
 }
 
 /**
@@ -53,7 +53,7 @@ export async function queryOpenResult(params) {
  * @returns {Promise<{out_request_no, file_no}>}
  */
 export async function queryVoucher(params) {
-  return qztRequest('bank.account.voucher.query', params)
+  return request.post('/api/qzt/proxy', { service: 'bank.account.voucher.query', params })
 }
 
 /**
@@ -68,7 +68,7 @@ export async function queryVoucher(params) {
  * @returns {Promise<{out_request_no, merchant_id, bind_no}>}
  */
 export async function bindCard(params) {
-  return qztRequest('card.bind', params)
+  return request.post('/api/qzt/proxy', { service: 'card.bind', params })
 }
 
 /**
@@ -80,7 +80,7 @@ export async function bindCard(params) {
  * @returns {Promise<{out_request_no, merchant_id}>}
  */
 export async function unbindCard(params) {
-  return qztRequest('card.unbind', params)
+  return request.post('/api/qzt/proxy', { service: 'card.unbind', params })
 }
 
 /**
@@ -91,7 +91,7 @@ export async function unbindCard(params) {
  * @returns {Promise<{out_request_no, withdraw_seq_no, ...}>}
  */
 export async function withdrawSendSms(params) {
-  return qztRequest('account.withdraw.sms.send', params)
+  return request.post('/api/qzt/withdraw/pre-order', params)
 }
 
 /**
@@ -103,7 +103,7 @@ export async function withdrawSendSms(params) {
  * @returns {Promise<{out_request_no, withdraw_seq_no, withdraw_state, ...}>}
  */
 export async function withdrawConfirm(params) {
-  return qztRequest('account.withdraw.confirm', params)
+  return request.post('/api/qzt/withdraw/confirm', params)
 }
 
 /**
@@ -114,5 +114,5 @@ export async function withdrawConfirm(params) {
  * @returns {Promise<{out_request_no, withdraw_seq_no, withdraw_state, amount, fee, ...}>}
  */
 export async function queryWithdraw(params) {
-  return qztRequest('account.withdraw.query', params)
+  return request.get('/api/qzt/withdraw/query', params)
 }

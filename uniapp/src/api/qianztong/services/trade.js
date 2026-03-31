@@ -3,7 +3,7 @@
  * 文档：Chapter 7.3 / 7.8 / 8.4 / 8.6
  * 通知：TRADE_NOTIFY / TRADE_FEE_NOTIFY
  */
-import { qztRequest } from '../request.js'
+import request from '@/utils/request.js'
 
 /**
  * 交易分账
@@ -15,7 +15,7 @@ import { qztRequest } from '../request.js'
  * @returns {Promise<{out_request_no, split_status}>}
  */
 export async function split(params) {
-  return qztRequest('trade.balance.split', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split', params })
 }
 
 /**
@@ -27,7 +27,7 @@ export async function split(params) {
  * @returns {Promise<{out_request_no, split_status, split_list}>}
  */
 export async function querySplit(params) {
-  return qztRequest('trade.balance.split.query', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.query', params })
 }
 
 /**
@@ -39,7 +39,7 @@ export async function querySplit(params) {
  * @returns {Promise<{out_request_no, revoke_status}>}
  */
 export async function revokeSplit(params) {
-  return qztRequest('trade.balance.split.cancel', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.cancel', params })
 }
 
 /**
@@ -53,7 +53,7 @@ export async function revokeSplit(params) {
  * @returns {Promise<{total, records: Array}>}
  */
 export async function queryTransactionList(params) {
-  return qztRequest('trade.trans.list', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.trans.list', params })
 }
 
 /**
@@ -62,7 +62,7 @@ export async function queryTransactionList(params) {
  * @returns {Promise<object>}
  */
 export async function queryTransactionDetail(transNo) {
-  return qztRequest('trade.trans.detail', { trans_no: transNo })
+  return request.post('/api/qzt/proxy', { service: 'trade.trans.detail', { trans_no: transNo })
 }
 
 /**
@@ -73,7 +73,7 @@ export async function queryTransactionDetail(transNo) {
  * @returns {Promise<object>}
  */
 export async function queryRechargeRecords(params) {
-  return qztRequest('trade.recharge.list', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.recharge.list', params })
 }
 
 /**
@@ -85,5 +85,5 @@ export async function queryRechargeRecords(params) {
  * @returns {Promise<object>}
  */
 export async function queryOpenAccountRecords(params) {
-  return qztRequest('trade.openaccount.list', params)
+  return request.post('/api/qzt/proxy', { service: 'trade.openaccount.list', params })
 }
