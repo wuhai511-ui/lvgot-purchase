@@ -157,10 +157,6 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
   if (parsed && parsed.file_key) {
     params.file_key = parsed.file_key;
   }
-  // 第二次调用需要带上从第一步获得的 file_key，并且包含 base64
-  if (parsed && parsed.file_key) {
-    params.file_key = parsed.file_key;
-  }
 
   const uploadResult = await callQzt('file.upload.commn', params);
   
@@ -195,6 +191,9 @@ merchantRouter.post('/upload', async (req, res) => {
   try {
     const fileBuffer = Buffer.from(file_content, 'base64');
     const result = await uploadFileToQzt(file_name, file_type, fileBuffer);
+    if (!result || result.file_key === undefined) {
+      return res.status(500).json({ code: 500, message: '文件上传失败', error: '未获取到有效的 file_key' });
+    }
     res.json({ code: 0, data: { file_key: result.file_key } });
   } catch (error) {
     console.error('文件上传失败:', error.response?.data || error.message);
