@@ -133,20 +133,48 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
 
   // 先调用接口获取 file_key
   const result = await callQzt('file.upload.commn', params);
+  
+  // 检查第一次接口调用是否失败
+  if (result.status === 'FAIL' || !result.result) {
+    throw new Error(`获取文件上传 file_key 失败: ${result.message || '未知错误'}`);
+  }
+
   let parsed;
   if (typeof result.result === 'string') {
-    parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+    try {
+      parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+    } catch(e) {
+      parsed = JSON.parse(result.result);
+    }
   } else {
     parsed = result.result;
   }
 
   // 把 file_content 添加到 params 中再次请求
   params.file_content = fileBase64;
+
+  // 第二次调用需要带上从第一步获得的 file_key，并且包含 base64
+  if (parsed && parsed.file_key) {
+    params.file_key = parsed.file_key;
+  }
+  // 第二次调用需要带上从第一步获得的 file_key，并且包含 base64
+  if (parsed && parsed.file_key) {
+    params.file_key = parsed.file_key;
+  }
+
   const uploadResult = await callQzt('file.upload.commn', params);
+  
+  if (uploadResult.status === 'FAIL' || !uploadResult.result) {
+    throw new Error(`上传文件失败: ${uploadResult.message || '未知错误'}`);
+  }
 
   let uploadParsed;
   if (typeof uploadResult.result === 'string') {
-    uploadParsed = JSON.parse(Buffer.from(uploadResult.result, 'base64').toString('utf8'));
+    try {
+      uploadParsed = JSON.parse(Buffer.from(uploadResult.result, 'base64').toString('utf8'));
+    } catch(e) {
+      uploadParsed = JSON.parse(uploadResult.result);
+    }
   } else {
     uploadParsed = uploadResult.result;
   }
