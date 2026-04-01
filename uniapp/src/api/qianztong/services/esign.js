@@ -36,7 +36,7 @@ export async function openEnterpriseAccount(params) {
  * @returns {Promise<{user_id}>}
  */
 export async function openPersonalAccount(params) {
-  return request.post('/api/qzt/proxy', { service: 'esign.open.person.account', { enterprise_type: '3', ...params })
+  return request.post('/api/qzt/proxy', { service: 'esign.open.person.account', params: { enterprise_type: '3', ...params } })
 }
 
 /**

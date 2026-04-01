@@ -134,5 +134,5 @@ export async function ocrRecognize(params) {
  * @returns {Promise<{status, id_card_name, id_card_no, id_card_sex, ...}>}
  */
 export async function queryOcrResult(seqNo) {
-  return request.post('/api/qzt/proxy', { service: 'ocr.recognize.query', { seq_no: seqNo })
+  return request.post('/api/qzt/proxy', { service: 'ocr.recognize.query', params: { seq_no: seqNo } })
 }

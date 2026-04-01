@@ -62,7 +62,7 @@ export async function queryTransactionList(params) {
  * @returns {Promise<object>}
  */
 export async function queryTransactionDetail(transNo) {
-  return request.post('/api/qzt/proxy', { service: 'trade.trans.detail', { trans_no: transNo })
+  return request.post('/api/qzt/proxy', { service: 'trade.trans.detail', params: { trans_no: transNo } })
 }
 
 /**
