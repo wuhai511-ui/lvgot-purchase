@@ -60,26 +60,9 @@ export const uploadFile = async (file) => {
 export const openAccount = (data) => {
   return post(BASE, {
     name: data.name,
-    enterprise_type: data.businessType,
-    legal_name: data.legalName,
-    legal_mobile: data.legalPhone,
-    legal_id_card: data.legalIdCard,
-    business_license: data.licenseNo,
-    industry: data.industryCode,
-    business_address: data.businessAddress,
-    business_scope: data.businessScope,
-    account_type: data.accountType,
-    settlement_bank: data.bankName,
-    settlement_account: data.bankCardNo,
-    settlement_account_name: data.bankAccountName,
-    settlement_bank_branch: data.bankBranchName,
-    open_permit_no: data.openPermitNo,
-    business_license_photo: data.licenseKey,
-    legal_id_card_front: data.idCardFrontKey,
-    legal_id_card_back: data.idCardBackKey,
-    settlement_account_photo: data.bankCardKey,
-    back_url: location.origin + '/merchant/callback',
-    source: 'WORKBENCH'
+    legal_mobile: data.legal_mobile,
+    back_url: data.back_url || location.origin + '/merchant/callback',
+    source: data.source || 'WORKBENCH'
   })
 }
 

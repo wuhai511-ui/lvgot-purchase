@@ -12,40 +12,25 @@
         </el-radio-group>
         <div class="subject-tip" v-if="subjectType === 'personal'">
           <el-icon><InfoFilled /></el-icon>
-          个人商户限额说明：提现限额1000元/笔，完成人脸识别后可解除限额
+          提交后将跳转至钱账通完成后续入驻流程
+        </div>
+        <div class="subject-tip" v-else>
+          <el-icon><InfoFilled /></el-icon>
+          提交后将跳转至钱账通完成后续入驻流程
         </div>
       </div>
     </div>
 
-    <!-- ==================== 企业商户表单 ==================== -->
+    <!-- ==================== 企业商户表单（精简版）==================== -->
     <template v-if="subjectType === 'enterprise'">
-
-      <!-- 商户基本信息 -->
       <div class="card">
-        <div class="card-header">商户基本信息</div>
+        <div class="card-header">基本信息</div>
         <div class="card-body">
-          <el-form :model="form" :rules="rules" ref="formRef" label-width="140px">
+          <el-form :model="form" :rules="simpleRules" ref="formRef" label-width="140px">
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="商户名称" prop="name">
                   <el-input v-model="form.name" placeholder="请输入商户名称"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="企业类型" prop="businessType">
-                  <el-select v-model="form.businessType" placeholder="请选择企业类型" style="width:100%">
-                    <el-option label="有限责任公司" value="1"/>
-                    <el-option label="个体工商户" value="2"/>
-                    <el-option label="个人独资企业" value="3"/>
-                    <el-option label="合伙企业" value="4"/>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="法人姓名" prop="legalName">
-                  <el-input v-model="form.legalName" placeholder="请输入法人姓名"/>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
@@ -54,140 +39,17 @@
                 </el-form-item>
               </el-col>
             </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="法人身份证号" prop="legalIdCard">
-                  <el-input v-model="form.legalIdCard" placeholder="请输入法人身份证号" maxlength="18"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="行业类型" prop="industryCode">
-                  <el-select v-model="form.industryCode" placeholder="请选择行业类型" style="width:100%">
-                    <el-option label="旅游服务" value="TOURISM"/>
-                    <el-option label="交通运输" value="TRANSPORT"/>
-                    <el-option label="餐饮服务" value="CATERING"/>
-                    <el-option label="零售批发" value="RETAIL"/>
-                    <el-option label="其他" value="OTHER"/>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-form-item label="经营地址" prop="businessAddress">
-              <el-input v-model="form.businessAddress" placeholder="请输入详细经营地址"/>
-            </el-form-item>
-            <el-form-item label="经营范围">
-              <el-input v-model="form.businessScope" type="textarea" :rows="2" placeholder="请输入经营范围"/>
-            </el-form-item>
-            <el-form-item label="营业执照号" prop="licenseNo">
-              <el-input v-model="form.licenseNo" placeholder="请输入统一社会信用代码"/>
-            </el-form-item>
           </el-form>
         </div>
       </div>
-
-      <!-- 证件照片 -->
-      <div class="card">
-        <div class="card-header">证件照片 <span style="font-size:12px;color:#888;font-weight:400">（支持钱账通OCR自动识别）</span></div>
-        <div class="card-body">
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <div class="upload-item">
-                <div class="upload-label">法人身份证（正面）<span style="color:#E6A23C">*</span></div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => idCardFrontList = [f]" list-type="picture" :file-list="idCardFrontList">
-                  <el-button>点击上传</el-button>
-                  <template #tip><div class="el-upload__tip">支持jpg/png，建议分辨率≥1024×768</div></template>
-                </el-upload>
-                <el-button v-if="idCardFrontList.length" size="small" type="primary" style="margin-top:8px" :loading="ocrLoading.front" @click="doOCR('front')">🔍 OCR识别</el-button>
-              </div>
-            </el-col>
-            <el-col :span="8">
-              <div class="upload-item">
-                <div class="upload-label">法人身份证（反面）<span style="color:#E6A23C">*</span></div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => idCardBackList = [f]" list-type="picture" :file-list="idCardBackList">
-                  <el-button>点击上传</el-button>
-                </el-upload>
-              </div>
-            </el-col>
-            <el-col :span="8">
-              <div class="upload-item">
-                <div class="upload-label">营业执照照片<span style="color:#E6A23C">*</span></div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => licenseList = [f]" list-type="picture" :file-list="licenseList">
-                  <el-button>点击上传</el-button>
-                </el-upload>
-                <el-button v-if="licenseList.length" size="small" type="primary" style="margin-top:8px" :loading="ocrLoading.license" @click="doOCR('license')">🔍 OCR识别</el-button>
-              </div>
-            </el-col>
-          </el-row>
-          <el-row :gutter="20" style="margin-top:20px">
-            <el-col :span="12">
-              <div class="upload-item">
-                <div class="upload-label">结算账户信息照片<span style="color:#E6A23C">*</span>（银行卡/开户许可证）</div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => bankList = [f]" list-type="picture" :file-list="bankList">
-                  <el-button>点击上传</el-button>
-                </el-upload>
-              </div>
-            </el-col>
-          </el-row>
-        </div>
-      </div>
-
-      <!-- 结算账户信息 -->
-      <div class="card">
-        <div class="card-header">结算账户信息</div>
-        <div class="card-body">
-          <el-form :model="form" :rules="rules" ref="formRef2" label-width="140px">
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="结算账户类型" prop="accountType">
-                  <el-select v-model="form.accountType" placeholder="请选择账户类型" style="width:100%">
-                    <el-option label="对公账户" value="CORPORATE"/>
-                    <el-option label="对私账户" value="PERSONAL"/>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="开户行名称" prop="bankName">
-                  <el-input v-model="form.bankName" placeholder="请输入开户行名称"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="银行卡号" prop="bankCardNo">
-                  <el-input v-model="form.bankCardNo" placeholder="请输入银行卡号" maxlength="23"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="开户名" prop="bankAccountName">
-                  <el-input v-model="form.bankAccountName" placeholder="请输入开户名"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="开户支行">
-                  <el-input v-model="form.bankBranchName" placeholder="请输入开户支行"/>
-                </el-form-item>
-              </el-col>
-              <el-col v-if="form.accountType === 'CORPORATE'" :span="12">
-                <el-form-item label="开户许可证号" prop="openPermitNo">
-                  <el-input v-model="form.openPermitNo" placeholder="请输入开户许可证号"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </el-form>
-        </div>
-      </div>
-
     </template>
 
-    <!-- ==================== 个人商户表单 ==================== -->
+    <!-- ==================== 个人商户表单（精简版）==================== -->
     <template v-else-if="subjectType === 'personal'">
-
       <div class="card">
         <div class="card-header">基本信息</div>
         <div class="card-body">
-          <el-form :model="personalForm" :rules="personalRules" ref="personalFormRef" label-width="140px">
+          <el-form :model="personalForm" :rules="personalSimpleRules" ref="personalFormRef" label-width="140px">
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="姓名" prop="name">
@@ -200,134 +62,26 @@
                 </el-form-item>
               </el-col>
             </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="身份证号" prop="idCardNo">
-                  <el-input v-model="personalForm.idCardNo" placeholder="请输入身份证号" maxlength="18"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="角色类型" prop="roleType">
-                  <el-select v-model="personalForm.roleType" placeholder="请选择角色类型" style="width:100%">
-                    <el-option label="导游" value="GUIDE"/>
-                    <el-option label="咨询师" value="CONSULTANT"/>
-                    <el-option label="其他" value="OTHER"/>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
           </el-form>
         </div>
       </div>
-
-      <!-- 身份证照片 -->
-      <div class="card">
-        <div class="card-header">证件照片</div>
-        <div class="card-body">
-          <el-row :gutter="20">
-            <el-col :span="8">
-              <div class="upload-item">
-                <div class="upload-label">身份证正面<span style="color:#E6A23C">*</span></div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => personalIdFrontList = [f]" list-type="picture" :file-list="personalIdFrontList">
-                  <el-button>点击上传</el-button>
-                  <template #tip><div class="el-upload__tip">支持jpg/png</div></template>
-                </el-upload>
-                <el-button v-if="personalIdFrontList.length" size="small" type="primary" style="margin-top:8px" :loading="ocrLoading.personalFront" @click="doPersonalOCR('front')">🔍 OCR识别</el-button>
-              </div>
-            </el-col>
-            <el-col :span="8">
-              <div class="upload-item">
-                <div class="upload-label">身份证背面<span style="color:#E6A23C">*</span></div>
-                <el-upload :auto-upload="false" :limit="1" accept="image/*" :on-change="(f) => personalIdBackList = [f]" list-type="picture" :file-list="personalIdBackList">
-                  <el-button>点击上传</el-button>
-                </el-upload>
-              </div>
-            </el-col>
-          </el-row>
-        </div>
-      </div>
-
-      <!-- 银行卡信息 -->
-      <div class="card">
-        <div class="card-header">银行卡信息</div>
-        <div class="card-body">
-          <el-form :model="personalForm" :rules="personalRules" ref="personalFormRef2" label-width="140px">
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="开户行名称" prop="bankName">
-                  <el-input v-model="personalForm.bankName" placeholder="如：招商银行上海分行"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="银行卡号" prop="bankCardNo">
-                  <el-input v-model="personalForm.bankCardNo" placeholder="请输入银行卡号" maxlength="23"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="开户名" prop="bankAccountName">
-                  <el-input v-model="personalForm.bankAccountName" placeholder="请输入开户名（与姓名一致）"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="开户省" prop="bankProvince">
-                  <el-input v-model="personalForm.bankProvince" placeholder="如：上海市"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="开户市" prop="bankCity">
-                  <el-input v-model="personalForm.bankCity" placeholder="如：上海市"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="开户支行" prop="bankBranchName">
-                  <el-input v-model="personalForm.bankBranchName" placeholder="如：浦东支行"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </el-form>
-        </div>
-      </div>
-
     </template>
 
     <div class="submit-area">
       <el-button @click="$router.push('/')">取消</el-button>
-      <el-button type="primary" :loading="submitting" @click="handleSubmit">提交开户申请</el-button>
+      <el-button type="primary" :loading="submitting" @click="handleSubmit">提交并跳转开户</el-button>
     </div>
 
-    <!-- 开户结果：扫码认证（企业商户） -->
-    <el-dialog v-model="showResult" title="扫码认证" width="460px" :close-on-click-modal="false" :show-close="false">
-      <div v-if="submitResult && submitResult.code === 0 && submitResult.data?.redirectUrl" class="qr-wrapper">
-        <div class="qr-tip">请使用手机微信/支付宝扫码完成实名认证</div>
-        <div class="qr-box">
-          <qrcode-vue :value="submitResult.data.redirectUrl" :size="200" level="M" />
-        </div>
-        <div class="qr-url" style="font-size:11px;color:#aaa;word-break:break-all;max-width:350px;margin:0 auto 16px">{{ submitResult.data.redirectUrl }}</div>
-        <div class="qr-status">
-          <el-tag v-if="verifyStatus === 'pending'" type="warning" effect="plain">⏳ 等待认证中...</el-tag>
-          <el-tag v-else-if="verifyStatus === 'success'" type="success">✅ 认证成功</el-tag>
-          <el-tag v-else-if="verifyStatus === 'failed'" type="danger">❌ 认证失败</el-tag>
-        </div>
-        <div v-if="verifyStatus === 'success'" style="margin-top:12px">
-          <el-button type="primary" @click="$router.push('/')">返回工作台</el-button>
-        </div>
-      </div>
-      <!-- 个人商户开户结果 -->
-      <div v-else-if="submitResult && submitResult.code === 0 && submitResult.data?.account_no" style="text-align:center;padding:20px 0">
-        <el-result icon="success" title="开户申请已提交" :sub-title="`账户号：${submitResult.data.account_no}`">
+    <!-- 跳转提示 -->
+    <el-dialog v-model="showResult" title="提示" width="400px" :close-on-click-modal="false" :show-close="false">
+      <div v-if="submitResult && submitResult.code === 0" style="text-align:center;padding:16px 0">
+        <el-result icon="success" title="正在跳转..." sub-title="即将打开钱账通开户页面">
           <template #extra>
-            <el-alert type="info" :closable="false" show-icon style="margin-bottom:16px;text-align:left">
-              <template #title>人脸识别可 later 通过【账户升级】完成</template>
-            </el-alert>
-            <el-button type="primary" @click="$router.push('/')">返回工作台</el-button>
+            <el-button type="primary" @click="doRedirect(submitResult.data.redirectUrl)">打开钱账通</el-button>
           </template>
         </el-result>
       </div>
-      <div v-else-if="submitResult" style="text-align:center;padding:20px 0">
+      <div v-else-if="submitResult" style="text-align:center;padding:16px 0">
         <el-result icon="error" title="提交失败" :sub-title="submitResult.message || '请重试'"/>
       </div>
     </el-dialog>
@@ -336,10 +90,6 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { ElMessage } from 'element-plus'
-import { InfoFilled } from '@element-plus/icons-vue'
-import QrcodeVue from 'qrcode.vue'
-import { uploadFile, openAccount, applyPersonal, callOCR } from '@/api/merchant'
 
 // ============ 开户主体类型 ============
 const subjectType = ref('enterprise')
