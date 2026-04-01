@@ -34,112 +34,18 @@
       <text>{{ errorMsg }}</text>
     </view>
 
-    <!-- Step 1: 填写企业资料 -->
+    <!-- Step 1: 填写商户基本信息 -->
     <scroll-view v-show="step === 1" class="form-scroll" scroll-y>
       <view class="form-card">
-        <view class="card-title">企业基本信息</view>
+        <view class="card-title">商户入驻</view>
+        <view class="card-desc">填写基本信息后，将跳转至钱账通完成后续入驻流程</view>
+
         <van-field v-model="form.merchant_name" label="商户名称" placeholder="请输入商户全称" required />
-        <van-field v-model="form.merchant_shortname" label="商户简称" placeholder="请输入商户简称" />
-        <van-field v-model="form.service_phone" label="客服电话" type="tel" placeholder="请输入客服电话" required />
-
-        <view class="card-title" style="margin-top:16px">营业执照信息</view>
-        <van-radio-group v-model="form.business_license_type" direction="horizontal" style="padding:12px 0;">
-          <van-radio name="1" style="margin-right:20px;">三证合一</van-radio>
-          <van-radio name="2">普通营业执照</van-radio>
-        </van-radio-group>
-        <van-field v-model="form.business_license_no" label="营业执照号" placeholder="请输入营业执照号" />
-        <van-field v-model="form.business_license_province" label="营业执照省" placeholder="如：上海市" required />
-        <van-field v-model="form.business_license_city" label="营业执照市" placeholder="如：上海市" required />
-        <van-field v-model="form.business_license_address" label="详细地址" placeholder="请输入营业执照上的详细地址" required />
-        <van-field v-model="form.business_address" label="实际经营地址" placeholder="请输入实际经营地址" required />
-
-        <view class="card-title" style="margin-top:16px">法人信息</view>
-        <van-field v-model="form.legal_name" label="法人姓名" placeholder="请输入法人姓名" required />
-        <van-field v-model="form.legal_id_card_no" label="法人身份证号" placeholder="请输入18位身份证号" required />
-        <van-field v-model="form.legal_id_card_expire" label="身份证有效期" placeholder="格式：20241231" required />
-        <van-field v-model="form.legal_phone" label="法人手机号" type="tel" placeholder="请输入法人手机号" required />
-
-        <view class="card-title" style="margin-top:16px">结算账户信息</view>
-        <van-field v-model="form.bank_name" label="开户行名称" placeholder="如：招商银行上海分行" required />
-        <van-field v-model="form.bank_account_name" label="账户名称" placeholder="同商户名称或企业名称" required />
-        <van-field v-model="form.bank_account_no" label="账号" placeholder="请输入银行账号" required />
-        <van-field v-model="form.bank_province" label="开户省" placeholder="如：上海市" required />
-        <van-field v-model="form.bank_city" label="开户市" placeholder="如：上海市" required />
-        <van-field v-model="form.bank_branch_name" label="开户支行" placeholder="如：浦东支行" required />
-        <van-field v-model="form.bank_union_code" label="联行号" placeholder="请输入支行联行号" />
-
-        <van-button type="primary" block round :loading="loading" @click="submitStep1" style="margin-top:24px;">
-          下一步：上传证件照片
-        </van-button>
-      </view>
-    </scroll-view>
-
-    <!-- Step 2: 上传证件照片 -->
-    <scroll-view v-show="step === 2" class="form-scroll" scroll-y>
-      <view class="form-card">
-        <view class="card-title">上传证件照片</view>
-        <view class="upload-tip">请上传清晰的证件照片，支持 JPG、PNG 格式</view>
-
-        <view class="upload-section">
-          <view class="upload-label">法人身份证正面 *</view>
-          <view class="upload-box" @click="handleChooseImage('legal_id_card_front')">
-            <image v-if="form.legal_id_card_front" :src="form.legal_id_card_front" mode="aspectFit" class="preview-img" />
-            <view v-else class="upload-placeholder">
-              <text class="icon">📷</text>
-              <text>点击上传</text>
-            </view>
-          </view>
-          <!-- OCR 识别按钮 -->
-          <view v-if="form.legal_id_card_front" class="ocr-btn-wrap">
-            <van-button size="small" type="primary" plain icon="scan" :loading="ocrLoading.legal_front" @click="doOCR('legal_front')">
-              🔍 OCR识别
-            </van-button>
-          </view>
-        </view>
-
-        <view class="upload-section">
-          <view class="upload-label">法人身份证背面 *</view>
-          <view class="upload-box" @click="handleChooseImage('legal_id_card_back')">
-            <image v-if="form.legal_id_card_back" :src="form.legal_id_card_back" mode="aspectFit" class="preview-img" />
-            <view v-else class="upload-placeholder">
-              <text class="icon">📷</text>
-              <text>点击上传</text>
-            </view>
-          </view>
-        </view>
-
-        <view class="upload-section">
-          <view class="upload-label">营业执照 *</view>
-          <view class="upload-box" @click="handleChooseImage('business_license_img')">
-            <image v-if="form.business_license_img" :src="form.business_license_img" mode="aspectFit" class="preview-img" />
-            <view v-else class="upload-placeholder">
-              <text class="icon">📷</text>
-              <text>点击上传</text>
-            </view>
-          </view>
-          <!-- OCR 识别按钮 -->
-          <view v-if="form.business_license_img" class="ocr-btn-wrap">
-            <van-button size="small" type="primary" plain icon="scan" :loading="ocrLoading.license" @click="doOCR('license')">
-              🔍 OCR识别
-            </van-button>
-          </view>
-        </view>
-
-        <view class="upload-section">
-          <view class="upload-label">银行账户证明（开户许可证）</view>
-          <view class="upload-box" @click="handleChooseImage('bank_account_permit')">
-            <image v-if="form.bank_account_permit" :src="form.bank_account_permit" mode="aspectFit" class="preview-img" />
-            <view v-else class="upload-placeholder">
-              <text class="icon">📷</text>
-              <text>点击上传</text>
-            </view>
-          </view>
-        </view>
+        <van-field v-model="form.legal_mobile" label="手机号码" type="tel" placeholder="请输入手机号码" required />
 
         <van-button type="primary" block round :loading="uploading" @click="submitStep2" style="margin-top:24px;">
-          下一步：提交申请
+          提交并获取开户页面
         </van-button>
-        <van-button plain block round @click="step = 1" style="margin-top:12px;">上一步</van-button>
       </view>
     </scroll-view>
 
