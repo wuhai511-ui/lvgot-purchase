@@ -90,172 +90,44 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { ElMessage } from 'element-plus'
+import { InfoFilled } from '@element-plus/icons-vue'
+import { openAccount, applyPersonal } from '@/api/merchant'
 
-// ============ 开户主体类型 ============
 const subjectType = ref('enterprise')
 
-// ============ refs ============
 const formRef = ref()
-const formRef2 = ref()
 const personalFormRef = ref()
-const personalFormRef2 = ref()
 const submitting = ref(false)
 const showResult = ref(false)
 const submitResult = ref(null)
-const verifyStatus = ref('pending')
 
-// ============ 企业商户文件列表 ============
-const idCardFrontList = ref([])
-const idCardBackList = ref([])
-const licenseList = ref([])
-const bankList = ref([])
-
-// ============ 个人商户文件列表 ============
-const personalIdFrontList = ref([])
-const personalIdBackList = ref([])
-
-// OCR 加载状态
-const ocrLoading = reactive({ front: false, license: false, personalFront: false })
-
-// ============ 企业商户表单数据 ============
 const form = reactive({
   name: '',
-  businessType: '',
-  legalName: '',
   legalPhone: '',
-  legalIdCard: '',
-  industryCode: '',
-  businessAddress: '',
-  businessScope: '',
-  licenseNo: '',
-  accountType: 'CORPORATE',
-  bankName: '',
-  bankCardNo: '',
-  bankAccountName: '',
-  bankBranchName: '',
-  openPermitNo: '',
 })
 
-const rules = {
+const simpleRules = {
   name: [{ required: true, message: '请输入商户名称', trigger: 'blur' }],
-  businessType: [{ required: true, message: '请选择企业类型', trigger: 'change' }],
-  legalName: [{ required: true, message: '请输入法人姓名', trigger: 'blur' }],
   legalPhone: [
     { required: true, message: '请输入法人手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
   ],
-  legalIdCard: [
-    { required: true, message: '请输入身份证号', trigger: 'blur' },
-    { pattern: /^\d{17}[\dXx]$/, message: '身份证号格式不正确', trigger: 'blur' }
-  ],
-  industryCode: [{ required: true, message: '请选择行业类型', trigger: 'change' }],
-  businessAddress: [{ required: true, message: '请输入经营地址', trigger: 'blur' }],
-  licenseNo: [{ required: true, message: '请输入营业执照号', trigger: 'blur' }],
-  accountType: [{ required: true, message: '请选择账户类型', trigger: 'change' }],
-  bankName: [{ required: true, message: '请输入开户行名称', trigger: 'blur' }],
-  bankCardNo: [{ required: true, message: '请输入银行卡号', trigger: 'blur' }],
-  bankAccountName: [{ required: true, message: '请输入开户名', trigger: 'blur' }],
 }
 
-// ============ 个人商户表单数据 ============
 const personalForm = reactive({
   name: '',
   mobile: '',
-  idCardNo: '',
-  roleType: 'GUIDE',
-  bankName: '',
-  bankCardNo: '',
-  bankAccountName: '',
-  bankProvince: '',
-  bankCity: '',
-  bankBranchName: '',
 })
 
-const personalRules = {
+const personalSimpleRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   mobile: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
   ],
-  idCardNo: [
-    { required: true, message: '请输入身份证号', trigger: 'blur' },
-    { pattern: /^\d{17}[\dXx]$/, message: '身份证号格式不正确', trigger: 'blur' }
-  ],
-  roleType: [{ required: true, message: '请选择角色类型', trigger: 'change' }],
-  bankName: [{ required: true, message: '请输入开户行名称', trigger: 'blur' }],
-  bankCardNo: [{ required: true, message: '请输入银行卡号', trigger: 'blur' }],
-  bankAccountName: [{ required: true, message: '请输入开户名', trigger: 'blur' }],
-  bankProvince: [{ required: true, message: '请输入开户省', trigger: 'blur' }],
-  bankCity: [{ required: true, message: '请输入开户市', trigger: 'blur' }],
-  bankBranchName: [{ required: true, message: '请输入开户支行', trigger: 'blur' }],
 }
 
-// ============ 企业商户 OCR（已实现） ============
-const doOCR = async (type) => {
-  let fileList = []
-  let fieldMap = {}
-
-  if (type === 'front') {
-    if (!idCardFrontList.value.length) { ElMessage.warning('请先上传身份证正面照片'); return }
-    fileList = idCardFrontList.value
-    fieldMap = { id_card_name: 'legalName', id_card_no: 'legalIdCard' }
-    ocrLoading.front = true
-  } else if (type === 'license') {
-    if (!licenseList.value.length) { ElMessage.warning('请先上传营业执照照片'); return }
-    fileList = licenseList.value
-    fieldMap = { biz_license_credit_code: 'licenseNo', biz_license_name: 'name', biz_license_address: 'businessAddress', biz_license_scope: 'businessScope' }
-    ocrLoading.license = true
-  }
-
-  try {
-    const file = fileList[0].raw
-    const fileKey = await uploadFile(file)
-    const ocrResult = await callOCR(fileKey, type)
-    if (ocrResult.status !== '1') {
-      throw new Error('OCR识别失败：' + (ocrResult.error_message || '未知错误'))
-    }
-    for (const [ocrField, formField] of Object.entries(fieldMap)) {
-      if (ocrResult[ocrField] && form[formField] !== undefined) {
-        form[formField] = ocrResult[ocrField]
-      }
-    }
-    ElMessage.success('OCR识别成功，已自动填充表单')
-  } catch (e) {
-    ElMessage.error(e.message || 'OCR识别失败，请手动输入')
-  } finally {
-    ocrLoading.front = false
-    ocrLoading.license = false
-  }
-}
-
-// ============ 个人商户 OCR（身份证正面） ============
-const doPersonalOCR = async (type) => {
-  if (!personalIdFrontList.value.length) { ElMessage.warning('请先上传身份证正面照片'); return }
-  ocrLoading.personalFront = true
-  try {
-    const file = personalIdFrontList.value[0].raw
-    const fileKey = await uploadFile(file)
-    const ocrResult = await callOCR(fileKey, 'front')
-    if (ocrResult.status !== '1') {
-      throw new Error('OCR识别失败：' + (ocrResult.error_message || '未知错误'))
-    }
-    if (ocrResult.id_card_name) personalForm.name = ocrResult.id_card_name
-    if (ocrResult.id_card_no) personalForm.idCardNo = ocrResult.id_card_no
-    ElMessage.success('OCR识别成功，已自动填充姓名和身份证号')
-  } catch (e) {
-    ElMessage.error(e.message || 'OCR识别失败，请手动输入')
-  } finally {
-    ocrLoading.personalFront = false
-  }
-}
-
-// ============ 文件上传工具（复用 qzt-client 的实现） ============
-import { qztFileUpload } from '@/utils/qzt-client.js'
-const uploadFileToQzt = async (rawFile, fileName, ext) => {
-  return qztFileUpload(rawFile, fileName, ext)
-}
-
-// ============ 统一提交 ============
 const handleSubmit = async () => {
   if (subjectType.value === 'enterprise') {
     await submitEnterprise()
@@ -264,36 +136,24 @@ const handleSubmit = async () => {
   }
 }
 
-// ============ 企业商户提交 ============
 const submitEnterprise = async () => {
   await formRef.value?.validate()
-  await formRef2.value?.validate()
-  if (!idCardFrontList.value.length || !idCardBackList.value.length || !licenseList.value.length) {
-    ElMessage.warning('请上传全部证件照片'); return
-  }
 
   submitting.value = true
   try {
-    const [idCardFrontKey, idCardBackKey, licenseKey, bankCardKey] = await Promise.all([
-      uploadFileToQzt(idCardFrontList.value[0].raw, idCardFrontList.value[0].name, 'jpg'),
-      uploadFileToQzt(idCardBackList.value[0].raw, idCardBackList.value[0].name, 'jpg'),
-      uploadFileToQzt(licenseList.value[0].raw, licenseList.value[0].name, 'jpg'),
-      bankList.value.length
-        ? uploadFileToQzt(bankList.value[0].raw, bankList.value[0].name, 'jpg')
-        : Promise.resolve('')
-    ])
-
     const result = await openAccount({
-      ...form,
-      idCardFrontKey,
-      idCardBackKey,
-      licenseKey,
-      bankCardKey,
+      name: form.name,
+      legal_mobile: form.legalPhone,
+      back_url: window.location.origin + '/admin/#/account-opening',
+      source: 'WORKBENCH'
     })
 
     submitResult.value = result
-    verifyStatus.value = 'pending'
     showResult.value = true
+
+    if (result.code === 0 && result.data?.redirectUrl) {
+      doRedirect(result.data.redirectUrl)
+    }
   } catch (e) {
     submitResult.value = { code: -1, message: e.message || '提交失败，请重试' }
     showResult.value = true
@@ -302,13 +162,8 @@ const submitEnterprise = async () => {
   }
 }
 
-// ============ 个人商户提交 ============
 const submitPersonal = async () => {
   await personalFormRef.value?.validate()
-  await personalFormRef2.value?.validate()
-  if (!personalIdFrontList.value.length || !personalIdBackList.value.length) {
-    ElMessage.warning('请上传身份证正面和背面照片'); return
-  }
 
   submitting.value = true
   try {
@@ -316,25 +171,27 @@ const submitPersonal = async () => {
       out_request_no: String(Date.now()),
       register_name: personalForm.name,
       legal_mobile: personalForm.mobile,
-      enterprise_type: '3', // 个人
-      back_url: window.location.href,
-      id_card_no: personalForm.idCardNo,
-      bank_name: personalForm.bankName,
-      bank_account_no: personalForm.bankCardNo,
-      bank_account_name: personalForm.bankAccountName,
-      bank_province: personalForm.bankProvince,
-      bank_city: personalForm.bankCity,
-      bank_branch_name: personalForm.bankBranchName,
+      enterprise_type: '3',
+      back_url: window.location.origin + '/admin/#/account-opening',
     })
 
     submitResult.value = result
     showResult.value = true
+
+    if (result.code === 0 && result.data?.redirectUrl) {
+      doRedirect(result.data.redirectUrl)
+    }
   } catch (e) {
     submitResult.value = { code: -1, message: e.message || '提交失败，请重试' }
     showResult.value = true
   } finally {
     submitting.value = false
   }
+}
+
+const doRedirect = (url) => {
+  if (!url) return
+  window.open(url, '_blank')
 }
 </script>
 
@@ -344,12 +201,7 @@ const submitPersonal = async () => {
 .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
 .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
 .card-body { padding: 20px; }
-.upload-item { }
-.upload-label { font-size: 14px; color: #333; margin-bottom: 8px; }
 .submit-area { display: flex; justify-content: center; gap: 16px; padding: 24px 0; }
-.qr-wrapper { text-align: center; padding: 20px 0; }
-.qr-tip { font-size: 15px; color: #333; margin-bottom: 20px; font-weight: 500; }
-.qr-box { display: flex; justify-content: center; background: #fafafa; padding: 16px; border-radius: 8px; margin-bottom: 12px; }
 .subject-tip {
   margin-top: 12px;
   font-size: 13px;
