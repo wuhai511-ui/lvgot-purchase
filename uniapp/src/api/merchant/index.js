@@ -37,17 +37,20 @@ export async function uploadFile(fileName, fileType, base64Data) {
  * 提交商户开户申请
  * @param {object} params - 商户信息参数
  */
+// 新的个人开户流程（跳过文件上传，直接获取 H5 页面）
 export async function submitMerchantApply(params) {
-  // 调用 BFF 的申请接口
   const response = await uni.request({
-    url: `${BASE_URL}/api/merchant/apply`,
+    url: `${BASE_URL}/api/merchant/apply-personal`,
     method: 'POST',
-    header: {
-      'Content-Type': 'application/json'
-    },
-    data: params
+    header: { 'Content-Type': 'application/json' },
+    data: {
+      out_request_no: params.out_request_no || String(Date.now()),
+      register_name: params.merchant_name,
+      legal_mobile: params.legal_mobile,
+      enterprise_type: params.enterprise_type || '3',
+      back_url: params.back_url || '',
+    }
   })
-  
   return response.data
 }
 

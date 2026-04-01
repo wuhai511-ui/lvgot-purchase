@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const QZT_CONFIG = {
   appId: process.env.QZT_APP_ID || '7348882579718766592',
   version: '4.0',
-  gateway: 'https://qztuat.xc-fintech.com/gateway/soa',
+  gateway: process.env.QZT_GATEWAY_URL || 'https://qztuat.xc-fintech.com/gateway/soa',
   privateKey: fs.readFileSync(path.join(__dirname, 'keys', 'private_key.pem'), 'utf8'),
   publicKey: fs.readFileSync(path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
@@ -101,7 +101,15 @@ function verifyData(data, signValue) {
 // --- 调用钱账通网关 ---
 async function callQzt(service, params) {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const paramsStr = JSON.stringify(params);  const signContent = QZT_CONFIG.appId + timestamp + QZT_CONFIG.version + service + paramsStr;
+  // file_content 完全不参与签名，也不在 params JSON 里，单独作为 body 字段
+  let paramsForSign = params;
+  let paramsStr = JSON.stringify(params);
+  if (params.file_content !== undefined) {
+    paramsForSign = { ...params };
+    delete paramsForSign.file_content;
+    paramsStr = JSON.stringify(paramsForSign);  // params 里不含 file_content
+  }
+  const signContent = QZT_CONFIG.appId + timestamp + QZT_CONFIG.version + service + paramsStr;
   const signValue = signData(signContent);
 
   const body = {
@@ -112,15 +120,19 @@ async function callQzt(service, params) {
     service,
     params: paramsStr
   };
+  if (params.file_content !== undefined) {
+    body.file_content = params.file_content;
+  }
 
   const response = await axios.post(QZT_CONFIG.gateway, body, {
     headers: { 'Content-Type': 'application/json' },
     timeout: 30000
   }).catch(err => {
-    console.error('[callQzt] 请求失败:', err.message, '| service:', service, '| params:', paramsStr);
+    console.error('[callQzt] 请求失败:', err.message, '| service:', service);
     throw err;
   });
-  console.log('[callQzt] 响应:', service, JSON.stringify(response.data).substring(0, 200));
+  console.log('[callQzt] 请求:', service, JSON.stringify(body));
+  console.log('[callQzt] 响应:', service, JSON.stringify(response.data));
   return response.data;
 }
 
@@ -129,10 +141,11 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
   const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
   const fileBase64 = fileBuffer.toString('base64');
 
-  const typeMap = { jpg: 1, jpeg: 1, png: 2, pdf: 3, bmp: 4 };
   const params = {
     file_name: fileName,
-    file_type: typeMap[fileType] || 1
+    file_type: fileType,
+    file_hash: fileHash,
+    file_content: fileBase64
   };
 
   // 先调用接口获取 file_key
@@ -154,10 +167,7 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
     parsed = result.result;
   }
 
-  // 把 file_content 添加到 params 中再次请求
-  params.file_content = fileBase64;
-
-  // 第二次调用需要带上从第一步获得的 file_key，并且包含 base64
+  // file_content 已在上方 params 中，会自动不参与签名
   if (parsed && parsed.file_key) {
     params.file_key = parsed.file_key;
   }

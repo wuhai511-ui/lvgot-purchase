@@ -101,18 +101,20 @@ export const getMerchantList = (params) => {
  */
 export const applyPersonal = (data) => {
   return post(`${BASE}/apply-personal`, {
+    out_request_no: data.out_request_no,
+    register_name: data.register_name,
+    legal_mobile: data.legal_mobile,
+    enterprise_type: data.enterprise_type || '3',
+    back_url: data.back_url || '',
     name: data.name,
-    mobile: data.mobile,
-    id_card_no: data.idCardNo,
-    id_card_front_key: data.idCardFrontKey,
-    id_card_back_key: data.idCardBackKey,
-    bank_name: data.bankName,
-    bank_card_no: data.bankCardNo,
-    bank_account_name: data.bankAccountName,
-    bank_province: data.bankProvince,
-    bank_city: data.bankCity,
-    bank_branch_name: data.bankBranchName,
-    role_type: data.roleType,   // GUIDE=导游, CONSULTANT=咨询师, OTHER=其他
+    id_card_no: data.id_card_no,
+    bank_name: data.bank_name,
+    bank_account_no: data.bank_account_no,
+    bank_account_name: data.bank_account_name,
+    bank_province: data.bank_province,
+    bank_city: data.bank_city,
+    bank_branch_name: data.bank_branch_name,
+    role_type: data.role_type || 'OTHER',
     source: 'WORKBENCH'
   })
 }

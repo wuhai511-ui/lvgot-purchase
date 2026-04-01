@@ -175,7 +175,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
-import { uploadFile, submitMerchantApply } from '@/api/merchant/index.js'
+import { submitMerchantApply } from '@/api/merchant/index.js'
 import { qztRequest } from '@/api/qianztong/index.js'
 
 const step = ref(1)
@@ -371,10 +371,10 @@ function submitStep1() {
   step.value = 2
 }
 
-// ---------- Step 2: 上传证件 + 提交申请 ----------
+// ---------- Step 2: 获取 H5 开户页面 ----------
 async function submitStep2() {
-  if (!form.legal_id_card_front_base64 || !form.legal_id_card_back_base64 || !form.business_license_img_base64) {
-    uni.showToast({ title: '请上传必填的证件照片', icon: 'none' })
+  if (!form.legal_name || !form.legal_mobile) {
+    uni.showToast({ title: '请填写必填信息', icon: 'none' })
     return
   }
 
@@ -382,50 +382,13 @@ async function submitStep2() {
   errorMsg.value = ''
 
   try {
-    const uploadFields = ['legal_id_card_front', 'legal_id_card_back', 'business_license_img']
-    if (form.bank_account_permit_base64) uploadFields.push('bank_account_permit')
-
-    for (const field of uploadFields) {
-      if (form[field + '_base64']) {
-        uni.showLoading({ title: `上传${field}...`, mask: true })
-
-        const ext = 'jpg'
-        const fileName = `${field}.${ext}`
-        const result = await uploadFile(fileName, ext, form[field + '_base64'])
-
-        fileKeys[field] = result.file_key || result
-        uni.hideLoading()
-      }
-    }
-
-    uni.showLoading({ title: '提交申请中...', mask: true })
+    uni.showLoading({ title: '获取开户页面...', mask: true })
 
     const applyResult = await submitMerchantApply({
+      out_request_no: String(Date.now()),
       merchant_name: form.merchant_name,
-      merchant_shortname: form.merchant_shortname,
-      service_phone: form.service_phone,
-      business_license_type: parseInt(form.business_license_type),
-      business_license_no: form.business_license_no,
-      business_license_province: form.business_license_province,
-      business_license_city: form.business_license_city,
-      business_license_address: form.business_license_address,
-      business_address: form.business_address,
-      legal_name: form.legal_name,
-      legal_id_card_no: form.legal_id_card_no,
-      legal_id_card_expire: form.legal_id_card_expire,
-      legal_phone: form.legal_phone,
-      bank_account_type: form.bank_account_type,
-      bank_name: form.bank_name,
-      bank_account_name: form.bank_account_name,
-      bank_account_no: form.bank_account_no,
-      bank_province: form.bank_province,
-      bank_city: form.bank_city,
-      bank_branch_name: form.bank_branch_name,
-      bank_union_code: form.bank_union_code,
-      legal_id_card_front: fileKeys.legal_id_card_front,
-      legal_id_card_back: fileKeys.legal_id_card_back,
-      business_license_img: fileKeys.business_license_img,
-      bank_account_permit: fileKeys.bank_account_permit
+      legal_mobile: form.legal_mobile,
+      enterprise_type: '3',
     })
 
     uni.hideLoading()

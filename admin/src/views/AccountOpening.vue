@@ -562,15 +562,19 @@ const submitPersonal = async () => {
 
   submitting.value = true
   try {
-    const [idCardFrontKey, idCardBackKey] = await Promise.all([
-      uploadFileToQzt(personalIdFrontList.value[0].raw, personalIdFrontList.value[0].name, 'jpg'),
-      uploadFileToQzt(personalIdBackList.value[0].raw, personalIdBackList.value[0].name, 'jpg'),
-    ])
-
     const result = await applyPersonal({
-      ...personalForm,
-      idCardFrontKey,
-      idCardBackKey,
+      out_request_no: String(Date.now()),
+      register_name: personalForm.name,
+      legal_mobile: personalForm.mobile,
+      enterprise_type: '3', // 个人
+      back_url: window.location.href,
+      id_card_no: personalForm.idCardNo,
+      bank_name: personalForm.bankName,
+      bank_account_no: personalForm.bankCardNo,
+      bank_account_name: personalForm.bankAccountName,
+      bank_province: personalForm.bankProvince,
+      bank_city: personalForm.bankCity,
+      bank_branch_name: personalForm.bankBranchName,
     })
 
     submitResult.value = result
