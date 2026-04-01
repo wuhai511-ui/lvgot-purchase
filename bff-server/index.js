@@ -116,7 +116,11 @@ async function callQzt(service, params) {
   const response = await axios.post(QZT_CONFIG.gateway, body, {
     headers: { 'Content-Type': 'application/json' },
     timeout: 30000
+  }).catch(err => {
+    console.error('[callQzt] 请求失败:', err.message, '| service:', service, '| params:', paramsStr);
+    throw err;
   });
+  console.log('[callQzt] 响应:', service, JSON.stringify(response.data).substring(0, 200));
   return response.data;
 }
 
@@ -125,10 +129,10 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
   const fileHash = crypto.createHash('md5').update(fileBuffer).digest('hex');
   const fileBase64 = fileBuffer.toString('base64');
 
+  const typeMap = { jpg: 1, jpeg: 1, png: 2, pdf: 3, bmp: 4 };
   const params = {
     file_name: fileName,
-    file_type: fileType,
-    file_hash: fileHash
+    file_type: typeMap[fileType] || 1
   };
 
   // 先调用接口获取 file_key
