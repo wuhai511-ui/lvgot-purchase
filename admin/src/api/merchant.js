@@ -35,13 +35,22 @@ export const merchantLogin = (phone, code) => {
  * @param {File} file
  * @returns {Promise<string>} file_key
  */
-export const uploadFile = (file) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('file_type', file.name.split('.').pop())
-  formData.append('file_name', file.name)
-  return upload('/api/v1/merchants/upload', formData)
-    .then(r => r.data?.file_key || '')
+export const uploadFile = async (file) => {
+  const arrayBuffer = await file.arrayBuffer()
+  
+  // 转为 Base64
+  const bytes = new Uint8Array(arrayBuffer)
+  let binary = ''
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  const fileContent = btoa(binary)
+  
+  return post('/api/v1/merchants/upload', {
+    file_name: file.name,
+    file_type: file.name.split('.').pop() || 'jpg',
+    file_content: fileContent
+  }).then(r => r.data?.file_key || '')
 }
 
 /**
@@ -118,7 +127,7 @@ export const callOCR = (fileKey, type) => {
   const typeMap = { front: '2', back: '3', license: '1' }
   return post(`${BASE}/ocr`, {
     file_key: fileKey,
-    doc_type: typeMap[type] || '2',
+    type: typeMap[type] || '2',
   })
 }
 

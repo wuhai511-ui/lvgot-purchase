@@ -313,7 +313,7 @@ async function doOCR(type) {
         url: `https://bgualqb.cn/api/v1/merchants/ocr`,
         method: 'POST',
         header: { 'Content-Type': 'application/json' },
-        data: { file_key: fileKey, doc_type: ocrTypeMap[type] }
+        data: { file_key: fileKey, type: ocrTypeMap[type] }
       })
       ocrResult = ocrResult.data
     } catch (e) {
