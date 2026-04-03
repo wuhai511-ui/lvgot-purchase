@@ -9,6 +9,27 @@
 <style>
 .tab-bar{display:flex;background:#fff;border-bottom:1px solid #eee;position:sticky;top:0;z-index:10}
 .tab-btn{flex:1;text-align:center;padding:14px 0;font-size:14px;color:#666;border-bottom:2px solid transparent;cursor:pointer;transition:all 0.2s}
+.tab-btn.active{color:#1976D2;border-bottom-color:#1976D2;font-weight:600}
+.form-card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,0.06)}
+.form-card-title{font-size:14px;font-weight:600;color:#333;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid #f0f0f0}
+.form-group{margin-bottom:12px}
+.form-label{display:block;font-size:13px;color:#666;margin-bottom:6px}
+.form-input{width:100%;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;transition:border-color 0.2s}
+.form-input:focus{outline:none;border-color:#1976D2}
+.form-input::placeholder{color:#bbb}
+.radio-group{display:flex;gap:16px}
+.radio-item{display:flex;align-items:center;gap:6px;font-size:14px;color:#333;cursor:pointer}
+.radio-item input[type="radio"]{width:18px;height:18px;accent-color:#1976D2}
+.upload-area{display:flex;gap:12px;flex-wrap:wrap}
+.upload-box{width:100px;height:100px;border:1px dashed #d9d9d9;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color 0.2s;position:relative;overflow:hidden}
+.upload-box:hover{border-color:#1976D2}
+.upload-box img{width:100%;height:100%;object-fit:cover}
+.upload-placeholder{display:flex;flex-direction:column;align-items:center;gap:4px;color:#999;font-size:12px}
+.upload-placeholder .icon{font-size:24px}
+.optional-tag{font-size:11px;color:#999;margin-left:4px}
+.required-star{color:#E53935}
+.tip-box{background:#f0f9ff;border:1px solid #d0e8ff;border-radius:8px;padding:10px 12px;margin-top:12px;font-size:12px;color:#666;display:flex;align-items:flex-start;gap:6px}
+.tip-box .icon{color:#1976D2;margin-top:2px}
 </style>
 </head>
 <body>
@@ -19,49 +40,188 @@
 </div>
 
 <div style="padding:16px">
+<!-- 开户主体类型选择 -->
 <div class="tab-bar">
-<div class="tab-btn" :class="{active: openType==='personal'}" @click="openType='personal'">个人开户</div>
-<div class="tab-btn" :class="{active: openType==='company'}" @click="openType='company'">企业开户</div>
+<div class="tab-btn" :class="{active: subjectType==='enterprise'}" @click="subjectType='enterprise'">企业商户</div>
+<div class="tab-btn" :class="{active: subjectType==='personal'}" @click="subjectType='personal'">个人商户</div>
 </div>
 
-<div v-show="openType==='personal'" style="margin-top:16px">
+<!-- ==================== 企业商户表单 ==================== -->
+<div v-show="subjectType==='enterprise'" style="margin-top:16px">
 <div class="form-card">
-<div class="form-group"><label class="form-label">姓名 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formPersonal.name" placeholder="请输入真实姓名" /></div>
-<div class="form-group"><label class="form-label">手机号 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formPersonal.phone" placeholder="请输入手机号" type="tel" maxlength="11" /></div>
-<div class="form-group"><label class="form-label">身份证号 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formPersonal.idCard" placeholder="请输入身份证号码" maxlength="18" /></div>
-<div class="form-group"><label class="form-label">银行卡号</label>
-<input class="form-input" v-model="formPersonal.bankAccount" placeholder="请输入银行卡号" /></div>
-<div class="form-group"><label class="form-label">开户行</label>
-<input class="form-input" v-model="formPersonal.bankName" placeholder="如：中国工商银行" /></div>
-<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('personal')" :loading="loading">提交开户</van-button>
-<div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">提交后将自动通过审核并跳转至人脸识别，请确保本人操作。</div>
+<div class="form-card-title">基本信息</div>
+<div class="form-group">
+<label class="form-label">入网类型 <span class="required-star">*</span></label>
+<div class="radio-group">
+<label class="radio-item">
+<input type="radio" v-model="enterpriseForm.enterpriseType" value="1">
+<span>企业</span>
+</label>
+<label class="radio-item">
+<input type="radio" v-model="enterpriseForm.enterpriseType" value="2">
+<span>个体工商户</span>
+</label>
+</div>
+</div>
+<div class="form-group">
+<label class="form-label">商户名称 <span class="required-star">*</span></label>
+<input class="form-input" v-model="enterpriseForm.name" placeholder="请输入营业执照上的商户名称" />
+</div>
+<div class="form-group">
+<label class="form-label">法人姓名 <span class="required-star">*</span></label>
+<input class="form-input" v-model="enterpriseForm.legalName" placeholder="请输入法人姓名" />
+</div>
+<div class="form-group">
+<label class="form-label">法人手机号 <span class="required-star">*</span></label>
+<input class="form-input" v-model="enterpriseForm.legalPhone" placeholder="请输入法人手机号" type="tel" maxlength="11" />
+</div>
+<div class="form-group">
+<label class="form-label">法人身份证号 <span class="required-star">*</span></label>
+<input class="form-input" v-model="enterpriseForm.legalIdCard" placeholder="请输入法人身份证号" maxlength="18" />
+</div>
+<div class="form-group">
+<label class="form-label">统一社会信用代码 <span class="required-star">*</span></label>
+<input class="form-input" v-model="enterpriseForm.licenseNo" placeholder="请输入统一社会信用代码" />
+</div>
+<div class="form-group">
+<label class="form-label">经营地址</label>
+<input class="form-input" v-model="enterpriseForm.address" placeholder="请输入经营地址" />
+</div>
+<div class="form-group">
+<label class="form-label">联系人邮箱</label>
+<input class="form-input" v-model="enterpriseForm.email" placeholder="请输入联系人邮箱" type="email" />
 </div>
 </div>
 
-<div v-show="openType==='company'" style="margin-top:16px">
+<!-- 证件信息（可选） -->
 <div class="form-card">
-<div class="form-group"><label class="form-label">企业名称 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formCompany.name" placeholder="请输入企业全称" /></div>
-<div class="form-group"><label class="form-label">统一社会信用代码 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formCompany.businessLicenseNo" placeholder="请输入营业执照号" /></div>
-<div class="form-group"><label class="form-label">法人姓名 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formCompany.legalPerson" placeholder="请输入法人姓名" /></div>
-<div class="form-group"><label class="form-label">法人身份证号 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formCompany.legalIdCard" placeholder="请输入法人身份证号码" /></div>
-<div class="form-group"><label class="form-label">联系人手机号 <span style="color:#E53935">*</span></label>
-<input class="form-input" v-model="formCompany.phone" placeholder="请输入手机号" type="tel" maxlength="11" /></div>
-<div class="form-group"><label class="form-label">对公银行账户</label>
-<input class="form-input" v-model="formCompany.bankAccount" placeholder="请输入对公账户号" /></div>
-<div class="form-group"><label class="form-label">开户行</label>
-<input class="form-input" v-model="formCompany.bankName" placeholder="如：中国建设银行" /></div>
-<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="doOpenAccount('company')" :loading="loading">提交开户</van-button>
-<div style="font-size:11px;color:#888;margin-top:12px;line-height:1.5">企业开户需要人工审核，审核通过后需进行法人人脸识别激活账户。</div>
+<div class="form-card-title">证件信息 <span class="optional-tag">（可选）</span></div>
+<div class="upload-area">
+<div class="upload-box" @click="triggerUpload('license')">
+<img v-if="enterpriseForm.licenseImg" :src="enterpriseForm.licenseImg" />
+<div v-else class="upload-placeholder">
+<span class="icon">📷</span>
+<span>营业执照</span>
+</div>
+</div>
+<div class="upload-box" @click="triggerUpload('idCardFront')">
+<img v-if="enterpriseForm.idCardFrontImg" :src="enterpriseForm.idCardFrontImg" />
+<div v-else class="upload-placeholder">
+<span class="icon">📷</span>
+<span>身份证正面</span>
+</div>
+</div>
+<div class="upload-box" @click="triggerUpload('idCardBack')">
+<img v-if="enterpriseForm.idCardBackImg" :src="enterpriseForm.idCardBackImg" />
+<div v-else class="upload-placeholder">
+<span class="icon">📷</span>
+<span>身份证反面</span>
 </div>
 </div>
 </div>
+<div class="tip-box">
+<span class="icon">💡</span>
+<span>证件照片可在钱账通页面补充上传</span>
+</div>
+</div>
+
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="submitEnterprise" :loading="loading">提交并跳转开户</van-button>
+</div>
+
+<!-- ==================== 个人商户表单 ==================== -->
+<div v-show="subjectType==='personal'" style="margin-top:16px">
+<div class="form-card">
+<div class="form-card-title">基本信息</div>
+<div class="form-group">
+<label class="form-label">姓名 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.name" placeholder="请输入真实姓名" />
+</div>
+<div class="form-group">
+<label class="form-label">手机号 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.mobile" placeholder="请输入手机号" type="tel" maxlength="11" />
+</div>
+<div class="form-group">
+<label class="form-label">身份证号 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.idCard" placeholder="请输入身份证号" maxlength="18" />
+</div>
+<div class="form-group">
+<label class="form-label">联系地址</label>
+<input class="form-input" v-model="personalForm.address" placeholder="请输入联系地址" />
+</div>
+</div>
+
+<!-- 银行卡信息（必填） -->
+<div class="form-card">
+<div class="form-card-title">银行卡信息 <span class="required-star">*</span></div>
+<div class="form-group">
+<label class="form-label">银行账户类型</label>
+<div class="radio-group">
+<label class="radio-item">
+<input type="radio" v-model="personalForm.bankType" value="2" checked>
+<span>对私（个人银行卡）</span>
+</label>
+</div>
+</div>
+<div class="form-group">
+<label class="form-label">开户银行 <span class="required-star">*</span></label>
+<select class="form-input" v-model="personalForm.bankCode">
+<option value="">请选择银行</option>
+<option v-for="bank in bankList" :key="bank.code" :value="bank.code">{{ bank.name }}</option>
+</select>
+</div>
+<div class="form-group">
+<label class="form-label">银行卡号 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.bankCardNo" placeholder="请输入银行卡号" maxlength="19" />
+</div>
+<div class="form-group">
+<label class="form-label">持卡人姓名 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.bankCardName" placeholder="请输入持卡人姓名（与身份证一致）" />
+</div>
+<div class="form-group">
+<label class="form-label">开户省份 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.bankProvince" placeholder="请输入开户省份" />
+</div>
+<div class="form-group">
+<label class="form-label">开户城市 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.bankCity" placeholder="请输入开户城市" />
+</div>
+<div class="form-group">
+<label class="form-label">开户支行 <span class="required-star">*</span></label>
+<input class="form-input" v-model="personalForm.bankBranch" placeholder="请输入开户支行名称" />
+</div>
+</div>
+
+<!-- 证件信息（可选） -->
+<div class="form-card">
+<div class="form-card-title">证件信息 <span class="optional-tag">（可选）</span></div>
+<div class="upload-area">
+<div class="upload-box" @click="triggerUpload('personalIdCardFront')">
+<img v-if="personalForm.idCardFrontImg" :src="personalForm.idCardFrontImg" />
+<div v-else class="upload-placeholder">
+<span class="icon">📷</span>
+<span>身份证正面</span>
+</div>
+</div>
+<div class="upload-box" @click="triggerUpload('personalIdCardBack')">
+<img v-if="personalForm.idCardBackImg" :src="personalForm.idCardBackImg" />
+<div v-else class="upload-placeholder">
+<span class="icon">📷</span>
+<span>身份证反面</span>
+</div>
+</div>
+</div>
+</div>
+
+<van-button type="primary" size="large" round style="width:100%;margin-top:8px" @click="submitPersonal" :loading="loading">提交开户申请</van-button>
+<div class="tip-box">
+<span class="icon">💡</span>
+<span>个人开户将直接提交审核，无需跳转</span>
+</div>
+</div>
+</div>
+
+<!-- 隐藏的文件上传 input -->
+<input type="file" ref="fileInput" @change="handleFileChange" accept="image/*" style="display:none" />
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@3.3.4/dist/vue.global.prod.js"></script>
@@ -72,31 +232,220 @@ const { createApp, ref, reactive } = Vue;
 const LG = window.__lvgot;
 const app = createApp({
   setup() {
-    const openType = ref("personal");
+    const subjectType = ref("enterprise");
     const loading = ref(false);
-    const formPersonal = reactive({ name: "", phone: "", idCard: "", bankAccount: "", bankName: "" });
-    const formCompany = reactive({ name: "", businessLicenseNo: "", legalPerson: "", legalIdCard: "", phone: "", bankAccount: "", bankName: "" });
+    const fileInput = ref(null);
+    const currentUploadField = ref("");
 
-    const doOpenAccount = async (type) => {
-      const form = type === "personal" ? formPersonal : formCompany;
+    // 企业商户表单
+    const enterpriseForm = reactive({
+      enterpriseType: "1", // 默认企业
+      name: "",
+      legalName: "",
+      legalPhone: "",
+      legalIdCard: "",
+      licenseNo: "",
+      address: "",
+      email: "",
+      licenseImg: "",
+      idCardFrontImg: "",
+      idCardBackImg: ""
+    });
+
+    // 个人商户表单
+    const personalForm = reactive({
+      name: "",
+      mobile: "",
+      idCard: "",
+      address: "",
+      bankType: "2",
+      bankCode: "",
+      bankCardNo: "",
+      bankCardName: "",
+      bankProvince: "",
+      bankCity: "",
+      bankBranch: "",
+      idCardFrontImg: "",
+      idCardBackImg: ""
+    });
+
+    // 银行列表
+    const bankList = [
+      { code: "01020000", name: "中国工商银行" },
+      { code: "01030000", name: "中国农业银行" },
+      { code: "01040000", name: "中国银行" },
+      { code: "01050000", name: "中国建设银行" },
+      { code: "03080000", name: "招商银行" },
+      { code: "03030000", name: "光大银行" },
+      { code: "03020000", name: "中信银行" },
+      { code: "03050000", name: "民生银行" },
+      { code: "03060000", name: "广发银行" },
+      { code: "03070000", name: "平安银行" },
+      { code: "03100000", name: "浦发银行" },
+      { code: "03090000", name: "兴业银行" },
+      { code: "04012900", name: "北京银行" },
+      { code: "04031000", name: "上海银行" },
+      { code: "04083300", name: "宁波银行" }
+    ];
+
+    // 触发文件上传
+    const triggerUpload = (field) => {
+      currentUploadField.value = field;
+      fileInput.value?.click();
+    };
+
+    // 处理文件选择
+    const handleFileChange = (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imgData = event.target.result;
+        if (subjectType.value === "enterprise") {
+          if (currentUploadField.value === "license") enterpriseForm.licenseImg = imgData;
+          else if (currentUploadField.value === "idCardFront") enterpriseForm.idCardFrontImg = imgData;
+          else if (currentUploadField.value === "idCardBack") enterpriseForm.idCardBackImg = imgData;
+        } else {
+          if (currentUploadField.value === "personalIdCardFront") personalForm.idCardFrontImg = imgData;
+          else if (currentUploadField.value === "personalIdCardBack") personalForm.idCardBackImg = imgData;
+        }
+      };
+      reader.readAsDataURL(file);
+      e.target.value = ""; // 重置
+    };
+
+    // 验证手机号
+    const validatePhone = (phone) => /^1[3-9]\d{9}$/.test(phone);
+    
+    // 验证身份证号
+    const validateIdCard = (idCard) => /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/.test(idCard);
+
+    // 验证银行卡号
+    const validateBankCard = (cardNo) => /^\d{16,19}$/.test(cardNo);
+
+    // 提交企业商户
+    const submitEnterprise = async () => {
+      // 表单验证
+      if (!enterpriseForm.name) return vant.showToast("请输入商户名称");
+      if (!enterpriseForm.legalName) return vant.showToast("请输入法人姓名");
+      if (!validatePhone(enterpriseForm.legalPhone)) return vant.showToast("请输入正确的法人手机号");
+      if (!validateIdCard(enterpriseForm.legalIdCard)) return vant.showToast("请输入正确的法人身份证号");
+      if (!enterpriseForm.licenseNo) return vant.showToast("请输入统一社会信用代码");
+
       loading.value = true;
-      const d = await LG.doOpenAccount(form, type);
-      loading.value = false;
-      if (d.code === 0) {
-        vant.showToast({ message: "开户申请已提交！", position: "top" });
-        if (d.data && d.data.faceUrl) window.open(d.data.faceUrl, "_blank");
-      } else {
-        // 演示模式：模拟成功
-        LG.patchState(s => {
-          s.account.status = "VALID";
-          s.account.livenessStatus = "passed";
+      try {
+        const result = await LG.openAccount({
+          name: enterpriseForm.name,
+          legal_mobile: enterpriseForm.legalPhone,
+          legal_name: enterpriseForm.legalName,
+          legal_id_card: enterpriseForm.legalIdCard,
+          license_no: enterpriseForm.licenseNo,
+          enterprise_type: enterpriseForm.enterpriseType,
+          address: enterpriseForm.address,
+          email: enterpriseForm.email,
+          back_url: window.location.origin + "/miniprogram/src/pages/home/index.html",
+          source: "MOBILE"
         });
-        vant.success("开户申请已提交！");
-        setTimeout(() => { window.location.href = "../home/index.html"; }, 1500);
+
+        if (result.code === 0 && result.data?.redirectUrl) {
+          vant.showToast({ message: "正在跳转开户页面...", position: "top" });
+          setTimeout(() => {
+            window.location.href = result.data.redirectUrl;
+          }, 1000);
+        } else {
+          vant.showToast(result.message || "提交失败");
+        }
+      } catch (e) {
+        // 演示模式：模拟成功
+        vant.showToast({ message: "开户申请已提交！", position: "top" });
+        LG.patchState(s => {
+          s.account.status = "PENDING";
+        });
+        setTimeout(() => {
+          window.location.href = "../home/index.html";
+        }, 1500);
+      } finally {
+        loading.value = false;
       }
     };
 
-    return { openType, loading, formPersonal, formCompany, doOpenAccount };
+    // 提交个人商户
+    const submitPersonal = async () => {
+      // 表单验证
+      if (!personalForm.name) return vant.showToast("请输入姓名");
+      if (!validatePhone(personalForm.mobile)) return vant.showToast("请输入正确的手机号");
+      if (!validateIdCard(personalForm.idCard)) return vant.showToast("请输入正确的身份证号");
+      if (!personalForm.bankCode) return vant.showToast("请选择开户银行");
+      if (!validateBankCard(personalForm.bankCardNo)) return vant.showToast("请输入正确的银行卡号");
+      if (!personalForm.bankCardName) return vant.showToast("请输入持卡人姓名");
+      if (!personalForm.bankProvince) return vant.showToast("请输入开户省份");
+      if (!personalForm.bankCity) return vant.showToast("请输入开户城市");
+      if (!personalForm.bankBranch) return vant.showToast("请输入开户支行");
+
+      loading.value = true;
+      try {
+        const result = await LG.openAccount({
+          name: personalForm.name,
+          legal_mobile: personalForm.mobile,
+          legal_name: personalForm.name,
+          legal_id_card: personalForm.idCard,
+          address: personalForm.address,
+          enterprise_type: "3", // 个人
+          bank_type: personalForm.bankType,
+          bank_code: personalForm.bankCode,
+          bank_card_no: personalForm.bankCardNo,
+          bank_card_name: personalForm.bankCardName,
+          bank_province: personalForm.bankProvince,
+          bank_city: personalForm.bankCity,
+          bank_branch: personalForm.bankBranch,
+          back_url: window.location.origin + "/api/merchant/callback",
+          source: "MOBILE"
+        });
+
+        if (result.code === 0) {
+          if (result.data?.status === "01") {
+            vant.showToast({ message: "开户成功！", position: "top" });
+          } else if (result.data?.status === "00") {
+            vant.showToast({ message: "开户申请已受理，请等待审核", position: "top" });
+          } else {
+            vant.showToast({ message: "开户申请已提交", position: "top" });
+          }
+          LG.patchState(s => {
+            s.account.status = "PENDING";
+          });
+          setTimeout(() => {
+            window.location.href = "../home/index.html";
+          }, 1500);
+        } else {
+          vant.showToast(result.message || "提交失败");
+        }
+      } catch (e) {
+        // 演示模式：模拟成功
+        vant.showToast({ message: "开户申请已提交！", position: "top" });
+        LG.patchState(s => {
+          s.account.status = "VALID";
+        });
+        setTimeout(() => {
+          window.location.href = "../home/index.html";
+        }, 1500);
+      } finally {
+        loading.value = false;
+      }
+    };
+
+    return {
+      subjectType,
+      loading,
+      fileInput,
+      enterpriseForm,
+      personalForm,
+      bankList,
+      triggerUpload,
+      handleFileChange,
+      submitEnterprise,
+      submitPersonal
+    };
   }
 });
 app.use(vant);

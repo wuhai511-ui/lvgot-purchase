@@ -10,6 +10,7 @@ const DEFAULT_ACCOUNT = {
   name: "李四 (导游)",
   typeName: "导游",
   type: "guide",
+  enterpriseType: "3", // 1=商户, 2=旅行社, 3=导游, 4+=其他
   level: 3,
   balance: 8560.00,
   frozenBalance: 0,
@@ -175,6 +176,26 @@ async function doOpenAccount(form, type) {
   return apiRequest("/api/account/open", { ...form, type });
 }
 
+// 开户申请（调用 BFF 接口）
+async function openAccount(form) {
+  return apiRequest("/api/merchant/open-account", form);
+}
+
+// 权限判断
+function canSplit(enterpriseType) {
+  // 只有商户(1)和旅行社(2)可以分账
+  return enterpriseType === "1" || enterpriseType === "2";
+}
+
+function canCreateTour(enterpriseType) {
+  return canSplit(enterpriseType);
+}
+
+function canWithdraw(enterpriseType) {
+  // 所有角色都可以提现
+  return true;
+}
+
 function computeWithdrawFee(amount) {
   if (!amount || isNaN(amount)) return "0.00";
   return Math.max(1, Math.round(parseFloat(amount) * 0.001 * 100) / 100).toFixed(2);
@@ -184,7 +205,8 @@ function computeWithdrawFee(amount) {
 window.__lvgot = {
   getState, patchState, saveState,
   sendSmsCode, doSplitPay, doWithdraw, startFaceAuth,
-  doBindTerminal, doRecharge, doOpenAccount,
+  doBindTerminal, doRecharge, doOpenAccount, openAccount,
   computeWithdrawFee,
+  canSplit, canCreateTour, canWithdraw,
   API
 };

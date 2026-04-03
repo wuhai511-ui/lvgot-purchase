@@ -1,38 +1,26 @@
 <template>
   <div class="page">
     <div class="page-title">📤 提现申请</div>
+
     <div class="card">
       <div class="card-header">提现信息</div>
       <div class="card-body">
-        <el-form :model="form" label-width="120px">
-          <el-form-item label="提现账户">
-            <el-select v-model="form.accountType" style="width:300px">
-              <el-option label="拉卡拉账户" value="lakala"/>
-              <el-option label="银行内部户" value="bank"/>
-            </el-select>
-          </el-form-item>
+        <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
           <el-form-item label="可提现余额">
-            <span class="money">¥{{ availableBalance.toLocaleString() }}</span>
-            <span style="color:#888;font-size:13px;margin-left:8px">（含银行内部户）</span>
+            <span class="balance">¥{{ availableBalance }}</span>
           </el-form-item>
-          <el-form-item label="提现金额" required>
-            <el-input v-model.number="form.amount" placeholder="请输入提现金额" style="width:300px" @input="calcFee">
+          <el-form-item label="提现金额" prop="amount">
+            <el-input v-model.number="form.amount" placeholder="请输入提现金额" style="width:300px">
               <template #prepend>¥</template>
             </el-input>
-            <div v-if="form.amount && showLimitWarning" class="limit-warning">
-              ⚠️ 当前为个人账户且未完成人脸识别，提现限额 1000元/笔，超出部分无法到账
-            </div>
           </el-form-item>
-          <el-form-item label="到账银行卡">
-            <el-select v-model="form.cardId" placeholder="请选择银行卡" style="width:300px">
-              <el-option v-for="card in cards" :key="card.cardNo" :label="card.bankName + ' ' + card.cardNo.slice(-4)" :value="card.cardNo"/>
+          <el-form-item label="收款银行卡" prop="bank_card_no">
+            <el-select v-model="form.bank_card_no" placeholder="选择银行卡" style="width:300px">
+              <el-option v-for="card in bankCards" :key="card.id" :label="`${card.bank_name} (${card.card_no_masked})`" :value="card.card_no"/>
             </el-select>
           </el-form-item>
-          <el-form-item label="手续费">
-            <span style="color:#E6A23C">¥{{ fee }}（0.1%，最低1元）</span>
-          </el-form-item>
-          <el-form-item label="实际到账">
-            <span style="color:#52c41a;font-weight:600">¥{{ actualAmount }}</span>
+          <el-form-item label="备注">
+            <el-input v-model="form.remark" placeholder="选填" style="width:300px"/>
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="submitting" @click="handleWithdraw">确认提现</el-button>
@@ -40,140 +28,124 @@
         </el-form>
       </div>
     </div>
-    <div class="tips"><el-icon>💡</el-icon> 到账时间：1-3个工作日</div>
 
-    <!-- 提现结果 -->
-    <el-dialog v-model="showResult" title="提现申请" width="400px" :show-close="false">
-      <el-result
-        v-if="withdrawResult === 'success'"
-        icon="success"
-        title="提现申请已提交"
-        :sub-title="`提现金额：¥${form.amount}，预计1-3个工作日到账`"
-      />
-      <el-result
-        v-else
-        icon="error"
-        title="提现失败"
-        :sub-title="withdrawError"
-      />
-      <template #footer v-if="withdrawResult !== 'success'">
-        <el-button type="primary" @click="showResult=false">关闭</el-button>
-      </template>
-    </el-dialog>
+    <!-- 提现记录 -->
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-header">📜 提现记录</div>
+      <div class="card-body">
+        <el-table :data="records" v-loading="loadingRecords" stripe>
+          <el-table-column prop="transaction_no" label="提现单号" width="200"/>
+          <el-table-column prop="amount" label="金额" width="120">
+            <template #default="{row}">¥{{ row.amount }}</template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{row}">
+              <el-tag size="small" :type="statusType[row.status]">{{ statusMap[row.status] || row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="时间">
+            <template #default="{row}">{{ formatTime(row.created_at) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { withdrawPreOrder } from '@/api/merchant'
+import { applyWithdraw, getWithdrawRecords } from '@/api/withdraw'
+import { getBankCards } from '@/api/bankCard'
+import { getAccountBalance } from '@/api/account'
 
-const availableBalance = ref(80000)
-const cards = ref([
-  { bankName: '中国农业银行', cardNo: '6228481234567890' },
-  { bankName: '招商银行', cardNo: '6222021234567890' },
-])
-const form = reactive({ accountType: 'lakala', amount: null, cardId: '6228481234567890' })
+const formRef = ref()
 const submitting = ref(false)
-const showResult = ref(false)
-const withdrawResult = ref('success')
-const withdrawError = ref('')
-const showLimitWarning = ref(false)
+const loadingRecords = ref(false)
 
-const fee = computed(() => {
-  if (!form.amount) return '0.00'
-  return Math.max(1, Math.round(form.amount * 0.001 * 100) / 100).toFixed(2)
+const form = reactive({
+  amount: null,
+  bank_card_no: '',
+  remark: ''
 })
 
-const actualAmount = computed(() => {
-  if (!form.amount) return '0.00'
-  return (form.amount - Number(fee.value)).toFixed(2)
-})
+const rules = {
+  amount: [{ required: true, message: '请输入提现金额', trigger: 'blur' }],
+  bank_card_no: [{ required: true, message: '请选择银行卡', trigger: 'change' }]
+}
 
-const calcFee = () => {
-  if (form.amount && showLimitWarning.value && form.amount > 1000) {
-    ElMessage.warning('当前账户提现限额1000元/笔，超出部分无法到账')
+const bankCards = ref([])
+const records = ref([])
+const balanceInfo = ref({ balance: 0, available_amount: 0 })
+
+const availableBalance = computed(() => balanceInfo.value.available_amount || 0)
+
+const statusMap = { 'PENDING': '处理中', 'SUCCESS': '成功', 'FAILED': '失败' }
+const statusType = { 'PENDING': 'warning', 'SUCCESS': 'success', 'FAILED': 'danger' }
+
+const formatTime = (time) => time ? time.replace('T', ' ').substring(0, 19) : '-'
+
+const fetchData = async () => {
+  try {
+    const [balanceRes, cardsRes] = await Promise.all([
+      getAccountBalance(),
+      getBankCards()
+    ])
+    if (balanceRes.code === 0) balanceInfo.value = balanceRes.data
+    if (cardsRes.code === 0) bankCards.value = cardsRes.data || []
+  } catch (e) {
+    console.error('获取数据失败:', e)
+  }
+}
+
+const fetchRecords = async () => {
+  loadingRecords.value = true
+  try {
+    const res = await getWithdrawRecords({ pageSize: 10 })
+    if (res.code === 0) records.value = res.data || []
+  } catch (e) {
+    console.error('获取提现记录失败:', e)
+  } finally {
+    loadingRecords.value = false
   }
 }
 
 const handleWithdraw = async () => {
-  if (!form.amount || form.amount <= 0) { ElMessage.warning('请输入正确金额'); return }
-  if (!form.cardId) { ElMessage.warning('请选择到账银行卡'); return }
-
-  const total = form.amount + Number(fee.value)
-  if (total > availableBalance.value) {
-    ElMessage.warning('余额不足'); return
+  await formRef.value?.validate()
+  
+  if (form.amount > availableBalance.value) {
+    ElMessage.warning('提现金额不能超过可提现余额')
+    return
   }
-
+  
   submitting.value = true
   try {
-    const selectedCard = cards.value.find(c => c.cardNo === form.cardId)
-    let res
-    try {
-      res = await withdrawPreOrder({
-        amount: form.amount,
-        account_type: form.accountType,
-        bank_card_no: form.cardId,
-        bank_name: selectedCard?.bankName,
-        fee: fee.value,
-      })
-    } catch (e) {
-      console.warn('[Withdraw] BFF not available:', e)
-      res = { code: -1 }
-    }
-
-    if (res.code === 0 && res.data) {
-      withdrawResult.value = 'success'
-      availableBalance.value -= total
+    const res = await applyWithdraw({
+      amount: form.amount,
+      bank_card_no: form.bank_card_no,
+      remark: form.remark
+    })
+    
+    if (res.code === 0) {
+      ElMessage.success('提现申请已提交')
       form.amount = null
+      form.bank_card_no = ''
+      form.remark = ''
+      fetchRecords()
+      fetchData()
     } else {
-      // BFF 未上线，降级 Mock 成功
-      console.warn('[Withdraw] Using mock success')
-      withdrawResult.value = 'success'
-      availableBalance.value -= total
-      form.amount = null
+      ElMessage.error(res.message || '提现申请失败')
     }
-
-    showResult.value = true
   } catch (e) {
-    withdrawResult.value = 'failed'
-    withdrawError.value = e.message || '提现失败，请稍后重试'
-    showResult.value = true
+    ElMessage.error(e.message || '提现申请失败')
   } finally {
     submitting.value = false
   }
 }
 
-// 页面加载时检查人脸识别状态
-onMounted(async () => {
-  try {
-    // 从 localStorage 获取 merchantId（示例，实际从登录态获取）
-    const merchantId = localStorage.getItem('merchantId') || ''
-    if (!merchantId) {
-      showLimitWarning.value = true
-      return
-    }
-
-    let res
-    try {
-      res = await fetch(`/api/v1/merchants/${merchantId}/face-recognition-url`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      }).then(r => r.json())
-    } catch (e) {
-      console.warn('[Face Check] BFF not available:', e)
-      res = { code: -1 }
-    }
-
-    if (res.code === 0 && res.data && res.data.already_verified === true) {
-      showLimitWarning.value = false
-    } else {
-      showLimitWarning.value = true
-    }
-  } catch (e) {
-    showLimitWarning.value = true
-  }
+onMounted(() => {
+  fetchData()
+  fetchRecords()
 })
 </script>
 
@@ -183,14 +155,5 @@ onMounted(async () => {
 .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; }
 .card-body { padding: 20px; }
-.tips { color: #888; font-size: 13px; margin-top: 12px; display: flex; align-items: center; gap: 6px; }
-.limit-warning {
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: #fff2f0;
-  border: 1px solid #ffccc7;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #cf1322;
-}
+.balance { font-size: 20px; font-weight: 700; color: #1976D2; }
 </style>

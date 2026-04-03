@@ -3,7 +3,8 @@
  * 所有请求指向 BFF 地址
  */
 
-const BASE_URL = 'https://bgualqb.cn'
+// BFF 地址：前后端部署在同一服务器，使用相对路径
+const BASE_URL = ''
 
 /**
  * 通用请求函数
@@ -99,6 +100,20 @@ export function get(url, params) {
  */
 export function post(url, data) {
   return request({ url, method: 'POST', data })
+}
+
+/**
+ * PUT 请求
+ */
+export function put(url, data) {
+  return request({ url, method: 'PUT', data })
+}
+
+/**
+ * DELETE 请求
+ */
+export function del(url, params) {
+  return request({ url, method: 'DELETE', params })
 }
 
 /**

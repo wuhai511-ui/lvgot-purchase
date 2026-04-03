@@ -9,6 +9,9 @@ const { Base64 } = require('jsrsasign');
 const crypto = require('crypto');
 require('express-async-errors');
 
+// 导入 SQLite 数据库模块
+const dbSqlite = require('./db-sqlite');
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -23,32 +26,59 @@ const QZT_CONFIG = {
   publicKey: fs.readFileSync(path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
 
-// --- 商户数据库 ---
-const MERCHANT_DB_FILE = path.join(__dirname, 'merchant.json');
-if (!fs.existsSync(MERCHANT_DB_FILE)) {
-  fs.writeFileSync(MERCHANT_DB_FILE, JSON.stringify([]));
-}
-function getMerchants() {
-  return JSON.parse(fs.readFileSync(MERCHANT_DB_FILE, 'utf8'));
-}
-function saveMerchant(merchant) {
-  const merchants = getMerchants();
-  const idx = merchants.findIndex(m => m.id === merchant.id);
-  if (idx >= 0) {
-    merchants[idx] = { ...merchants[idx], ...merchant, updated_at: new Date().toISOString() };
-  } else {
-    merchant.id = Date.now();
-    merchant.created_at = new Date().toISOString();
-    merchant.updated_at = new Date().toISOString();
-    merchants.unshift(merchant);
+// --- 初始化 SQLite 数据库 ---
+let dbInitialized = false;
+async function initDb() {
+  if (!dbInitialized) {
+    await dbSqlite.initDatabase();
+    dbInitialized = true;
+    console.log('SQLite 数据库初始化完成');
   }
-  fs.writeFileSync(MERCHANT_DB_FILE, JSON.stringify(merchants, null, 2));
-  return merchant;
 }
-function getMerchantById(id) {
-  const merchants = getMerchants();
-  return merchants.find(m => String(m.id) === String(id));
-}
+
+// 启动时初始化数据库
+initDb().catch(console.error);
+
+// 数据库操作函数（使用 SQLite）
+const getMerchants = () => dbSqlite.getMerchants();
+const saveMerchant = (merchant) => dbSqlite.saveMerchant(merchant);
+const getMerchantByOutRequestNo = (out_request_no) => dbSqlite.getMerchantByOutRequestNo(out_request_no);
+const getMerchantById = (id) => dbSqlite.getMerchantById(id);
+
+// 旅行团操作
+const saveTourGroup = (tour) => dbSqlite.saveTourGroup(tour);
+const getTourGroups = (merchant_id) => dbSqlite.getTourGroups(merchant_id);
+const getTourGroupById = (id) => dbSqlite.getTourGroupById(id);
+const deleteTourGroup = (id) => dbSqlite.deleteTourGroup(id);
+
+// 团队成员操作
+const saveTourMember = (member) => dbSqlite.saveTourMember(member);
+const getTourMembers = (tour_id) => dbSqlite.getTourMembers(tour_id);
+const deleteTourMember = (id) => dbSqlite.deleteTourMember(id);
+
+// 分账规则操作
+const saveSplitRule = (rule) => dbSqlite.saveSplitRule(rule);
+const getSplitRules = (merchant_id) => dbSqlite.getSplitRules(merchant_id);
+const getSplitRuleById = (id) => dbSqlite.getSplitRuleById(id);
+const deleteSplitRule = (id) => dbSqlite.deleteSplitRule(id);
+const saveSplitRuleItem = (item) => dbSqlite.saveSplitRuleItem(item);
+const getSplitRuleItems = (rule_id) => dbSqlite.getSplitRuleItems(rule_id);
+
+// 角色权限判断
+const canSplit = (enterprise_type) => {
+  // 只有商户(1)和旅行社(2)可以分账
+  return enterprise_type === '1' || enterprise_type === '2' || enterprise_type === 1 || enterprise_type === 2;
+};
+
+const canCreateTour = (enterprise_type) => {
+  // 只有商户(1)和旅行社(2)可以创建旅行团
+  return enterprise_type === '1' || enterprise_type === '2' || enterprise_type === 1 || enterprise_type === 2;
+};
+
+const canWithdraw = (enterprise_type) => {
+  // 所有角色都可以提现
+  return true;
+};
 
 // --- 流水数据库（原有） ---
 const DB_FILE = path.join(__dirname, 'database.json');
@@ -80,19 +110,19 @@ function rsaEncrypt(plaintext) {
 
 // --- 加签 / 验签工具 ---
 function signData(content) {
-  const sig = new KJUR.crypto.Signature({ alg: 'SHA256withRSA' });
-  sig.init(QZT_CONFIG.privateKey);
-  sig.updateString(content);
-  return sig.sign();
+  const signer = crypto.createSign('SHA256');
+  signer.update(content, 'utf8');
+  signer.end();
+  return signer.sign(QZT_CONFIG.privateKey, 'base64');
 }
 
 function verifyData(data, signValue) {
   if (!signValue) return true;
   try {
-    const sig = new KJUR.crypto.Signature({ alg: 'SHA256withRSA' });
-    sig.init(QZT_CONFIG.publicKey);
-    sig.updateString(data);
-    return sig.verify(signValue);
+    const verifier = crypto.createVerify('SHA256');
+    verifier.update(data, 'utf8');
+    verifier.end();
+    return verifier.verify(QZT_CONFIG.publicKey, signValue, 'base64');
   } catch(e) {
     return false;
   }
@@ -118,7 +148,7 @@ async function callQzt(service, params) {
     version: QZT_CONFIG.version,
     sign: signValue,
     service,
-    params: paramsStr
+    params: paramsForSign  // 发送对象，不是字符串
   };
   if (params.file_content !== undefined) {
     body.file_content = params.file_content;
@@ -370,9 +400,249 @@ merchantRouter.get('/', (req, res) => {
   res.json({ code: 0, data: merchants });
 });
 
+// POST 方式的商户列表查询（支持筛选）
+app.post('/api/merchant/list', (req, res) => {
+  const { keyword, status, page = 1, pageSize = 20 } = req.body;
+  let merchants = getMerchants();
+  
+  // 关键词筛选
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    merchants = merchants.filter(m => 
+      (m.register_name && m.register_name.toLowerCase().includes(kw)) ||
+      (m.legal_mobile && m.legal_mobile.includes(kw)) ||
+      (m.out_request_no && m.out_request_no.toLowerCase().includes(kw)) ||
+      (m.qzt_response?.account_no && m.qzt_response.account_no.includes(kw))
+    );
+  }
+  
+  // 状态筛选
+  if (status) {
+    merchants = merchants.filter(m => m.status === status);
+  }
+  
+  res.json({ code: 0, data: merchants, total: merchants.length });
+});
+
 // 同时挂载到 /api/merchant 和 /api/v1/merchants
 app.use('/api/merchant', merchantRouter);
 app.use('/api/v1/merchants', merchantRouter);
+
+// 兼容旧版前端：POST /api/merchant → 根据类型选择接口
+// 个人（enterprise_type=3）：使用 open.split.account.apply (6.9) 直接申请
+// 企业/个体工商户（enterprise_type=1或2）：使用 open.split.account.page.url (6.3) 获取 H5 页面
+app.post('/api/merchant', async (req, res) => {
+  const { 
+    name, 
+    legal_mobile, 
+    legal_name,
+    legal_id_card,
+    license_no,
+    enterprise_type,
+    address,
+    email,
+    back_url,
+    // 新增字段（用于 open.split.account.apply）
+    id_front,
+    id_back,
+    bank_type,
+    bank_code,
+    bank_card_no,
+    bank_card_name,
+    bank_branch,
+    bank_province,
+    bank_city,
+    bank_area,
+    source 
+  } = req.body;
+  
+  const outRequestNo = `M${Date.now()}`;
+  const defaultBackUrl = `http://139.196.190.217/api/merchant/callback?out_request_no=${outRequestNo}`;
+  
+  // 入网类型：1=企业，2=个体工商户，3=个人
+  const entType = enterprise_type || '3';
+  
+  try {
+    // 个人开户：使用 open.split.account.apply (6.9) 直接申请
+    // 注意：个人开户需要归属商户账户标识(mer_account_no)，如果没有则使用 H5 页面方式
+    if (entType === '3' || entType === 3) {
+      // 检查是否有平台商户账户
+      const merchants = getMerchants();
+      const platformMerchant = merchants.find(m => m.qzt_account_no && m.enterprise_type !== '3');
+      
+      if (!platformMerchant) {
+        // 没有平台商户，使用 H5 页面方式
+        console.log('[个人开户] 无平台商户，使用 H5 页面方式');
+        const result = await callQzt('open.split.account.page.url', {
+          out_request_no: outRequestNo,
+          register_name: name || '个人商户',
+          legal_mobile: legal_mobile || '',
+          legal_name: legal_name || '',
+          legal_id_card: legal_id_card || '',
+          enterprise_type: '3',
+          address: address || '',
+          email: email || '',
+          back_url: back_url || defaultBackUrl
+        });
+        
+        let parsed = { url: '', account_no: '' };
+        if (result.result) {
+          try {
+            parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+          } catch(e) {
+            parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
+          }
+        }
+        
+        const merchant = saveMerchant({
+          out_request_no: outRequestNo,
+          register_name: name,
+          legal_mobile,
+          legal_name,
+          legal_id_card,
+          enterprise_type: '3',
+          address,
+          email,
+          back_url: back_url || defaultBackUrl,
+          status: 'PERSONAL_PENDING',
+          qzt_response: parsed
+        });
+        
+        return res.json({
+          code: 0,
+          data: {
+            merchant_id: merchant.id,
+            out_request_no: outRequestNo,
+            redirectUrl: parsed.url || '',
+            h5Url: parsed.url || ''
+          }
+        });
+      }
+      
+      // 有平台商户，使用直接申请方式
+      const params = {
+        out_request_no: outRequestNo,
+        register_name: name || '个人商户',
+        enterprise_type: '3',
+        mer_account_no: platformMerchant.qzt_account_no, // 归属商户账户标识
+        back_url: back_url || defaultBackUrl
+      };
+      
+      // 可选参数
+      if (legal_mobile) params.mobile = legal_mobile;
+      if (legal_name) params.name = legal_name;
+      if (legal_id_card) {
+        params.id_no = rsaEncrypt(legal_id_card);
+        params.id_type = '1'; // 1=身份证
+      }
+      if (id_front) params.id_front = id_front;
+      if (id_back) params.id_back = id_back;
+      if (bank_type) params.bank_type = bank_type;
+      if (bank_code) params.bank_code = bank_code;
+      if (bank_card_no) params.bank_card_no = rsaEncrypt(bank_card_no);
+      if (bank_card_name) params.bank_card_name = bank_card_name;
+      if (bank_branch) params.bank_branch = bank_branch;
+      if (bank_province) params.bank_province = bank_province;
+      if (bank_city) params.bank_city = bank_city;
+      if (bank_area) params.bank_area = bank_area;
+      
+      console.log('[6.9] 个人开户申请参数:', JSON.stringify(params, null, 2));
+      
+      const result = await callQzt('open.split.account.apply', params);
+      
+      let parsed = { status: '', account_no: '', out_request_no: '' };
+      if (result.result) {
+        try {
+          parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+        } catch(e) {
+          parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
+        }
+      }
+      
+      // status: 00=申请受理 / 01=开户成功 / 02=开户失败 / 03=电子签约
+      const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile,
+        legal_name,
+        legal_id_card,
+        enterprise_type: '3',
+        address,
+        email,
+        back_url: back_url || defaultBackUrl,
+        status: parsed.status === '01' ? 'ACTIVE' : parsed.status === '02' ? 'FAILED' : 'PERSONAL_PENDING',
+        qzt_account_no: parsed.account_no || '',
+        qzt_response: parsed
+      });
+      
+      res.json({
+        code: 0,
+        data: {
+          merchant_id: merchant.id,
+          out_request_no: outRequestNo,
+          account_no: parsed.account_no || '',
+          status: parsed.status,
+          message: parsed.error_message || '',
+          // 个人开户无 H5 页面，返回空
+          redirectUrl: '',
+          h5Url: ''
+        }
+      });
+    } else {
+      // 企业/个体工商户：使用 open.pay.account.page.url (6.2) 获取支付开户页面
+      // 正常商户角色调用支付开户接口
+      const result = await callQzt('open.pay.account.page.url', {
+        out_request_no: outRequestNo,
+        register_name: name || '商户',
+        legal_mobile: legal_mobile || '',
+        legal_name: legal_name || '',
+        legal_id_card: legal_id_card || '',
+        license_no: license_no || '',
+        enterprise_type: entType,
+        address: address || '',
+        email: email || '',
+        back_url: back_url || defaultBackUrl
+      });
+
+      let parsed = { url: '', account_no: '' };
+      if (result.result) {
+        try {
+          parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+        } catch(e) {
+          parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
+        }
+      }
+
+      const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile,
+        legal_name,
+        legal_id_card,
+        license_no,
+        enterprise_type: entType,
+        address,
+        email,
+        back_url,
+        status: entType === '3' ? 'PERSONAL_PENDING' : 'ENTERPRISE_PENDING',
+        qzt_response: parsed
+      });
+
+      res.json({
+        code: 0,
+        data: {
+          merchant_id: merchant.id,
+          out_request_no: outRequestNo,
+          redirectUrl: parsed.url || '',
+          h5Url: parsed.url || ''
+        }
+      });
+    }
+  } catch (error) {
+    console.error('商户开户失败:', error.message);
+    res.status(500).json({ code: 500, message: '商户开户失败', error: error.message });
+  }
+});
 
 // 3. 钱账通回调通知（独立路径，不纳入 merchantRouter）
 app.post('/api/merchant/callback', async (req, res) => {
@@ -989,16 +1259,33 @@ app.post('/api/qzt/split/confirm', async (req, res) => {
  * POST /api/qzt/split/apply  — [7.1] 交易余额分账
  * service: trans.trade.fund.split
  * 金额单位：分（fen），前端传元，BFF 转为分发给钱账通
+ * 
+ * 业务限制：只有商户(1)和旅行社(2)可以分账，导游和其他角色只能提现
  */
 app.post('/api/qzt/split/apply', async (req, res) => {
   try {
     const {
+      merchant_id,  // 新增：商户ID，用于权限验证
       out_request_no, account_no,
       split_amount,   // 单位：元，前端传入
       split_list,     // [{ account_no, bank_account_no?, amount, remark }]
       withdraw_type,   // D0 / D1 / T1，可选
       back_url
     } = req.body;
+
+    // 权限验证：只有商户和旅行社可以分账
+    if (merchant_id) {
+      const merchant = getMerchantById(merchant_id);
+      if (!merchant) {
+        return res.status(404).json({ code: 404, message: '商户不存在' });
+      }
+      if (!canSplit(merchant.enterprise_type)) {
+        return res.status(403).json({ 
+          code: 403, 
+          message: '权限不足：只有商户或旅行社可以执行分账操作，导游和其他角色只能提现' 
+        });
+      }
+    }
 
     if (!out_request_no || !account_no || !split_amount || !split_list) {
       return res.status(400).json({ code: 400, message: '缺少必填参数: out_request_no, account_no, split_amount, split_list' });
@@ -1699,6 +1986,627 @@ app.post('/api/qzt/bank-card/unbind', async (req, res) => {
   }
 });
 
+// ==================== 新增业务接口 ====================
+
+/**
+ * GET /api/account/balance - 查询账户余额
+ * 调用钱账通 balance.query 接口
+ */
+app.get('/api/account/balance', async (req, res) => {
+  try {
+    const { merchant_id } = req.query;
+    
+    // 从数据库获取账户信息
+    let accounts = await db.getAccountsByMerchantId(merchant_id || 1);
+    
+    // 如果没有账户，尝试从钱账通查询
+    if (!accounts || accounts.length === 0) {
+      // 调用钱账通余额查询接口
+      const result = await callQzt('balance.query', {
+        account_no: req.query.account_no || '7445380068781174784' // 默认测试账户
+      });
+      
+      let parsed = { balance: 0, frozen_amount: 0 };
+      if (result.result) {
+        try {
+          parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+        } catch(e) {
+          parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+        }
+      }
+      
+      res.json({ 
+        code: 0, 
+        data: {
+          balance: parsed.balance || 0,
+          frozen_amount: parsed.frozen_amount || 0,
+          available_amount: (parsed.balance || 0) - (parsed.frozen_amount || 0)
+        }
+      });
+    } else {
+      const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
+      const totalFrozen = accounts.reduce((sum, a) => sum + (parseFloat(a.frozen_amount) || 0), 0);
+      
+      res.json({
+        code: 0,
+        data: {
+          balance: totalBalance,
+          frozen_amount: totalFrozen,
+          available_amount: totalBalance - totalFrozen,
+          accounts: accounts
+        }
+      });
+    }
+  } catch (error) {
+    console.error('查询余额失败:', error.message);
+    res.status(500).json({ code: 500, message: '查询余额失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/account/bind-merchant - 绑定商户号
+ */
+app.post('/api/account/bind-merchant', async (req, res) => {
+  try {
+    const { merchant_id, merchant_no } = req.body;
+    
+    // 调用钱账通商户绑定接口
+    const result = await callQzt('trans.merchant.bind', {
+      account_no: merchant_no,
+      merchant_no: merchant_no
+    });
+    
+    let parsed = { bind_state: '' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+      }
+    }
+    
+    res.json({ 
+      code: 0, 
+      data: { 
+        bind_state: parsed.bind_state,
+        message: parsed.bind_state === '00' ? '绑定成功' : '绑定失败'
+      }
+    });
+  } catch (error) {
+    console.error('绑定商户号失败:', error.message);
+    res.status(500).json({ code: 500, message: '绑定商户号失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/bank-cards - 获取银行卡列表
+ */
+app.get('/api/bank-cards', async (req, res) => {
+  try {
+    const { merchant_id } = req.query;
+    const cards = await db.getBankCardsByMerchantId(merchant_id || 1);
+    
+    // 隐藏敏感信息
+    const safeCards = cards.map(c => ({
+      id: c.id,
+      card_no_masked: c.card_no_masked || maskCardNo(c.card_no),
+      bank_name: c.bank_name,
+      bank_code: c.bank_code,
+      card_type: c.card_type,
+      card_holder_name: c.card_holder_name,
+      is_default: c.is_default,
+      status: c.status,
+      bind_time: c.bind_time
+    }));
+    
+    res.json({ code: 0, data: safeCards });
+  } catch (error) {
+    console.error('获取银行卡列表失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取银行卡列表失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/bank-cards/bind - 绑定银行卡
+ */
+app.post('/api/bank-cards/bind', async (req, res) => {
+  try {
+    const { merchant_id, account_no, bank_type, bank_code, bank_card_no, bank_card_name, bank_branch, bank_province, bank_city, bank_area } = req.body;
+    
+    // 调用钱账通绑定银行卡接口
+    const encryptedCardNo = rsaEncrypt(bank_card_no);
+    
+    const result = await callQzt('account.bank.card.bind', {
+      account_no: account_no || '7445380068781174784',
+      bank_type: bank_type || '1',
+      bank_code,
+      bank_card_no: encryptedCardNo,
+      bank_card_name,
+      bank_branch,
+      bank_province,
+      bank_city,
+      bank_area
+    });
+    
+    let parsed = { bank_account_no: '', bind_state: '' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+      }
+    }
+    
+    // 保存到数据库
+    if (parsed.bind_state === '00') {
+      await db.createBankCard({
+        merchant_id: merchant_id || 1,
+        account_id: null,
+        card_no: bank_card_no,
+        card_no_masked: maskCardNo(bank_card_no),
+        bank_name: getBankName(bank_code),
+        bank_code,
+        card_type: bank_type === '1' ? 'DEBIT' : 'CREDIT',
+        card_holder_name: bank_card_name,
+        is_default: 0
+      });
+    }
+    
+    res.json({
+      code: 0,
+      data: {
+        bank_account_no: parsed.bank_account_no,
+        bind_state: parsed.bind_state,
+        message: parsed.bind_state === '00' ? '绑定成功' : '绑定失败'
+      }
+    });
+  } catch (error) {
+    console.error('绑定银行卡失败:', error.message);
+    res.status(500).json({ code: 500, message: '绑定银行卡失败', error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/bank-cards/:id - 解绑银行卡
+ */
+app.delete('/api/bank-cards/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // 标记为删除
+    await db.deleteBankCard(id);
+    
+    res.json({ code: 0, message: '解绑成功' });
+  } catch (error) {
+    console.error('解绑银行卡失败:', error.message);
+    res.status(500).json({ code: 500, message: '解绑银行卡失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/recharge/apply - 申请充值
+ */
+app.post('/api/recharge/apply', async (req, res) => {
+  try {
+    const { merchant_id, amount, bank_card_no, remark } = req.body;
+    const transactionNo = `R${Date.now()}`;
+    
+    // 调用钱账通充值接口
+    const result = await callQzt('recharge.apply', {
+      out_request_no: transactionNo,
+      amount: String(amount),
+      bank_card_no: rsaEncrypt(bank_card_no)
+    });
+    
+    let parsed = { status: 'PENDING' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+      }
+    }
+    
+    // 保存交易记录
+    await db.createTransaction({
+      merchant_id: merchant_id || 1,
+      account_id: null,
+      transaction_no: transactionNo,
+      transaction_type: 'RECHARGE',
+      amount: parseFloat(amount),
+      fee: 0,
+      balance_before: 0,
+      balance_after: 0,
+      status: parsed.status || 'PENDING',
+      remark: remark || '充值',
+      qzt_response: parsed
+    });
+    
+    res.json({
+      code: 0,
+      data: {
+        transaction_no: transactionNo,
+        status: parsed.status || 'PENDING',
+        message: '充值申请已提交'
+      }
+    });
+  } catch (error) {
+    console.error('申请充值失败:', error.message);
+    res.status(500).json({ code: 500, message: '申请充值失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/recharge/records - 充值记录
+ */
+app.get('/api/recharge/records', async (req, res) => {
+  try {
+    const { merchant_id, page = 1, pageSize = 20 } = req.query;
+    const records = await db.getTransactions(merchant_id || 1, 'RECHARGE', parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+    
+    res.json({ code: 0, data: records });
+  } catch (error) {
+    console.error('获取充值记录失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取充值记录失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/withdraw/apply - 申请提现
+ */
+app.post('/api/withdraw/apply', async (req, res) => {
+  try {
+    const { merchant_id, amount, bank_card_no, remark } = req.body;
+    const transactionNo = `W${Date.now()}`;
+    
+    // 调用钱账通提现接口
+    const result = await callQzt('withdraw.apply', {
+      out_request_no: transactionNo,
+      amount: String(amount),
+      bank_card_no: rsaEncrypt(bank_card_no)
+    });
+    
+    let parsed = { status: 'PENDING' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+      }
+    }
+    
+    // 保存交易记录
+    await db.createTransaction({
+      merchant_id: merchant_id || 1,
+      account_id: null,
+      transaction_no: transactionNo,
+      transaction_type: 'WITHDRAW',
+      amount: parseFloat(amount),
+      fee: 0,
+      balance_before: 0,
+      balance_after: 0,
+      status: parsed.status || 'PENDING',
+      remark: remark || '提现',
+      qzt_response: parsed
+    });
+    
+    res.json({
+      code: 0,
+      data: {
+        transaction_no: transactionNo,
+        status: parsed.status || 'PENDING',
+        message: '提现申请已提交'
+      }
+    });
+  } catch (error) {
+    console.error('申请提现失败:', error.message);
+    res.status(500).json({ code: 500, message: '申请提现失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/withdraw/records - 提现记录
+ */
+app.get('/api/withdraw/records', async (req, res) => {
+  try {
+    const { merchant_id, page = 1, pageSize = 20 } = req.query;
+    const records = await db.getTransactions(merchant_id || 1, 'WITHDRAW', parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+    
+    res.json({ code: 0, data: records });
+  } catch (error) {
+    console.error('获取提现记录失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取提现记录失败', error: error.message });
+  }
+});
+
+/**
+ * POST /api/split/apply - 申请分账
+ */
+app.post('/api/split/apply', async (req, res) => {
+  try {
+    const { merchant_id, order_no, total_amount, split_amount, receiver_account, receiver_name, remark } = req.body;
+    const splitNo = `S${Date.now()}`;
+    
+    // 调用钱账通分账接口
+    const result = await callQzt('split.apply', {
+      out_split_no: splitNo,
+      order_no: order_no || splitNo,
+      total_amount: String(total_amount),
+      split_amount: String(split_amount),
+      receiver_account
+    });
+    
+    let parsed = { status: 'PENDING' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : result.result;
+      }
+    }
+    
+    // 保存分账记录
+    await db.createSplitRecord({
+      merchant_id: merchant_id || 1,
+      split_no: splitNo,
+      order_no: order_no || splitNo,
+      total_amount: parseFloat(total_amount),
+      split_amount: parseFloat(split_amount),
+      receiver_account,
+      receiver_name,
+      status: parsed.status || 'PENDING',
+      remark: remark || '分账',
+      qzt_response: parsed
+    });
+    
+    res.json({
+      code: 0,
+      data: {
+        split_no: splitNo,
+        status: parsed.status || 'PENDING',
+        message: '分账申请已提交'
+      }
+    });
+  } catch (error) {
+    console.error('申请分账失败:', error.message);
+    res.status(500).json({ code: 500, message: '申请分账失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/split/records - 分账记录
+ */
+app.get('/api/split/records', async (req, res) => {
+  try {
+    const { merchant_id, page = 1, pageSize = 20 } = req.query;
+    const records = await db.getSplitRecords(merchant_id || 1, parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+    
+    res.json({ code: 0, data: records });
+  } catch (error) {
+    console.error('获取分账记录失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取分账记录失败', error: error.message });
+  }
+});
+
+// ==================== 回调通知接口 ====================
+
+/**
+ * POST /api/callback/trade - 交易通知
+ */
+app.post('/api/callback/trade', async (req, res) => {
+  try {
+    const { status, result, sign } = req.body;
+    console.log('收到交易通知:', JSON.stringify(req.body));
+    
+    let parsed = {};
+    if (result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      }
+    }
+    
+    // 保存通知记录
+    await db.createNotification({
+      notification_type: 'TRADE',
+      reference_no: parsed.out_request_no || parsed.transaction_no,
+      content: parsed,
+      status: 'RECEIVED'
+    });
+    
+    // 更新交易状态
+    if (parsed.out_request_no) {
+      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+    }
+    
+    res.json({ code: 0, message: 'success' });
+  } catch (error) {
+    console.error('处理交易通知失败:', error.message);
+    res.status(500).json({ code: 500, message: 'fail' });
+  }
+});
+
+/**
+ * POST /api/callback/recharge - 充值通知
+ */
+app.post('/api/callback/recharge', async (req, res) => {
+  try {
+    const { status, result } = req.body;
+    console.log('收到充值通知:', JSON.stringify(req.body));
+    
+    let parsed = {};
+    if (result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      }
+    }
+    
+    await db.createNotification({
+      notification_type: 'RECHARGE',
+      reference_no: parsed.out_request_no,
+      content: parsed,
+      status: 'RECEIVED'
+    });
+    
+    if (parsed.out_request_no) {
+      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+    }
+    
+    res.json({ code: 0, message: 'success' });
+  } catch (error) {
+    console.error('处理充值通知失败:', error.message);
+    res.status(500).json({ code: 500, message: 'fail' });
+  }
+});
+
+/**
+ * POST /api/callback/withdraw - 提现通知
+ */
+app.post('/api/callback/withdraw', async (req, res) => {
+  try {
+    const { status, result } = req.body;
+    console.log('收到提现通知:', JSON.stringify(req.body));
+    
+    let parsed = {};
+    if (result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      }
+    }
+    
+    await db.createNotification({
+      notification_type: 'WITHDRAW',
+      reference_no: parsed.out_request_no,
+      content: parsed,
+      status: 'RECEIVED'
+    });
+    
+    if (parsed.out_request_no) {
+      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+    }
+    
+    res.json({ code: 0, message: 'success' });
+  } catch (error) {
+    console.error('处理提现通知失败:', error.message);
+    res.status(500).json({ code: 500, message: 'fail' });
+  }
+});
+
+/**
+ * POST /api/callback/split - 分账通知
+ */
+app.post('/api/callback/split', async (req, res) => {
+  try {
+    const { status, result } = req.body;
+    console.log('收到分账通知:', JSON.stringify(req.body));
+    
+    let parsed = {};
+    if (result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      }
+    }
+    
+    await db.createNotification({
+      notification_type: 'SPLIT',
+      reference_no: parsed.out_split_no,
+      content: parsed,
+      status: 'RECEIVED'
+    });
+    
+    if (parsed.out_split_no) {
+      await db.updateSplitRecordStatus(parsed.out_split_no, status || 'SUCCESS', parsed);
+    }
+    
+    res.json({ code: 0, message: 'success' });
+  } catch (error) {
+    console.error('处理分账通知失败:', error.message);
+    res.status(500).json({ code: 500, message: 'fail' });
+  }
+});
+
+/**
+ * POST /api/callback/open-account - 开户通知
+ */
+app.post('/api/callback/open-account', async (req, res) => {
+  try {
+    const { status, result } = req.body;
+    console.log('收到开户通知:', JSON.stringify(req.body));
+    
+    let parsed = {};
+    if (result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result === 'string' ? JSON.parse(result) : result;
+      }
+    }
+    
+    await db.createNotification({
+      notification_type: 'OPEN_ACCOUNT',
+      reference_no: parsed.out_request_no,
+      content: parsed,
+      status: 'RECEIVED'
+    });
+    
+    // 更新商户状态
+    if (parsed.out_request_no) {
+      const merchant = await db.getMerchantByOutRequestNo(parsed.out_request_no);
+      if (merchant) {
+        await db.updateMerchantStatus(merchant.id, status === 'SUCCESS' ? 'ACTIVE' : 'FAILED', parsed.account_no);
+      }
+    }
+    
+    res.json({ code: 0, message: 'success' });
+  } catch (error) {
+    console.error('处理开户通知失败:', error.message);
+    res.status(500).json({ code: 500, message: 'fail' });
+  }
+});
+
+// ==================== 工具函数 ====================
+
+// 银行卡号脱敏
+function maskCardNo(cardNo) {
+  if (!cardNo || cardNo.length < 8) return cardNo;
+  return cardNo.substring(0, 4) + '****' + cardNo.substring(cardNo.length - 4);
+}
+
+// 根据银行编码获取银行名称
+function getBankName(bankCode) {
+  const bankMap = {
+    '01020000': '中国工商银行',
+    '01030000': '中国农业银行',
+    '01040000': '中国银行',
+    '01050000': '中国建设银行',
+    '03080000': '招商银行',
+    '03030000': '光大银行',
+    '03020000': '中信银行',
+    '03050000': '民生银行',
+    '03060000': '广发银行',
+    '03070000': '平安银行',
+    '03040000': '华夏银行',
+    '03100000': '浦发银行',
+    '03090000': '兴业银行',
+    '03110000': '恒丰银行',
+    '03130000': '渤海银行',
+    '03120000': '浙商银行',
+    '04012900': '北京银行',
+    '04031000': '上海银行',
+    '04083300': '宁波银行',
+    '04022900': '南京银行',
+    '04063000': '杭州银行'
+  };
+  return bankMap[bankCode] || '未知银行';
+}
+
 // 统一错误捕获
 app.use((err, req, res, next) => {
   console.error(err);
@@ -1706,6 +2614,417 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
+// ================= 旅行团管理 API =================
+
+/**
+ * POST /api/tour-group - 创建旅行团
+ * 只有商户(1)和旅行社(2)可以创建
+ */
+app.post('/api/tour-group', async (req, res) => {
+  try {
+    const { merchant_id, tour_name, start_date, end_date, total_amount, members } = req.body;
+    
+    // 验证商户权限
+    const merchant = getMerchantById(merchant_id);
+    if (!merchant) {
+      return res.status(404).json({ code: 404, message: '商户不存在' });
+    }
+    
+    if (!canCreateTour(merchant.enterprise_type)) {
+      return res.status(403).json({ code: 403, message: '只有商户或旅行社可以创建旅行团' });
+    }
+    
+    // 生成团号
+    const tour_no = `T${Date.now()}`;
+    
+    // 创建旅行团
+    const tour = saveTourGroup({
+      merchant_id,
+      tour_no,
+      tour_name,
+      start_date,
+      end_date,
+      total_amount: total_amount || 0,
+      split_status: 'PENDING',
+      status: 'ACTIVE'
+    });
+    
+    // 添加团队成员
+    if (members && members.length > 0) {
+      for (const member of members) {
+        saveTourMember({
+          tour_id: tour.id,
+          merchant_id: member.merchant_id,
+          role: member.role,
+          split_ratio: member.split_ratio || 0,
+          split_amount: member.split_amount || 0
+        });
+      }
+    }
+    
+    res.json({
+      code: 0,
+      data: {
+        ...tour,
+        members: members || []
+      }
+    });
+  } catch (error) {
+    console.error('创建旅行团失败:', error.message);
+    res.status(500).json({ code: 500, message: '创建旅行团失败', error: error.message });
+  }
+});
+
+/**
+ * GET /api/tour-group - 获取旅行团列表
+ */
+app.get('/api/tour-group', (req, res) => {
+  try {
+    const { merchant_id } = req.query;
+    const tours = getTourGroups(merchant_id);
+    
+    // 获取每个团的成员
+    const toursWithMembers = tours.map(tour => ({
+      ...tour,
+      members: getTourMembers(tour.id)
+    }));
+    
+    res.json({ code: 0, data: toursWithMembers });
+  } catch (error) {
+    console.error('获取旅行团列表失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取旅行团列表失败' });
+  }
+});
+
+/**
+ * GET /api/tour-group/:id - 获取旅行团详情
+ */
+app.get('/api/tour-group/:id', (req, res) => {
+  try {
+    const tour = getTourGroupById(req.params.id);
+    if (!tour) {
+      return res.status(404).json({ code: 404, message: '旅行团不存在' });
+    }
+    
+    const members = getTourMembers(tour.id);
+    res.json({ code: 0, data: { ...tour, members } });
+  } catch (error) {
+    console.error('获取旅行团详情失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取旅行团详情失败' });
+  }
+});
+
+/**
+ * DELETE /api/tour-group/:id - 删除旅行团
+ */
+app.delete('/api/tour-group/:id', (req, res) => {
+  try {
+    const tour = getTourGroupById(req.params.id);
+    if (!tour) {
+      return res.status(404).json({ code: 404, message: '旅行团不存在' });
+    }
+    
+    deleteTourGroup(req.params.id);
+    res.json({ code: 0, message: '删除成功' });
+  } catch (error) {
+    console.error('删除旅行团失败:', error.message);
+    res.status(500).json({ code: 500, message: '删除旅行团失败' });
+  }
+});
+
+/**
+ * POST /api/tour-group/:id/member - 添加团队成员
+ */
+app.post('/api/tour-group/:id/member', (req, res) => {
+  try {
+    const { merchant_id, role, split_ratio, split_amount } = req.body;
+    
+    const member = saveTourMember({
+      tour_id: req.params.id,
+      merchant_id,
+      role,
+      split_ratio,
+      split_amount
+    });
+    
+    res.json({ code: 0, data: member });
+  } catch (error) {
+    console.error('添加团队成员失败:', error.message);
+    res.status(500).json({ code: 500, message: '添加团队成员失败' });
+  }
+});
+
+/**
+ * DELETE /api/tour-member/:id - 删除团队成员
+ */
+app.delete('/api/tour-member/:id', (req, res) => {
+  try {
+    deleteTourMember(req.params.id);
+    res.json({ code: 0, message: '删除成功' });
+  } catch (error) {
+    console.error('删除团队成员失败:', error.message);
+    res.status(500).json({ code: 500, message: '删除团队成员失败' });
+  }
+});
+
+// ================= 分账规则管理 API =================
+
+/**
+ * POST /api/split-rule - 创建分账规则
+ * 只有商户(1)和旅行社(2)可以创建
+ */
+app.post('/api/split-rule', (req, res) => {
+  try {
+    const { merchant_id, rule_name, rule_type, items } = req.body;
+    
+    // 验证商户权限
+    const merchant = getMerchantById(merchant_id);
+    if (!merchant) {
+      return res.status(404).json({ code: 404, message: '商户不存在' });
+    }
+    
+    if (!canSplit(merchant.enterprise_type)) {
+      return res.status(403).json({ code: 403, message: '只有商户或旅行社可以创建分账规则' });
+    }
+    
+    // 创建规则
+    const rule = saveSplitRule({
+      merchant_id,
+      rule_name,
+      rule_type: rule_type || 'FIXED',
+      default_rule: false,
+      status: 'ACTIVE'
+    });
+    
+    // 添加规则明细
+    if (items && items.length > 0) {
+      for (const item of items) {
+        saveSplitRuleItem({
+          rule_id: rule.id,
+          target_merchant_id: item.target_merchant_id,
+          split_ratio: item.split_ratio || 0,
+          split_amount: item.split_amount || 0
+        });
+      }
+    }
+    
+    res.json({
+      code: 0,
+      data: {
+        ...rule,
+        items: items || []
+      }
+    });
+  } catch (error) {
+    console.error('创建分账规则失败:', error.message);
+    res.status(500).json({ code: 500, message: '创建分账规则失败' });
+  }
+});
+
+/**
+ * GET /api/split-rule - 获取分账规则列表
+ */
+app.get('/api/split-rule', (req, res) => {
+  try {
+    const { merchant_id } = req.query;
+    const rules = getSplitRules(merchant_id);
+    
+    // 获取每个规则的明细
+    const rulesWithItems = rules.map(rule => ({
+      ...rule,
+      items: getSplitRuleItems(rule.id)
+    }));
+    
+    res.json({ code: 0, data: rulesWithItems });
+  } catch (error) {
+    console.error('获取分账规则列表失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取分账规则列表失败' });
+  }
+});
+
+/**
+ * DELETE /api/split-rule/:id - 删除分账规则
+ */
+app.delete('/api/split-rule/:id', (req, res) => {
+  try {
+    deleteSplitRule(req.params.id);
+    res.json({ code: 0, message: '删除成功' });
+  } catch (error) {
+    console.error('删除分账规则失败:', error.message);
+    res.status(500).json({ code: 500, message: '删除分账规则失败' });
+  }
+});
+
+// ================= 旅行团分账 API =================
+
+/**
+ * POST /api/tour-group/:id/split - 执行旅行团分账
+ * 根据团队成员的分账比例进行分账
+ */
+app.post('/api/tour-group/:id/split', async (req, res) => {
+  try {
+    const tour = getTourGroupById(req.params.id);
+    if (!tour) {
+      return res.status(404).json({ code: 404, message: '旅行团不存在' });
+    }
+    
+    // 验证商户权限
+    const merchant = getMerchantById(tour.merchant_id);
+    if (!canSplit(merchant.enterprise_type)) {
+      return res.status(403).json({ code: 403, message: '只有商户或旅行社可以执行分账' });
+    }
+    
+    const members = getTourMembers(tour.id);
+    if (!members || members.length === 0) {
+      return res.status(400).json({ code: 400, message: '旅行团没有成员，无法分账' });
+    }
+    
+    const results = [];
+    const orderNo = `SPLIT${Date.now()}`;
+    
+    // 逐个成员执行分账
+    for (const member of members) {
+      if (member.split_amount <= 0) continue;
+      
+      const targetMerchant = getMerchantById(member.merchant_id);
+      if (!targetMerchant || !targetMerchant.qzt_account_no) {
+        results.push({
+          member_id: member.id,
+          success: false,
+          message: '目标商户不存在或未开户'
+        });
+        continue;
+      }
+      
+      try {
+        const outSplitNo = `S${Date.now()}${member.id}`;
+        const amountFen = Math.round(member.split_amount * 100);
+        
+        const result = await callQzt('open.split.account.apply', {
+          out_split_no: outSplitNo,
+          order_no: orderNo,
+          split_amount: amountFen,
+          split_account_no: targetMerchant.qzt_account_no,
+          split_merchant_no: targetMerchant.qzt_merchant_no || '',
+          notify_url: `http://139.196.190.217/api/callback/split`
+        });
+        
+        results.push({
+          member_id: member.id,
+          out_split_no: outSplitNo,
+          success: result.status === 'SUCCESS',
+          message: result.status === 'SUCCESS' ? '分账成功' : result.error_message || '分账失败'
+        });
+      } catch (err) {
+        results.push({
+          member_id: member.id,
+          success: false,
+          message: err.message
+        });
+      }
+    }
+    
+    // 更新旅行团状态
+    const allSuccess = results.every(r => r.success);
+    saveTourGroup({
+      ...tour,
+      split_status: allSuccess ? 'SUCCESS' : 'PARTIAL'
+    });
+    
+    res.json({
+      code: 0,
+      data: {
+        tour_id: tour.id,
+        order_no: orderNo,
+        total_amount: tour.total_amount,
+        results
+      }
+    });
+  } catch (error) {
+    console.error('执行分账失败:', error.message);
+    res.status(500).json({ code: 500, message: '执行分账失败', error: error.message });
+  }
+});
+
+// ================= 余额分账 API =================
+
+/**
+ * POST /api/balance/split - 通过余额分账（无需旅行团）
+ * 只有商户(1)和旅行社(2)可以操作
+ */
+app.post('/api/balance/split', async (req, res) => {
+  try {
+    const { merchant_id, split_items } = req.body;
+    
+    // 验证商户权限
+    const merchant = getMerchantById(merchant_id);
+    if (!merchant) {
+      return res.status(404).json({ code: 404, message: '商户不存在' });
+    }
+    
+    if (!canSplit(merchant.enterprise_type)) {
+      return res.status(403).json({ code: 403, message: '只有商户或旅行社可以执行分账' });
+    }
+    
+    if (!split_items || split_items.length === 0) {
+      return res.status(400).json({ code: 400, message: '请提供分账明细' });
+    }
+    
+    const results = [];
+    const orderNo = `SPLIT${Date.now()}`;
+    
+    for (const item of split_items) {
+      const targetMerchant = getMerchantById(item.target_merchant_id);
+      if (!targetMerchant || !targetMerchant.qzt_account_no) {
+        results.push({
+          target_merchant_id: item.target_merchant_id,
+          success: false,
+          message: '目标商户不存在或未开户'
+        });
+        continue;
+      }
+      
+      try {
+        const outSplitNo = `S${Date.now()}${item.target_merchant_id}`;
+        const amountFen = Math.round(item.split_amount * 100);
+        
+        const result = await callQzt('open.split.account.apply', {
+          out_split_no: outSplitNo,
+          order_no: orderNo,
+          split_amount: amountFen,
+          split_account_no: targetMerchant.qzt_account_no,
+          split_merchant_no: targetMerchant.qzt_merchant_no || '',
+          notify_url: `http://139.196.190.217/api/callback/split`
+        });
+        
+        results.push({
+          target_merchant_id: item.target_merchant_id,
+          out_split_no: outSplitNo,
+          success: result.status === 'SUCCESS',
+          message: result.status === 'SUCCESS' ? '分账成功' : result.error_message || '分账失败'
+        });
+      } catch (err) {
+        results.push({
+          target_merchant_id: item.target_merchant_id,
+          success: false,
+          message: err.message
+        });
+      }
+    }
+    
+    res.json({
+      code: 0,
+      data: {
+        order_no: orderNo,
+        results
+      }
+    });
+  } catch (error) {
+    console.error('余额分账失败:', error.message);
+    res.status(500).json({ code: 500, message: '余额分账失败', error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`[BFF Server] 钱账通真实对接服务已启动运行在 http://localhost:${port}`);
 });

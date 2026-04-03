@@ -63,17 +63,18 @@ const route = useRoute()
 const merchantName = ref('钱账通运营后台')
 const isCollapse = ref(false)
 
-// 动态菜单列表：未开户（pending）只显示2个，已开户（active）显示全部
+// 动态菜单列表：未开户（pending）只显示基础菜单，已开户（active）显示全部
 const menuList = computed(() => {
   if (!merchantInfo.value || merchantInfo.value.status !== 'active') {
     return [
       { name: '工作台', path: '/', icon: '📊' },
+      { name: '账户列表', path: '/account', icon: '💰' },
       { name: '申请开户', path: '/account-opening', icon: '📝' },
     ]
   }
   return [
     { name: '工作台', path: '/', icon: '📊' },
-    { name: '账户总览', path: '/account', icon: '💰' },
+    { name: '账户列表', path: '/account', icon: '💰' },
     { name: '开户申请', path: '/account-opening', icon: '📝' },
     { name: '银行卡管理', path: '/bank-card', icon: '💳' },
     { name: '充值', path: '/recharge', icon: '🔄' },

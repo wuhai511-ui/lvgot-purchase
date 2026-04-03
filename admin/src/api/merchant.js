@@ -5,7 +5,7 @@
  */
 import { post, upload } from './request.js'
 
-const BASE = '/api/v1/merchants'
+const BASE = '/api/merchant'
 
 /**
  * 手机号+验证码登录（Mock）
@@ -46,7 +46,7 @@ export const uploadFile = async (file) => {
   }
   const fileContent = btoa(binary)
   
-  return post('/api/v1/merchants/upload', {
+  return post('/api/merchant/upload', {
     file_name: file.name,
     file_type: file.name.split('.').pop() || 'jpg',
     file_content: fileContent

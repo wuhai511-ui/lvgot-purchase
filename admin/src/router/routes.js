@@ -3,6 +3,7 @@
  */
 import Login from '../views/Login.vue'
 import Dashboard from '../views/Dashboard.vue'
+import AccountList from '../views/AccountList.vue'
 import AccountOpening from '../views/AccountOpening.vue'
 import BankCard from '../views/BankCard.vue'
 import Recharge from '../views/Recharge.vue'
@@ -28,6 +29,12 @@ const routes = [
     name: 'Dashboard',
     meta: { requiresAuth: true },
     component: Dashboard,
+  },
+  {
+    path: '/account',
+    name: 'AccountList',
+    meta: { requiresAuth: true },
+    component: AccountList,
   },
   {
     path: '/account-opening',

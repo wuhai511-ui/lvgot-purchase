@@ -1,53 +1,18 @@
 /**
- * 账户模块 API
+ * 账户相关 API
  */
 import { get, post } from './request.js'
 
 /**
- * 获取账户信息
+ * 查询账户余额
  */
-export function getAccountInfo() {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      accountId: 'ACC001',
-      balance: 100000.00,
-      frozenBalance: 5000.00,
-      availableBalance: 95000.00,
-      currency: 'CNY',
-    },
-  })
+export const getAccountBalance = (merchantId) => {
+  return get('/api/account/balance', { merchant_id: merchantId })
 }
 
 /**
- * 账户充值
- * @param {Object} data - 充值数据 { amount, paymentMethod }
+ * 绑定商户号
  */
-export function recharge(data) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      transactionId: 'TX' + Date.now(),
-      amount: data.amount,
-      status: 'completed',
-    },
-  })
-}
-
-/**
- * 账户提现
- * @param {Object} data - 提现数据 { amount, bankCardId }
- */
-export function withdraw(data) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      transactionId: 'TX' + Date.now(),
-      amount: data.amount,
-      status: 'pending',
-    },
-  })
+export const bindMerchant = (merchantId, merchantNo) => {
+  return post('/api/account/bind-merchant', { merchant_id: merchantId, merchant_no: merchantNo })
 }
