@@ -52,6 +52,9 @@ function createTables() {
       legal_id_card TEXT,
       license_no TEXT,
       enterprise_type TEXT DEFAULT '3',
+      split_role TEXT DEFAULT 'other',
+      guide_cert_no TEXT,
+      guide_cert_img TEXT,
       address TEXT,
       email TEXT,
       back_url TEXT,
@@ -154,14 +157,29 @@ function createTables() {
       merchant_id INTEGER NOT NULL,
       tour_no TEXT UNIQUE NOT NULL,
       tour_name TEXT NOT NULL,
+      route_name TEXT,
+      days INTEGER DEFAULT 1,
+      itinerary TEXT,
       start_date DATE,
       end_date DATE,
+      people_count INTEGER DEFAULT 1,
+      guide_id INTEGER,
+      driver_id INTEGER,
+      shop_id INTEGER,
+      attractions TEXT,
+      hotel_name TEXT,
+      hotel_phone TEXT,
+      hotel_address TEXT,
       total_amount DECIMAL(15,2) DEFAULT 0,
       split_status TEXT DEFAULT 'PENDING',
       status TEXT DEFAULT 'ACTIVE',
+      remark TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (merchant_id) REFERENCES merchants(id)
+      FOREIGN KEY (merchant_id) REFERENCES merchants(id),
+      FOREIGN KEY (guide_id) REFERENCES merchants(id),
+      FOREIGN KEY (driver_id) REFERENCES merchants(id),
+      FOREIGN KEY (shop_id) REFERENCES merchants(id)
     )
   `);
   
@@ -235,7 +253,8 @@ function closeDatabase() {
 function saveMerchant(merchant) {
   const {
     out_request_no, register_name, legal_mobile, legal_name,
-    legal_id_card, license_no, enterprise_type, address, email,
+    legal_id_card, license_no, enterprise_type, split_role, 
+    guide_cert_no, guide_cert_img, address, email,
     back_url, status, qzt_account_no, qzt_merchant_no, qzt_response,
     callback_message, callback_at
   } = merchant;
@@ -255,6 +274,9 @@ function saveMerchant(merchant) {
         legal_id_card = '${escapeSql(legal_id_card)}',
         license_no = '${escapeSql(license_no)}',
         enterprise_type = '${escapeSql(enterprise_type)}',
+        split_role = '${escapeSql(split_role || 'other')}',
+        guide_cert_no = '${escapeSql(guide_cert_no)}',
+        guide_cert_img = '${escapeSql(guide_cert_img)}',
         address = '${escapeSql(address)}',
         email = '${escapeSql(email)}',
         back_url = '${escapeSql(back_url)}',
@@ -274,8 +296,8 @@ function saveMerchant(merchant) {
   // 新增
   db.run(`
     INSERT INTO merchants (out_request_no, register_name, legal_mobile, legal_name,
-      legal_id_card, license_no, enterprise_type, address, email, back_url,
-      status, qzt_account_no, qzt_merchant_no, qzt_response)
+      legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img,
+      address, email, back_url, status, qzt_account_no, qzt_merchant_no, qzt_response)
     VALUES (
       '${escapeSql(out_request_no)}',
       '${escapeSql(register_name)}',
@@ -284,6 +306,9 @@ function saveMerchant(merchant) {
       '${escapeSql(legal_id_card)}',
       '${escapeSql(license_no)}',
       '${escapeSql(enterprise_type)}',
+      '${escapeSql(split_role || 'other')}',
+      '${escapeSql(guide_cert_no)}',
+      '${escapeSql(guide_cert_img)}',
       '${escapeSql(address)}',
       '${escapeSql(email)}',
       '${escapeSql(back_url)}',
@@ -568,7 +593,12 @@ function getSplitRecords(filters = {}) {
 // ========== 旅行团操作 ==========
 
 function saveTourGroup(tour) {
-  const { merchant_id, tour_no, tour_name, start_date, end_date, total_amount, split_status, status } = tour;
+  const { 
+    merchant_id, tour_no, tour_name, route_name, days, itinerary,
+    start_date, end_date, people_count, guide_id, driver_id, shop_id,
+    attractions, hotel_name, hotel_phone, hotel_address,
+    total_amount, split_status, status, remark 
+  } = tour;
   
   // 检查是否已存在
   const existing = db.exec(`SELECT * FROM tour_groups WHERE tour_no = '${escapeSql(tour_no)}'`);
@@ -578,11 +608,23 @@ function saveTourGroup(tour) {
     db.run(`
       UPDATE tour_groups SET
         tour_name = '${escapeSql(tour_name)}',
+        route_name = '${escapeSql(route_name || '')}',
+        days = ${parseInt(days) || 1},
+        itinerary = '${escapeSql(itinerary || '')}',
         start_date = '${escapeSql(start_date)}',
         end_date = '${escapeSql(end_date)}',
+        people_count = ${parseInt(people_count) || 1},
+        guide_id = ${guide_id ? parseInt(guide_id) : 'NULL'},
+        driver_id = ${driver_id ? parseInt(driver_id) : 'NULL'},
+        shop_id = ${shop_id ? parseInt(shop_id) : 'NULL'},
+        attractions = '${escapeSql(attractions || '')}',
+        hotel_name = '${escapeSql(hotel_name || '')}',
+        hotel_phone = '${escapeSql(hotel_phone || '')}',
+        hotel_address = '${escapeSql(hotel_address || '')}',
         total_amount = ${parseFloat(total_amount) || 0},
         split_status = '${escapeSql(split_status || 'PENDING')}',
         status = '${escapeSql(status || 'ACTIVE')}',
+        remark = '${escapeSql(remark || '')}',
         updated_at = CURRENT_TIMESTAMP
       WHERE tour_no = '${escapeSql(tour_no)}'
     `);
@@ -592,16 +634,30 @@ function saveTourGroup(tour) {
   
   // 新增
   db.run(`
-    INSERT INTO tour_groups (merchant_id, tour_no, tour_name, start_date, end_date, total_amount, split_status, status)
+    INSERT INTO tour_groups (merchant_id, tour_no, tour_name, route_name, days, itinerary,
+      start_date, end_date, people_count, guide_id, driver_id, shop_id, attractions,
+      hotel_name, hotel_phone, hotel_address, total_amount, split_status, status, remark)
     VALUES (
       ${parseInt(merchant_id) || 0},
       '${escapeSql(tour_no)}',
       '${escapeSql(tour_name)}',
+      '${escapeSql(route_name || '')}',
+      ${parseInt(days) || 1},
+      '${escapeSql(itinerary || '')}',
       '${escapeSql(start_date)}',
       '${escapeSql(end_date)}',
+      ${parseInt(people_count) || 1},
+      ${guide_id ? parseInt(guide_id) : 'NULL'},
+      ${driver_id ? parseInt(driver_id) : 'NULL'},
+      ${shop_id ? parseInt(shop_id) : 'NULL'},
+      '${escapeSql(attractions || '')}',
+      '${escapeSql(hotel_name || '')}',
+      '${escapeSql(hotel_phone || '')}',
+      '${escapeSql(hotel_address || '')}',
       ${parseFloat(total_amount) || 0},
       '${escapeSql(split_status || 'PENDING')}',
-      '${escapeSql(status || 'ACTIVE')}'
+      '${escapeSql(status || 'ACTIVE')}',
+      '${escapeSql(remark || '')}'
     )
   `);
   

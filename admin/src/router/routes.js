@@ -17,6 +17,7 @@ import Role from '../views/Role.vue'
 import Permission from '../views/Permission.vue'
 import Department from '../views/Department.vue'
 import Employee from '../views/Employee.vue'
+import TourGroup from '../views/TourGroup.vue'
 
 const routes = [
   {
@@ -113,6 +114,12 @@ const routes = [
     name: 'Employee',
     meta: { requiresAuth: true },
     component: Employee,
+  },
+  {
+    path: '/tour-group',
+    name: 'TourGroup',
+    meta: { requiresAuth: true },
+    component: TourGroup,
   },
   {
     // 未匹配路由重定向到 /

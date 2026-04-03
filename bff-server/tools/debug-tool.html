@@ -58,16 +58,19 @@
       <div class="panel-body">
         <div class="form-row">
           <div class="form-group">
+            <label>API 版本</label>
+            <select id="versionSelect" onchange="switchVersion()">
+              <option value="4.0">QZT 4.0 (新版本)</option>
+              <option value="3.0">QZT 3.0 (旧版本)</option>
+            </select>
+          </div>
+          <div class="form-group">
             <label>网关地址 (Gateway URL)</label>
             <input type="text" id="gatewayUrl" value="https://qztuat.xc-fintech.com/gateway/soa">
           </div>
           <div class="form-group">
             <label>App ID</label>
             <input type="text" id="appId" value="7348882579718766592">
-          </div>
-          <div class="form-group">
-            <label>API Version</label>
-            <input type="text" id="version" value="4.0">
           </div>
         </div>
         <div class="key-info">
@@ -130,6 +133,26 @@
   </div>
 
   <script>
+    // 版本配置
+    const VERSION_CONFIG = {
+      '4.0': {
+        gatewayUrl: 'https://qztuat.xc-fintech.com/gateway/soa',
+        appId: '7348882579718766592'
+      },
+      '3.0': {
+        gatewayUrl: 'http://sit-qzt-api.lakala.sh.in/service/soa',
+        appId: '7348882579718766592'
+      }
+    };
+    
+    // 切换版本
+    function switchVersion() {
+      const version = document.getElementById('versionSelect').value;
+      const config = VERSION_CONFIG[version];
+      document.getElementById('gatewayUrl').value = config.gatewayUrl;
+      document.getElementById('appId').value = config.appId;
+    }
+    
     // 选中的接口
     let selectedService = '';
     
@@ -228,7 +251,7 @@
       
       const gatewayUrl = document.getElementById('gatewayUrl').value;
       const appId = document.getElementById('appId').value;
-      const version = document.getElementById('version').value;
+      const version = document.getElementById('versionSelect').value;
       const paramsJson = document.getElementById('paramsJson').value;
       
       try {
@@ -274,7 +297,7 @@
       
       const gatewayUrl = document.getElementById('gatewayUrl').value;
       const appId = document.getElementById('appId').value;
-      const version = document.getElementById('version').value;
+      const version = document.getElementById('versionSelect').value;
       const paramsJson = document.getElementById('paramsJson').value;
       
       try {

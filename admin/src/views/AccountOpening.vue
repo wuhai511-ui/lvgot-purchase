@@ -17,6 +17,32 @@
       </div>
     </div>
 
+    <!-- 分账角色选择 -->
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-header">
+        分账角色
+        <span class="required-tag">（必选）</span>
+      </div>
+      <div class="card-body">
+        <el-radio-group v-model="splitRole" size="default" @change="handleRoleChange">
+          <el-radio-button value="shop">旅行商店</el-radio-button>
+          <el-radio-button value="agency">旅行社</el-radio-button>
+          <el-radio-button value="guide">导游</el-radio-button>
+          <el-radio-button value="driver">司机</el-radio-button>
+          <el-radio-button value="other">其他</el-radio-button>
+        </el-radio-group>
+        <div class="role-tip">
+          <el-icon><InfoFilled /></el-icon>
+          <span v-if="splitRole === 'shop'">旅行商店：可创建旅行团、设置分账规则、接收分账</span>
+          <span v-else-if="splitRole === 'agency'">旅行社：可创建旅行团、设置分账规则、执行分账</span>
+          <span v-else-if="splitRole === 'guide'">导游：可接收分账，需上传导游证</span>
+          <span v-else-if="splitRole === 'driver'">司机：可接收分账</span>
+          <span v-else-if="splitRole === 'other'">其他角色：可接收分账</span>
+          <span v-else>请选择分账角色</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== 企业商户表单 ==================== -->
     <template v-if="subjectType === 'enterprise'">
       <div class="card">
@@ -282,6 +308,42 @@
           </el-form>
         </div>
       </div>
+
+      <!-- 导游证上传（仅导游角色需要） -->
+      <div class="card" v-if="splitRole === 'guide'">
+        <div class="card-header">
+          导游证
+          <span class="required-tag">（必填）</span>
+        </div>
+        <div class="card-body">
+          <el-form label-width="140px">
+            <el-row :gutter="20">
+              <el-col :span="8">
+                <el-form-item label="导游证照片">
+                  <el-upload
+                    class="uploader"
+                    action="#"
+                    :show-file-list="false"
+                    :auto-upload="false"
+                    @change="(file) => handleFileChange('guideCert', file, 'personal')"
+                  >
+                    <img v-if="personalForm.guideCertImg" :src="personalForm.guideCertImg" class="preview-img"/>
+                    <div v-else class="upload-placeholder">
+                      <el-icon><Plus /></el-icon>
+                      <span>上传导游证</span>
+                    </div>
+                  </el-upload>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="导游证编号">
+                  <el-input v-model="personalForm.guideCertNo" placeholder="请输入导游证编号"/>
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-form>
+        </div>
+      </div>
     </template>
 
     <div class="submit-area">
@@ -312,6 +374,7 @@ import { InfoFilled, Plus } from '@element-plus/icons-vue'
 import { openAccount, applyPersonal } from '@/api/merchant'
 
 const subjectType = ref('enterprise')
+const splitRole = ref('shop') // 分账角色：shop=旅行商店, agency=旅行社, guide=导游, driver=司机, other=其他
 
 const enterpriseFormRef = ref()
 const personalFormRef = ref()
@@ -351,6 +414,9 @@ const personalForm = reactive({
   // 证件照片
   idCardFrontImg: '',
   idCardBackImg: '',
+  // 导游证信息
+  guideCertImg: '',
+  guideCertNo: '',
 })
 
 // 银行列表
@@ -425,6 +491,14 @@ const handleFileChange = (field, file, formType = 'enterprise') => {
   reader.readAsDataURL(file.raw)
 }
 
+// 角色变更处理
+const handleRoleChange = (role) => {
+  // 如果选择导游角色，自动切换到个人商户
+  if (role === 'guide' || role === 'driver') {
+    subjectType.value = 'personal'
+  }
+}
+
 // 提交表单
 const handleSubmit = async () => {
   if (subjectType.value === 'enterprise') {
@@ -447,6 +521,7 @@ const submitEnterprise = async () => {
       legal_id_card: enterpriseForm.legalIdCard,
       license_no: enterpriseForm.licenseNo,
       enterprise_type: enterpriseForm.enterpriseType,
+      split_role: splitRole.value, // 分账角色
       address: enterpriseForm.address,
       email: enterpriseForm.email,
       back_url: window.location.origin + '/#/account-opening',
@@ -471,6 +546,12 @@ const submitEnterprise = async () => {
 const submitPersonal = async () => {
   await personalFormRef.value?.validate()
 
+  // 导游角色必须上传导游证
+  if (splitRole.value === 'guide' && !personalForm.guideCertImg) {
+    ElMessage.error('导游角色必须上传导游证照片')
+    return
+  }
+
   submitting.value = true
   try {
     // 个人开户使用 open.split.account.apply (6.9) 直接申请
@@ -481,6 +562,7 @@ const submitPersonal = async () => {
       legal_id_card: personalForm.idCard,
       address: personalForm.address,
       enterprise_type: '3', // 个人
+      split_role: splitRole.value, // 分账角色
       // 银行卡信息
       bank_type: personalForm.bankType,
       bank_code: personalForm.bankCode,
@@ -489,6 +571,9 @@ const submitPersonal = async () => {
       bank_province: personalForm.bankProvince,
       bank_city: personalForm.bankCity,
       bank_branch: personalForm.bankBranch,
+      // 导游证信息
+      guide_cert_img: personalForm.guideCertImg,
+      guide_cert_no: personalForm.guideCertNo,
       back_url: window.location.origin + '/api/merchant/callback',
       source: 'WORKBENCH'
     })
@@ -543,6 +628,18 @@ const doRedirect = (url) => {
   background: #f0f9ff;
   border-radius: 6px;
   border: 1px solid #d0e8ff;
+}
+.role-tip {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
 }
 
 /* 上传组件样式 */

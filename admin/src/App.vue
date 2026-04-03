@@ -80,6 +80,7 @@ const menuList = computed(() => {
     { name: '充值', path: '/recharge', icon: '🔄' },
     { name: '提现申请', path: '/withdraw', icon: '📤' },
     { name: '付款订单', path: '/payment', icon: '📋' },
+    { name: '旅行团管理', path: '/tour-group', icon: '🎒' },
     { name: '分账规则', path: '/split-rule', icon: '📐' },
     { name: '分账记录', path: '/split-record', icon: '📜' },
     { name: '交易消息', path: '/trade-message', icon: '🔔' },

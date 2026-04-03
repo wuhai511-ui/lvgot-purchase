@@ -424,6 +424,39 @@ app.post('/api/merchant/list', (req, res) => {
   res.json({ code: 0, data: merchants, total: merchants.length });
 });
 
+// GET /api/merchants - 获取商户列表（支持角色筛选）
+app.get('/api/merchants', (req, res) => {
+  const { keyword, status, split_role, page = 1, page_size = 20 } = req.query;
+  let merchants = getMerchants();
+  
+  // 关键词筛选
+  if (keyword) {
+    const kw = keyword.toLowerCase();
+    merchants = merchants.filter(m => 
+      (m.register_name && m.register_name.toLowerCase().includes(kw)) ||
+      (m.legal_mobile && m.legal_mobile.includes(kw)) ||
+      (m.legal_name && m.legal_name.toLowerCase().includes(kw))
+    );
+  }
+  
+  // 状态筛选
+  if (status) {
+    merchants = merchants.filter(m => m.status === status);
+  }
+  
+  // 角色筛选
+  if (split_role) {
+    merchants = merchants.filter(m => m.split_role === split_role);
+  }
+  
+  const total = merchants.length;
+  const p = parseInt(page) || 1;
+  const ps = parseInt(page_size) || 20;
+  const list = merchants.slice((p - 1) * ps, p * ps);
+  
+  res.json({ code: 0, data: { list, total, page: p, page_size: ps } });
+});
+
 // 同时挂载到 /api/merchant 和 /api/v1/merchants
 app.use('/api/merchant', merchantRouter);
 app.use('/api/v1/merchants', merchantRouter);
@@ -2617,58 +2650,43 @@ const port = process.env.PORT || 3000;
 // ================= 旅行团管理 API =================
 
 /**
- * POST /api/tour-group - 创建旅行团
- * 只有商户(1)和旅行社(2)可以创建
+ * POST /api/tour-groups - 创建旅行团
  */
-app.post('/api/tour-group', async (req, res) => {
+app.post('/api/tour-groups', async (req, res) => {
   try {
-    const { merchant_id, tour_name, start_date, end_date, total_amount, members } = req.body;
-    
-    // 验证商户权限
-    const merchant = getMerchantById(merchant_id);
-    if (!merchant) {
-      return res.status(404).json({ code: 404, message: '商户不存在' });
-    }
-    
-    if (!canCreateTour(merchant.enterprise_type)) {
-      return res.status(403).json({ code: 403, message: '只有商户或旅行社可以创建旅行团' });
-    }
-    
-    // 生成团号
-    const tour_no = `T${Date.now()}`;
+    const { 
+      tour_no, tour_name, route_name, days, itinerary,
+      start_date, end_date, people_count,
+      guide_id, driver_id, shop_id, attractions,
+      hotel_name, hotel_phone, hotel_address,
+      total_amount, remark, merchant_id 
+    } = req.body;
     
     // 创建旅行团
     const tour = saveTourGroup({
-      merchant_id,
-      tour_no,
+      merchant_id: merchant_id || 1,
+      tour_no: tour_no || `TG${Date.now()}`,
       tour_name,
+      route_name,
+      days: days || 1,
+      itinerary,
       start_date,
       end_date,
+      people_count: people_count || 1,
+      guide_id,
+      driver_id,
+      shop_id,
+      attractions,
+      hotel_name,
+      hotel_phone,
+      hotel_address,
       total_amount: total_amount || 0,
       split_status: 'PENDING',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
+      remark
     });
     
-    // 添加团队成员
-    if (members && members.length > 0) {
-      for (const member of members) {
-        saveTourMember({
-          tour_id: tour.id,
-          merchant_id: member.merchant_id,
-          role: member.role,
-          split_ratio: member.split_ratio || 0,
-          split_amount: member.split_amount || 0
-        });
-      }
-    }
-    
-    res.json({
-      code: 0,
-      data: {
-        ...tour,
-        members: members || []
-      }
-    });
+    res.json({ code: 0, data: tour, message: '创建成功' });
   } catch (error) {
     console.error('创建旅行团失败:', error.message);
     res.status(500).json({ code: 500, message: '创建旅行团失败', error: error.message });
@@ -2676,20 +2694,55 @@ app.post('/api/tour-group', async (req, res) => {
 });
 
 /**
- * GET /api/tour-group - 获取旅行团列表
+ * GET /api/tour-groups - 获取旅行团列表
  */
-app.get('/api/tour-group', (req, res) => {
+app.get('/api/tour-groups', (req, res) => {
   try {
-    const { merchant_id } = req.query;
-    const tours = getTourGroups(merchant_id);
+    const { merchant_id, search, status, start_date, end_date, page, page_size } = req.query;
+    let tours = getTourGroups(merchant_id);
     
-    // 获取每个团的成员
-    const toursWithMembers = tours.map(tour => ({
-      ...tour,
-      members: getTourMembers(tour.id)
-    }));
+    // 搜索过滤
+    if (search) {
+      tours = tours.filter(t => 
+        t.tour_name?.includes(search) || 
+        t.tour_no?.includes(search) ||
+        t.route_name?.includes(search)
+      );
+    }
     
-    res.json({ code: 0, data: toursWithMembers });
+    // 状态过滤
+    if (status) {
+      tours = tours.filter(t => t.status === status);
+    }
+    
+    // 日期过滤
+    if (start_date) {
+      tours = tours.filter(t => t.start_date >= start_date);
+    }
+    if (end_date) {
+      tours = tours.filter(t => t.end_date <= end_date);
+    }
+    
+    // 关联导游、司机、商店信息
+    const toursWithDetails = tours.map(tour => {
+      const guide = tour.guide_id ? getMerchantById(tour.guide_id) : null;
+      const driver = tour.driver_id ? getMerchantById(tour.driver_id) : null;
+      const shop = tour.shop_id ? getMerchantById(tour.shop_id) : null;
+      
+      return {
+        ...tour,
+        guide_name: guide?.register_name || guide?.legal_name || '',
+        driver_name: driver?.register_name || driver?.legal_name || '',
+        shop_name: shop?.register_name || ''
+      };
+    });
+    
+    const total = toursWithDetails.length;
+    const p = parseInt(page) || 1;
+    const ps = parseInt(page_size) || 10;
+    const list = toursWithDetails.slice((p - 1) * ps, p * ps);
+    
+    res.json({ code: 0, data: { list, total, page: p, page_size: ps } });
   } catch (error) {
     console.error('获取旅行团列表失败:', error.message);
     res.status(500).json({ code: 500, message: '获取旅行团列表失败' });
@@ -2697,17 +2750,29 @@ app.get('/api/tour-group', (req, res) => {
 });
 
 /**
- * GET /api/tour-group/:id - 获取旅行团详情
+ * GET /api/tour-groups/:id - 获取旅行团详情
  */
-app.get('/api/tour-group/:id', (req, res) => {
+app.get('/api/tour-groups/:id', (req, res) => {
   try {
     const tour = getTourGroupById(req.params.id);
     if (!tour) {
       return res.status(404).json({ code: 404, message: '旅行团不存在' });
     }
     
-    const members = getTourMembers(tour.id);
-    res.json({ code: 0, data: { ...tour, members } });
+    // 关联导游、司机、商店信息
+    const guide = tour.guide_id ? getMerchantById(tour.guide_id) : null;
+    const driver = tour.driver_id ? getMerchantById(tour.driver_id) : null;
+    const shop = tour.shop_id ? getMerchantById(tour.shop_id) : null;
+    
+    res.json({ 
+      code: 0, 
+      data: {
+        ...tour,
+        guide_name: guide?.register_name || guide?.legal_name || '',
+        driver_name: driver?.register_name || driver?.legal_name || '',
+        shop_name: shop?.register_name || ''
+      }
+    });
   } catch (error) {
     console.error('获取旅行团详情失败:', error.message);
     res.status(500).json({ code: 500, message: '获取旅行团详情失败' });
@@ -2715,9 +2780,55 @@ app.get('/api/tour-group/:id', (req, res) => {
 });
 
 /**
- * DELETE /api/tour-group/:id - 删除旅行团
+ * PUT /api/tour-groups/:id - 更新旅行团
  */
-app.delete('/api/tour-group/:id', (req, res) => {
+app.put('/api/tour-groups/:id', (req, res) => {
+  try {
+    const tour = getTourGroupById(req.params.id);
+    if (!tour) {
+      return res.status(404).json({ code: 404, message: '旅行团不存在' });
+    }
+    
+    const { 
+      tour_name, route_name, days, itinerary,
+      start_date, end_date, people_count,
+      guide_id, driver_id, shop_id, attractions,
+      hotel_name, hotel_phone, hotel_address,
+      total_amount, remark, status 
+    } = req.body;
+    
+    const updated = saveTourGroup({
+      ...tour,
+      tour_name,
+      route_name,
+      days,
+      itinerary,
+      start_date,
+      end_date,
+      people_count,
+      guide_id,
+      driver_id,
+      shop_id,
+      attractions,
+      hotel_name,
+      hotel_phone,
+      hotel_address,
+      total_amount,
+      remark,
+      status
+    });
+    
+    res.json({ code: 0, data: updated, message: '更新成功' });
+  } catch (error) {
+    console.error('更新旅行团失败:', error.message);
+    res.status(500).json({ code: 500, message: '更新旅行团失败' });
+  }
+});
+
+/**
+ * DELETE /api/tour-groups/:id - 删除旅行团
+ */
+app.delete('/api/tour-groups/:id', (req, res) => {
   try {
     const tour = getTourGroupById(req.params.id);
     if (!tour) {
@@ -3113,6 +3224,12 @@ app.post('/api/debug/sign', (req, res) => {
  * GET /api/debug/tool - 调试工具页面
  */
 app.use('/api/debug/tool', express.static(path.join(__dirname, 'tools')));
+
+// 直接路由返回调试工具 HTML（备用）
+app.get('/api/debug/tool/debug-tool.html', (req, res) => {
+  const htmlPath = path.join(__dirname, 'tools', 'debug-tool.html');
+  res.sendFile(htmlPath);
+});
 
 app.listen(port, () => {
   console.log(`[BFF Server] 钱账通真实对接服务已启动运行在 http://localhost:${port}`);
