@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>钱账通接口调试工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { color: #333; margin-bottom: 20px; text-align: center; }
+    
+    .panel { background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; }
+    .panel-header { background: #1890ff; color: white; padding: 12px 20px; font-weight: 500; }
+    .panel-body { padding: 20px; }
+    
+    .form-row { display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap; }
+    .form-group { flex: 1; min-width: 200px; }
+    .form-group label { display: block; margin-bottom: 5px; color: #666; font-size: 14px; }
+    .form-group input, .form-group select, .form-group textarea { 
+      width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+    }
+    .form-group textarea { min-height: 80px; resize: vertical; font-family: monospace; }
+    
+    .btn { padding: 10px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+    .btn-primary { background: #1890ff; color: white; }
+    .btn-primary:hover { background: #40a9ff; }
+    .btn-success { background: #52c41a; color: white; }
+    .btn-success:hover { background: #73d13d; }
+    .btn-danger { background: #ff4d4f; color: white; }
+    .btn-danger:hover { background: #ff7875; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .result-box { background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 4px; max-height: 500px; overflow: auto; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+    .result-success { border: 2px solid #52c41a; }
+    .result-error { border: 2px solid #ff4d4f; }
+    
+    .params-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+    .param-item { display: flex; align-items: center; gap: 10px; }
+    .param-item input { flex: 1; }
+    .param-item .remove-btn { color: #ff4d4f; cursor: pointer; font-size: 18px; }
+    
+    .interface-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px; }
+    .interface-item { padding: 10px 15px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
+    .interface-item:hover { border-color: #1890ff; background: #f0f7ff; }
+    .interface-item.active { border-color: #1890ff; background: #1890ff; color: white; }
+    
+    .key-info { background: #f5f5f5; padding: 10px 15px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; color: #666; }
+    .key-info span { font-family: monospace; background: #e8e8e8; padding: 2px 6px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>💰 钱账通接口调试工具</h1>
+    
+    <div class="panel">
+      <div class="panel-header">⚙️ 配置信息</div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>网关地址 (Gateway URL)</label>
+            <input type="text" id="gatewayUrl" value="https://qztuat.xc-fintech.com/gateway/soa">
+          </div>
+          <div class="form-group">
+            <label>App ID</label>
+            <input type="text" id="appId" value="7348882579718766592">
+          </div>
+          <div class="form-group">
+            <label>API Version</label>
+            <input type="text" id="version" value="4.0">
+          </div>
+        </div>
+        <div class="key-info">
+          💡 密钥路径: <span>/keys/private_key.pem</span> | 公钥路径: <span>/keys/cloud_public_key.pem</span>
+          <br>签名算法: SHA256 with RSA | 加密算法: RSA PKCS1 Padding
+        </div>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">📡 选择接口</div>
+      <div class="panel-body">
+        <div class="interface-list" id="interfaceList">
+          <div class="interface-item" data-service="merchant.register.commn">商户入驻</div>
+          <div class="interface-item" data-service="merchant.query.commn">商户查询</div>
+          <div class="interface-item" data-service="account.open.commn">账户开户</div>
+          <div class="interface-item" data-service="account.query.commn">账户查询</div>
+          <div class="interface-item" data-service="account.list.commn">账户列表</div>
+          <div class="interface-item" data-service="split.apply.commn">分账申请</div>
+          <div class="interface-item" data-service="split.query.commn">分账查询</div>
+          <div class="interface-item" data-service="withdraw.apply.commn">提现申请</div>
+          <div class="interface-item" data-service="withdraw.query.commn">提现查询</div>
+          <div class="interface-item" data-service="recharge.apply.commn">充值申请</div>
+          <div class="interface-item" data-service="recharge.query.commn">充值查询</div>
+          <div class="interface-item" data-service="file.upload.commn">文件上传</div>
+          <div class="interface-item" data-service="bankcard.bind.commn">银行卡绑定</div>
+          <div class="interface-item" data-service="bankcard.unbind.commn">银行卡解绑</div>
+          <div class="interface-item" data-service="bankcard.list.commn">银行卡列表</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">📝 请求参数 (JSON)</div>
+      <div class="panel-body">
+        <div class="form-group">
+          <textarea id="paramsJson" placeholder='{"key": "value"}'>{}</textarea>
+        </div>
+        <div class="form-row">
+          <button class="btn btn-primary" id="sendBtn">🚀 发送请求</button>
+          <button class="btn btn-success" id="signBtn">🔐 仅生成签名</button>
+          <button class="btn btn-danger" id="clearBtn">🗑️ 清空</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">📤 签名原文 (Sign Content)</div>
+      <div class="panel-body">
+        <div class="result-box" id="signContent" style="margin-bottom: 15px;"></div>
+      </div>
+    </div>
+    
+    <div class="panel">
+      <div class="panel-header">📥 响应结果</div>
+      <div class="panel-body">
+        <div class="result-box" id="responseResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 选中的接口
+    let selectedService = '';
+    
+    // 接口列表点击
+    document.querySelectorAll('.interface-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.interface-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        selectedService = item.dataset.service;
+        
+        // 根据接口填充示例参数
+        fillExampleParams(selectedService);
+      });
+    });
+    
+    // 填充示例参数
+    function fillExampleParams(service) {
+      const examples = {
+        'merchant.register.commn': {
+          out_request_no: new Date().getTime(),
+          merchant_name: "测试商户",
+          merchant_shortname: "测试",
+          service_phone: "13800138000",
+          business_license_type: "1",
+          business_license_province: "广东省",
+          business_license_city: "深圳市",
+          business_license_address: "南山区科技园",
+          business_address: "南山区科技园路100号",
+          legal_name: "张三",
+          legal_id_card_no: "encrypted_base64_string",
+          legal_id_card_expire: "20301231",
+          legal_phone: "13800138000",
+          bank_account_type: "1",
+          bank_name: "招商银行",
+          bank_account_no: "encrypted_base64_string",
+          bank_account_name: "张三",
+          bank_province: "广东省",
+          bank_city: "深圳市",
+          bank_branch_name: "科技园支行",
+          bank_union_code: "308584000014",
+          legal_id_card_front: "file_key_xxx",
+          legal_id_card_back: "file_key_xxx",
+          business_license_img: "file_key_xxx"
+        },
+        'account.open.commn': {
+          out_request_no: new Date().getTime(),
+          enterprise_type: "1",
+          enterprise_name: "企业名称",
+          legal_name: "张三",
+          legal_id_card_no: "encrypted_base64_string",
+          legal_phone: "13800138000"
+        },
+        'split.apply.commn': {
+          out_request_no: new Date().getTime(),
+          out_order_no: "ORDER_" + new Date().getTime(),
+          amount: 10000,
+          split_details: [
+            { account_no: "account_001", amount: 5000, remark: "分账1" },
+            { account_no: "account_002", amount: 5000, remark: "分账2" }
+          ]
+        },
+        'withdraw.apply.commn': {
+          out_request_no: new Date().getTime(),
+          out_order_no: "W_" + new Date().getTime(),
+          amount: 10000,
+          account_no: "account_xxx",
+          bank_union_code: "308584000014"
+        },
+        'recharge.apply.commn': {
+          out_request_no: new Date().getTime(),
+          out_order_no: "R_" + new Date().getTime(),
+          amount: 10000,
+          account_no: "account_xxx"
+        },
+        'file.upload.commn': {
+          file_name: "test.jpg",
+          file_type: "01",
+          file_hash: "d41d8cd98f00b204e9800998ecf8427e",
+          file_content: "base64_encoded_content"
+        }
+      };
+      
+      document.getElementById('paramsJson').value = JSON.stringify(examples[service] || {}, null, 2);
+    }
+    
+    // 发送请求
+    document.getElementById('sendBtn').addEventListener('click', async () => {
+      if (!selectedService) {
+        alert('请先选择一个接口');
+        return;
+      }
+      
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true;
+      btn.textContent = '请求中...';
+      
+      const gatewayUrl = document.getElementById('gatewayUrl').value;
+      const appId = document.getElementById('appId').value;
+      const version = document.getElementById('version').value;
+      const paramsJson = document.getElementById('paramsJson').value;
+      
+      try {
+        const params = JSON.parse(paramsJson);
+        
+        // 发送请求到调试服务器进行签名和加密
+        const response = await fetch('http://localhost:3001/api/call', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gatewayUrl,
+            appId,
+            version,
+            service: selectedService,
+            params
+          })
+        });
+        
+        const result = await response.json();
+        const resultBox = document.getElementById('responseResult');
+        resultBox.textContent = JSON.stringify(result, null, 2);
+        resultBox.className = 'result-box ' + (result.code === 0 || !result.status || result.status === 'SUCCESS' ? 'result-success' : 'result-error');
+        
+        // 同时显示签名原文
+        document.getElementById('signContent').textContent = result.signContent || '（无签名原文）';
+        
+      } catch (err) {
+        const resultBox = document.getElementById('responseResult');
+        resultBox.textContent = '请求失败: ' + err.message;
+        resultBox.className = 'result-box result-error';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🚀 发送请求';
+      }
+    });
+    
+    // 仅生成签名
+    document.getElementById('signBtn').addEventListener('click', async () => {
+      if (!selectedService) {
+        alert('请先选择一个接口');
+        return;
+      }
+      
+      const gatewayUrl = document.getElementById('gatewayUrl').value;
+      const appId = document.getElementById('appId').value;
+      const version = document.getElementById('version').value;
+      const paramsJson = document.getElementById('paramsJson').value;
+      
+      try {
+        const params = JSON.parse(paramsJson);
+        
+        const response = await fetch('http://localhost:3001/api/sign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            gatewayUrl,
+            appId,
+            version,
+            service: selectedService,
+            params
+          })
+        });
+        
+        const result = await response.json();
+        document.getElementById('signContent').textContent = result.signContent || JSON.stringify(result, null, 2);
+        
+      } catch (err) {
+        document.getElementById('signContent').textContent = '签名生成失败: ' + err.message;
+      }
+    });
+    
+    // 清空
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      document.getElementById('paramsJson').value = '{}';
+      document.getElementById('responseResult').textContent = '';
+      document.getElementById('signContent').textContent = '';
+    });
+  </script>
+</body>
+</html>

@@ -3025,6 +3025,96 @@ app.post('/api/balance/split', async (req, res) => {
   }
 });
 
+// ================= 调试工具 API =================
+
+/**
+ * POST /api/debug/call - 调用钱账通接口（带签名）
+ */
+app.post('/api/debug/call', async (req, res) => {
+  try {
+    const { gatewayUrl, appId, version, service, params } = req.body;
+    
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const paramsStr = JSON.stringify(params);
+    const signContent = appId + timestamp + version + service + paramsStr;
+    
+    // 生成签名
+    const signer = crypto.createSign('SHA256');
+    signer.update(signContent, 'utf8');
+    signer.end();
+    const signValue = signer.sign(QZT_CONFIG.privateKey, 'base64');
+    
+    // 构建请求体
+    const body = {
+      app_id: appId,
+      timestamp,
+      version,
+      sign: signValue,
+      service,
+      params
+    };
+    
+    // 发送请求
+    const response = await axios.post(gatewayUrl || QZT_CONFIG.gateway, body, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 30000
+    });
+    
+    res.json({
+      code: 0,
+      signContent,
+      signValue,
+      request: body,
+      response: response.data
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      message: '请求失败',
+      error: error.message,
+      response: error.response?.data
+    });
+  }
+});
+
+/**
+ * POST /api/debug/sign - 仅生成签名
+ */
+app.post('/api/debug/sign', (req, res) => {
+  try {
+    const { appId, version, service, params } = req.body;
+    
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const paramsStr = JSON.stringify(params);
+    const signContent = appId + timestamp + version + service + paramsStr;
+    
+    // 生成签名
+    const signer = crypto.createSign('SHA256');
+    signer.update(signContent, 'utf8');
+    signer.end();
+    const signValue = signer.sign(QZT_CONFIG.privateKey, 'base64');
+    
+    res.json({
+      code: 0,
+      signContent,
+      signValue,
+      timestamp
+    });
+  } catch (error) {
+    res.status(500).json({
+      code: 500,
+      message: '签名生成失败',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/debug/tool - 调试工具页面
+ */
+app.use('/api/debug/tool', express.static(path.join(__dirname, 'tools')));
+
 app.listen(port, () => {
   console.log(`[BFF Server] 钱账通真实对接服务已启动运行在 http://localhost:${port}`);
+  console.log(`[Debug Tool] 调试工具地址: http://localhost:${port}/api/debug/tool`);
 });
