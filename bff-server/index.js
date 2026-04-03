@@ -965,6 +965,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
       legal_mobile,    // 法人手机号
       enterprise_type, // 1=企业 / 2=个体工商户 / 3=个人
       back_url,       // 开户完成后跳转 URL
+      split_role,     // 分账角色: travel_shop=旅游商店, travel_agency=旅行社, guide=导游, driver=司机, other=其他
       // 以下为扩展字段，记录到 merchant.json
       name,
       id_card_no,
@@ -983,13 +984,33 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
       return res.status(400).json({ code: 400, message: '缺少必填字段: out_request_no, register_name, legal_mobile, enterprise_type' });
     }
 
-    const result = await callQzt('open.split.account.page.url', {
-      out_request_no,
-      register_name,
-      legal_mobile,
-      enterprise_type: parseInt(enterprise_type),
-      back_url: back_url || ''
-    });
+    // 根据 enterprise_type 选择不同的钱账通接口
+    // enterprise_type 1或2 → open.pay.account.page.url (6.2) 支付开户
+    // enterprise_type 3 → open.split.account.page.url (6.3) 分账开户
+    let result;
+    const entType = parseInt(enterprise_type) || 1;
+    
+    if (entType === 1 || entType === 2) {
+      // 企业/个体工商户 - 使用 open.pay.account.page.url (6.2)
+      result = await callQzt('open.pay.account.page.url', {
+        out_request_no,
+        register_name,
+        enterprise_type: String(entType),
+        legal_mobile,
+        legal_name: '',
+        legal_id_card: '',
+        back_url: back_url || 'http://139.196.190.217/'
+      });
+    } else {
+      // 个人(导游等) - 使用 open.split.account.page.url (6.3)
+      result = await callQzt('open.split.account.page.url', {
+        out_request_no,
+        register_name,
+        legal_mobile,
+        enterprise_type: entType,
+        back_url: back_url || 'http://139.196.190.217/'
+      });
+    }
 
     // 解析响应（result 可能是 base64 字符串）
     let parsed = { url: '', account_no: '' };
@@ -1008,6 +1029,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
       legal_mobile,
       enterprise_type,
       back_url,
+      split_role,
       name,
       id_card_no,
       id_card_front,
