@@ -89,6 +89,30 @@
       "style": {
         "navigationBarTitleText": "开户"
       }
+    },
+    {
+      "path": "pages/ai-split/index",
+      "style": {
+        "navigationBarTitleText": "AI智能分账"
+      }
+    },
+    {
+      "path": "pages/split-template/index",
+      "style": {
+        "navigationBarTitleText": "分账模板"
+      }
+    },
+    {
+      "path": "pages/flow/index",
+      "style": {
+        "navigationBarTitleText": "交易流水"
+      }
+    },
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
     }
   ],
   "globalStyle": {

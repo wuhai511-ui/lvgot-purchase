@@ -55,6 +55,8 @@ const splitStore = useSplitStore()
 const userRole = computed(() => accountStore.currentAccount.type)
 
 const allMenuItems = [
+  { text: 'AI分账', path: '/pages/ai-split/index', emoji: '🤖', bg: '#e8f5e9', roles: ['merchant'] },
+  { text: '分账模板', path: '/pages/split-template/index', emoji: '📐', bg: '#fff3e0', roles: ['merchant'] },
   { text: '充值', path: '/pages/recharge/index', emoji: '💰', bg: '#e3f2fd', roles: ['merchant'] },
   { text: '提现', path: '/pages/withdraw/index', emoji: '💵', bg: '#fce4ec', roles: ['merchant', 'guide'] },
   { text: '收款码', path: '/pages/qrcode/index', emoji: '💴', bg: '#fff8e1', roles: ['merchant'] },

@@ -33,8 +33,15 @@ lvgot-purchase/
 | | 分账申请 | `/api/qzt/split/apply` | ✅ |
 | | 分账查询 | `/api/qzt/split/query` | ✅ |
 | | 分账记录 | SplitRecord.vue | ✅ |
+| | **AI 智能分账** | uniapp/ai-split | ✅ 新增 |
+| | **分账模板管理** | uniapp/split-template | ✅ 新增 |
 | **结算提现** | 提现申请 | `/api/qzt/withdraw/*` | ✅ |
 | | 提现记录 | Withdraw.vue | ✅ |
+| **工作台** | Dashboard 图表 | Dashboard.vue | ✅ 优化 |
+| | 业务概览统计 | Dashboard.vue | ✅ 优化 |
+| | 待办事项 | Dashboard.vue | ✅ 优化 |
+| **交易消息** | 消息列表 | TradeMessage.vue | ✅ 优化 |
+| | 已读/未读状态 | TradeMessage.vue | ✅ 优化 |
 | **系统管理** | 员工管理 | Employee.vue | ⚠️ 页面有，逻辑待完善 |
 | | 部门管理 | Department.vue | ⚠️ 页面有，逻辑待完善 |
 | | 角色管理 | Role.vue | ⚠️ 页面有，逻辑待完善 |
