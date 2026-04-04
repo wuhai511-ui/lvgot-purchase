@@ -13,16 +13,74 @@
           :collapse="isCollapse"
           router
         >
-          <el-menu-item
-            v-for="item in menuList"
-            :key="item.path"
-            :index="item.path"
-          >
-            <span class="menu-icon">{{ item.icon }}</span>
+          <!-- 工作台 -->
+          <el-menu-item index="/">
+            <span class="menu-icon">📊</span>
             <template #title>
-              <span class="menu-name">{{ item.name }}</span>
+              <span class="menu-name">工作台</span>
             </template>
           </el-menu-item>
+
+          <!-- 账户中心 -->
+          <el-sub-menu index="account-center">
+            <template #title>
+              <span class="menu-icon">💼</span>
+              <span class="menu-name">账户中心</span>
+            </template>
+            <el-menu-item index="/account">账户列表</el-menu-item>
+            <el-menu-item index="/bank-card">银行卡管理</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 资金管理 -->
+          <el-sub-menu index="fund-management">
+            <template #title>
+              <span class="menu-icon">💵</span>
+              <span class="menu-name">资金管理</span>
+            </template>
+            <el-menu-item index="/recharge">充值</el-menu-item>
+            <el-menu-item index="/withdraw">提现申请</el-menu-item>
+            <el-menu-item index="/payment">付款订单</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 业务管理 -->
+          <el-sub-menu index="business-management">
+            <template #title>
+              <span class="menu-icon">🎒</span>
+              <span class="menu-name">业务管理</span>
+            </template>
+            <el-menu-item index="/tour-group">旅行团管理</el-menu-item>
+            <el-menu-item index="/store">门店管理</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 分账管理 -->
+          <el-sub-menu index="split-management">
+            <template #title>
+              <span class="menu-icon">📐</span>
+              <span class="menu-name">分账管理</span>
+            </template>
+            <el-menu-item index="/split-rule">分账规则</el-menu-item>
+            <el-menu-item index="/split-record">分账记录</el-menu-item>
+          </el-sub-menu>
+
+          <!-- 消息中心 -->
+          <el-menu-item index="/trade-message">
+            <span class="menu-icon">🔔</span>
+            <template #title>
+              <span class="menu-name">消息中心</span>
+            </template>
+          </el-menu-item>
+
+          <!-- 系统设置 -->
+          <el-sub-menu index="system-settings">
+            <template #title>
+              <span class="menu-icon">⚙️</span>
+              <span class="menu-name">系统设置</span>
+            </template>
+            <el-menu-item index="/employee">员工管理</el-menu-item>
+            <el-menu-item index="/department">部门管理</el-menu-item>
+            <el-menu-item index="/role">角色管理</el-menu-item>
+            <el-menu-item index="/permission">权限管理</el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </div>
 
@@ -63,42 +121,31 @@ const route = useRoute()
 const merchantName = ref('钱账通运营后台')
 const isCollapse = ref(false)
 
-// 动态菜单列表：未开户（pending）只显示基础菜单，已开户（active）显示全部
-const menuList = computed(() => {
-  if (!merchantInfo.value || merchantInfo.value.status !== 'active') {
-    return [
-      { name: '工作台', path: '/', icon: '📊' },
-      { name: '账户列表', path: '/account', icon: '💰' },
-      { name: '申请开户', path: '/account-opening', icon: '📝' },
-    ]
-  }
-  return [
-    { name: '工作台', path: '/', icon: '📊' },
-    { name: '账户列表', path: '/account', icon: '💰' },
-    { name: '开户申请', path: '/account-opening', icon: '📝' },
-    { name: '银行卡管理', path: '/bank-card', icon: '💳' },
-    { name: '充值', path: '/recharge', icon: '🔄' },
-    { name: '提现申请', path: '/withdraw', icon: '📤' },
-    { name: '付款订单', path: '/payment', icon: '📋' },
-    { name: '旅行团管理', path: '/tour-group', icon: '🎒' },
-    { name: '分账规则', path: '/split-rule', icon: '📐' },
-    { name: '分账记录', path: '/split-record', icon: '📜' },
-    { name: '交易消息', path: '/trade-message', icon: '🔔' },
-    { name: '门店管理', path: '/store', icon: '🏪' },
-    { name: '员工管理', path: '/employee', icon: '👥' },
-    { name: '部门管理', path: '/department', icon: '🏢' },
-    { name: '角色管理', path: '/role', icon: '🔐' },
-    { name: '权限管理', path: '/permission', icon: '⚙️' },
-  ]
-})
+// 菜单名称映射（用于面包屑）
+const menuNameMap = {
+  '/': '工作台',
+  '/account': '账户列表',
+  '/bank-card': '银行卡管理',
+  '/recharge': '充值',
+  '/withdraw': '提现申请',
+  '/payment': '付款订单',
+  '/tour-group': '旅行团管理',
+  '/store': '门店管理',
+  '/split-rule': '分账规则',
+  '/split-record': '分账记录',
+  '/trade-message': '消息中心',
+  '/employee': '员工管理',
+  '/department': '部门管理',
+  '/role': '角色管理',
+  '/permission': '权限管理'
+}
 
 const merchantInfo = ref(getMerchantInfo())
 
 const activePath = computed(() => route.path)
 
 const currentMenuName = computed(() => {
-  const item = menuList.find(m => m.path === activePath.value)
-  return item ? item.name : ''
+  return menuNameMap[activePath.value] || ''
 })
 
 const handleLogout = () => {
@@ -176,6 +223,41 @@ onMounted(() => {
 
 .menu-name {
   font-size: 14px;
+}
+
+/* 二级菜单样式 */
+.sidebar-menu :deep(.el-sub-menu__title) {
+  height: 50px;
+  line-height: 50px;
+  padding-left: 20px !important;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background-color: #f5f7fa;
+}
+
+.sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: #1976D2;
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  height: 46px;
+  line-height: 46px;
+  padding-left: 52px !important;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  background-color: #f5f7fa;
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  color: #1976D2;
+  background-color: #e3f2fd;
+}
+
+/* 子菜单展开时的背景 */
+.sidebar-menu :deep(.el-sub-menu .el-menu) {
+  background-color: #fafbfc;
 }
 
 /* 主内容区 */
