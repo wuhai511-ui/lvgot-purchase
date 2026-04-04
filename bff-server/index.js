@@ -3253,6 +3253,448 @@ app.get('/api/debug/tool/debug-tool.html', (req, res) => {
   res.sendFile(htmlPath);
 });
 
+// ================= AI 智能分账 API =================
+
+/**
+ * POST /api/ai/parse-split - AI 解析分账需求
+ */
+app.post('/api/ai/parse-split', async (req, res) => {
+  try {
+    const { text, context } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({ code: 400, message: '请输入分账需求描述' });
+    }
+    
+    // MiniMax API 配置
+    const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
+    const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID;
+    
+    // 如果没有配置 MiniMax，使用规则解析
+    if (!MINIMAX_API_KEY) {
+      console.log('[AI] MiniMax API 未配置，使用规则解析');
+      const result = parseSplitByRules(text, context);
+      return res.json({ code: 0, data: result });
+    }
+    
+    // 调用 MiniMax API
+    const prompt = `你是一个分账助手。用户会用自然语言描述分账需求，请解析并返回JSON格式的分账方案。
+
+用户输入：${text}
+
+请返回以下JSON格式（不要包含其他文字，不要用markdown代码块）：
+{
+  "success": true,
+  "totalAmount": 10000,
+  "items": [
+    { "name": "李四", "role": "导游", "percent": 40, "amount": 4000 },
+    { "name": "张三", "role": "司机", "percent": 20, "amount": 2000 },
+    { "name": "顺风旅行社", "role": "旅行社", "percent": 30, "amount": 3000 },
+    { "name": "平台服务费", "role": "平台", "percent": 10, "amount": 1000 }
+  ],
+  "confidence": 85,
+  "suggestion": "已识别为旅行团分账场景"
+}
+
+如果无法解析，返回：
+{
+  "success": false,
+  "message": "无法理解分账需求，请提供金额和分账对象"
+}`;
+
+    const response = await axios.post(
+      `https://api.minimax.chat/v1/text/chatcompletion_v2?GroupId=${MINIMAX_GROUP_ID}`,
+      {
+        model: 'MiniMax-Text-01',
+        messages: [
+          { role: 'system', content: '你是一个专业的分账助手，帮助用户解析分账需求。' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${MINIMAX_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 30000
+      }
+    );
+    
+    const aiContent = response.data.choices?.[0]?.message?.content || '';
+    
+    // 解析 AI 返回的 JSON
+    let result;
+    try {
+      // 尝试提取 JSON
+      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        result = JSON.parse(jsonMatch[0]);
+      } else {
+        result = { success: false, message: 'AI 返回格式异常' };
+      }
+    } catch (e) {
+      console.error('[AI] JSON 解析失败:', e.message);
+      result = parseSplitByRules(text, context);
+    }
+    
+    res.json({ code: 0, data: result });
+    
+  } catch (error) {
+    console.error('[AI] 解析失败:', error.message);
+    // 降级为规则解析
+    const result = parseSplitByRules(req.body.text, req.body.context);
+    res.json({ code: 0, data: result });
+  }
+});
+
+// 规则解析（降级方案）
+function parseSplitByRules(text, context = {}) {
+  // 提取金额
+  const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*元/);
+  const totalAmount = amountMatch ? parseFloat(amountMatch[1]) : 10000;
+  
+  const items = [];
+  
+  // 检测分账对象
+  const patterns = [
+    { pattern: /导游[^0-9]*(\d+)%/, role: '导游', defaultPercent: 40 },
+    { pattern: /司机[^0-9]*(\d+)%/, role: '司机', defaultPercent: 20 },
+    { pattern: /旅行社[^0-9]*(\d+)%/, role: '旅行社', defaultPercent: 30 },
+    { pattern: /平台[^0-9]*(\d+)%/, role: '平台', defaultPercent: 10 }
+  ];
+  
+  let totalPercent = 0;
+  
+  patterns.forEach(({ pattern, role, defaultPercent }) => {
+    if (text.includes(role)) {
+      const match = text.match(pattern);
+      const percent = match ? parseInt(match[1]) : defaultPercent;
+      totalPercent += percent;
+      items.push({
+        name: role === '导游' ? '李四' : role === '司机' ? '张三' : role === '旅行社' ? '顺风旅行社' : '平台服务费',
+        role,
+        percent,
+        amount: (totalAmount * percent / 100).toFixed(2)
+      });
+    }
+  });
+  
+  // 如果没有识别到任何分账对象，使用默认模板
+  if (items.length === 0) {
+    items.push(
+      { name: '李四(导游)', role: '导游', percent: 50, amount: (totalAmount * 0.5).toFixed(2) },
+      { name: '顺风旅行社', role: '旅行社', percent: 50, amount: (totalAmount * 0.5).toFixed(2) }
+    );
+    totalPercent = 100;
+  }
+  
+  // 如果百分比总和不是100，按比例调整
+  if (totalPercent !== 100 && totalPercent > 0) {
+    items.forEach(item => {
+      item.percent = Math.round(item.percent * 100 / totalPercent);
+      item.amount = (totalAmount * item.percent / 100).toFixed(2);
+    });
+  }
+  
+  return {
+    success: true,
+    totalAmount,
+    items,
+    confidence: 75,
+    suggestion: '基于规则解析，建议确认分账比例'
+  };
+}
+
+// ================= 分账模板 API =================
+
+/**
+ * GET /api/split-templates - 获取分账模板列表
+ */
+app.get('/api/split-templates', (req, res) => {
+  try {
+    const { creator_id } = req.query;
+    const templates = dbSqlite.getSplitTemplates(creator_id);
+    res.json({ code: 0, data: templates });
+  } catch (error) {
+    console.error('获取分账模板失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取分账模板失败' });
+  }
+});
+
+/**
+ * POST /api/split-templates - 创建分账模板
+ */
+app.post('/api/split-templates', (req, res) => {
+  try {
+    const { name, description, icon, items, creator_id, creator_type, is_system } = req.body;
+    
+    if (!name || !items || items.length === 0) {
+      return res.status(400).json({ code: 400, message: '请提供模板名称和分账项目' });
+    }
+    
+    // 验证百分比总和
+    const totalPercent = items.reduce((sum, item) => sum + (item.percent || 0), 0);
+    if (totalPercent !== 100) {
+      return res.status(400).json({ code: 400, message: `分账比例总和必须为100%，当前为${totalPercent}%` });
+    }
+    
+    const template_id = `TPL${Date.now()}`;
+    
+    const template = dbSqlite.saveSplitTemplate({
+      template_id,
+      name,
+      description,
+      icon,
+      items,
+      creator_id,
+      creator_type,
+      is_system
+    });
+    
+    res.json({ code: 0, data: template, message: '模板创建成功' });
+  } catch (error) {
+    console.error('创建分账模板失败:', error.message);
+    res.status(500).json({ code: 500, message: '创建分账模板失败' });
+  }
+});
+
+/**
+ * PUT /api/split-templates/:templateId - 更新分账模板
+ */
+app.put('/api/split-templates/:templateId', (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const { name, description, icon, items } = req.body;
+    
+    // 验证百分比总和
+    if (items && items.length > 0) {
+      const totalPercent = items.reduce((sum, item) => sum + (item.percent || 0), 0);
+      if (totalPercent !== 100) {
+        return res.status(400).json({ code: 400, message: `分账比例总和必须为100%，当前为${totalPercent}%` });
+      }
+    }
+    
+    const template = dbSqlite.saveSplitTemplate({
+      template_id: templateId,
+      name,
+      description,
+      icon,
+      items
+    });
+    
+    res.json({ code: 0, data: template, message: '模板更新成功' });
+  } catch (error) {
+    console.error('更新分账模板失败:', error.message);
+    res.status(500).json({ code: 500, message: '更新分账模板失败' });
+  }
+});
+
+/**
+ * DELETE /api/split-templates/:templateId - 删除分账模板
+ */
+app.delete('/api/split-templates/:templateId', (req, res) => {
+  try {
+    const { templateId } = req.params;
+    const result = dbSqlite.deleteSplitTemplate(templateId);
+    
+    if (result.success) {
+      res.json({ code: 0, message: '模板删除成功' });
+    } else {
+      res.status(400).json({ code: 400, message: '系统模板不能删除' });
+    }
+  } catch (error) {
+    console.error('删除分账模板失败:', error.message);
+    res.status(500).json({ code: 500, message: '删除分账模板失败' });
+  }
+});
+
+/**
+ * POST /api/split-templates/:templateId/use - 使用模板（增加使用次数）
+ */
+app.post('/api/split-templates/:templateId/use', (req, res) => {
+  try {
+    const { templateId } = req.params;
+    dbSqlite.incrementTemplateUsage(templateId);
+    res.json({ code: 0, message: '使用次数已更新' });
+  } catch (error) {
+    console.error('更新使用次数失败:', error.message);
+    res.status(500).json({ code: 500, message: '更新使用次数失败' });
+  }
+});
+
+// ================= 对账 API =================
+
+/**
+ * POST /api/reconciliation/tasks - 创建对账任务
+ */
+app.post('/api/reconciliation/tasks', async (req, res) => {
+  try {
+    const { taskType, dateRangeStart, dateRangeEnd, createdBy } = req.body;
+    
+    if (!taskType || !dateRangeStart || !dateRangeEnd) {
+      return res.status(400).json({ code: 400, message: '请提供对账类型和时间范围' });
+    }
+    
+    const task_no = `REC${Date.now()}`;
+    
+    const task = dbSqlite.saveReconciliationTask({
+      task_no,
+      task_type: taskType,
+      date_range_start: dateRangeStart,
+      date_range_end: dateRangeEnd,
+      created_by: createdBy
+    });
+    
+    // 异步执行对账
+    executeReconciliation(task_no, taskType, dateRangeStart, dateRangeEnd);
+    
+    res.json({ code: 0, data: task, message: '对账任务已创建' });
+  } catch (error) {
+    console.error('创建对账任务失败:', error.message);
+    res.status(500).json({ code: 500, message: '创建对账任务失败' });
+  }
+});
+
+/**
+ * GET /api/reconciliation/tasks - 获取对账任务列表
+ */
+app.get('/api/reconciliation/tasks', (req, res) => {
+  try {
+    const { status, task_type } = req.query;
+    const tasks = dbSqlite.getReconciliationTasks({ status, task_type });
+    res.json({ code: 0, data: tasks });
+  } catch (error) {
+    console.error('获取对账任务失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取对账任务失败' });
+  }
+});
+
+/**
+ * GET /api/reconciliation/tasks/:taskNo - 获取对账任务详情
+ */
+app.get('/api/reconciliation/tasks/:taskNo', (req, res) => {
+  try {
+    const { taskNo } = req.params;
+    const task = dbSqlite.getReconciliationTask(taskNo);
+    
+    if (!task) {
+      return res.status(404).json({ code: 404, message: '对账任务不存在' });
+    }
+    
+    const details = dbSqlite.getReconciliationDetails(taskNo);
+    const differences = dbSqlite.getReconciliationDifferences(taskNo);
+    
+    res.json({ code: 0, data: { ...task, details, differences } });
+  } catch (error) {
+    console.error('获取对账任务详情失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取对账任务详情失败' });
+  }
+});
+
+/**
+ * PUT /api/reconciliation/differences/:id - 处理对账差异
+ */
+app.put('/api/reconciliation/differences/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, remark, resolved_by } = req.body;
+    
+    if (action === 'resolve') {
+      dbSqlite.updateReconciliationDifference(id, {
+        status: 'resolved',
+        resolved_by,
+        resolved_at: new Date().toISOString()
+      });
+    } else if (action === 'ignore') {
+      dbSqlite.updateReconciliationDifference(id, {
+        status: 'ignored',
+        resolved_by,
+        resolved_at: new Date().toISOString()
+      });
+    }
+    
+    res.json({ code: 0, message: '差异处理成功' });
+  } catch (error) {
+    console.error('处理对账差异失败:', error.message);
+    res.status(500).json({ code: 500, message: '处理对账差异失败' });
+  }
+});
+
+// 执行对账（异步）
+async function executeReconciliation(task_no, task_type, start_date, end_date) {
+  try {
+    console.log(`[对账] 开始执行任务: ${task_no}`);
+    
+    // 更新状态为处理中
+    dbSqlite.updateReconciliationTask(task_no, { status: 'processing' });
+    
+    // 获取交易记录
+    const transactions = dbSqlite.getTransactions({ start_date, end_date });
+    const splitRecords = dbSqlite.getSplitRecords({ start_date, end_date });
+    
+    let matched = 0;
+    let unmatched = 0;
+    let difference_amount = 0;
+    
+    // 简单对账逻辑：检查每笔交易是否都有对应的分账记录
+    for (const tx of transactions) {
+      const relatedSplits = splitRecords.filter(s => s.out_request_no === tx.out_request_no);
+      
+      if (relatedSplits.length > 0) {
+        matched++;
+        dbSqlite.saveReconciliationDetail({
+          task_no,
+          record_type: 'transaction',
+          record_id: tx.out_request_no,
+          expected_amount: tx.amount,
+          actual_amount: tx.amount,
+          difference_amount: 0,
+          status: 'matched'
+        });
+      } else {
+        unmatched++;
+        dbSqlite.saveReconciliationDetail({
+          task_no,
+          record_type: 'transaction',
+          record_id: tx.out_request_no,
+          expected_amount: tx.amount,
+          actual_amount: 0,
+          difference_amount: tx.amount,
+          status: 'unmatched'
+        });
+        
+        dbSqlite.saveReconciliationDifference({
+          task_no,
+          difference_type: 'missing_split',
+          severity: 'high',
+          description: `交易 ${tx.out_request_no} 缺少分账记录`,
+          suggested_action: '请核实是否需要补充分账'
+        });
+        
+        difference_amount += tx.amount;
+      }
+    }
+    
+    // 更新任务状态
+    dbSqlite.updateReconciliationTask(task_no, {
+      status: 'completed',
+      total_records: transactions.length,
+      matched_records: matched,
+      unmatched_records: unmatched,
+      difference_amount,
+      completed_at: new Date().toISOString()
+    });
+    
+    console.log(`[对账] 任务完成: ${task_no}, 匹配: ${matched}, 不匹配: ${unmatched}`);
+    
+  } catch (error) {
+    console.error(`[对账] 任务失败: ${task_no}`, error.message);
+    dbSqlite.updateReconciliationTask(task_no, { status: 'failed' });
+  }
+}
+
 app.listen(port, () => {
   console.log(`[BFF Server] 钱账通真实对接服务已启动运行在 http://localhost:${port}`);
   console.log(`[Debug Tool] 调试工具地址: http://localhost:${port}/api/debug/tool`);

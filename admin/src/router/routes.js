@@ -18,6 +18,9 @@ import Permission from '../views/Permission.vue'
 import Department from '../views/Department.vue'
 import Employee from '../views/Employee.vue'
 import TourGroup from '../views/TourGroup.vue'
+import AiSplit from '../views/AiSplit.vue'
+import SplitTemplate from '../views/SplitTemplate.vue'
+import Reconciliation from '../views/Reconciliation.vue'
 
 const routes = [
   {
@@ -84,6 +87,24 @@ const routes = [
     name: 'SplitRecord',
     meta: { requiresAuth: true },
     component: SplitRecord,
+  },
+  {
+    path: '/ai-split',
+    name: 'AiSplit',
+    meta: { requiresAuth: true },
+    component: AiSplit,
+  },
+  {
+    path: '/split-template',
+    name: 'SplitTemplate',
+    meta: { requiresAuth: true },
+    component: SplitTemplate,
+  },
+  {
+    path: '/reconciliation',
+    name: 'Reconciliation',
+    meta: { requiresAuth: true },
+    component: Reconciliation,
   },
   {
     path: '/store',

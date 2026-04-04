@@ -58,9 +58,19 @@
               <span class="menu-icon">📐</span>
               <span class="menu-name">分账管理</span>
             </template>
+            <el-menu-item index="/ai-split">🤖 AI智能分账</el-menu-item>
+            <el-menu-item index="/split-template">分账模板</el-menu-item>
             <el-menu-item index="/split-rule">分账规则</el-menu-item>
             <el-menu-item index="/split-record">分账记录</el-menu-item>
           </el-sub-menu>
+          
+          <!-- 对账管理 -->
+          <el-menu-item index="/reconciliation">
+            <span class="menu-icon">📊</span>
+            <template #title>
+              <span class="menu-name">对账管理</span>
+            </template>
+          </el-menu-item>
 
           <!-- 消息中心 -->
           <el-menu-item index="/trade-message">
@@ -131,8 +141,11 @@ const menuNameMap = {
   '/payment': '付款订单',
   '/tour-group': '旅行团管理',
   '/store': '门店管理',
+  '/ai-split': 'AI智能分账',
+  '/split-template': '分账模板',
   '/split-rule': '分账规则',
   '/split-record': '分账记录',
+  '/reconciliation': '对账管理',
   '/trade-message': '消息中心',
   '/employee': '员工管理',
   '/department': '部门管理',

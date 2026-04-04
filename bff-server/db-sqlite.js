@@ -227,6 +227,76 @@ function createTables() {
     )
   `);
   
+  // 分账模板表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS split_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      icon TEXT DEFAULT '📋',
+      items TEXT NOT NULL,
+      creator_id TEXT,
+      creator_type TEXT DEFAULT 'merchant',
+      is_system INTEGER DEFAULT 0,
+      usage_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  // 对账任务表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS reconciliation_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_no TEXT UNIQUE NOT NULL,
+      task_type TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      date_range_start DATE,
+      date_range_end DATE,
+      total_records INTEGER DEFAULT 0,
+      matched_records INTEGER DEFAULT 0,
+      unmatched_records INTEGER DEFAULT 0,
+      difference_amount DECIMAL(15,2) DEFAULT 0,
+      report_url TEXT,
+      created_by TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME
+    )
+  `);
+  
+  // 对账明细表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS reconciliation_details (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_no TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      record_id TEXT,
+      expected_amount DECIMAL(15,2),
+      actual_amount DECIMAL(15,2),
+      difference_amount DECIMAL(15,2),
+      status TEXT,
+      remark TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
+  // 对账差异表
+  db.run(`
+    CREATE TABLE IF NOT EXISTS reconciliation_differences (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_no TEXT NOT NULL,
+      difference_type TEXT NOT NULL,
+      severity TEXT DEFAULT 'medium',
+      description TEXT,
+      suggested_action TEXT,
+      status TEXT DEFAULT 'pending',
+      resolved_by TEXT,
+      resolved_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  
   console.log('数据表创建完成');
 }
 
@@ -892,6 +962,250 @@ function getNotifications(filters = {}) {
   });
 }
 
+// ========== 分账模板操作 ==========
+
+function saveSplitTemplate(template) {
+  const { template_id, name, description, icon, items, creator_id, creator_type, is_system } = template;
+  
+  const itemsStr = typeof items === 'string' ? items : JSON.stringify(items);
+  
+  // 检查是否已存在
+  const existing = db.exec(`SELECT id FROM split_templates WHERE template_id = '${escapeSql(template_id)}'`);
+  
+  if (existing.length && existing[0].values.length > 0) {
+    // 更新
+    db.run(`
+      UPDATE split_templates SET
+        name = '${escapeSql(name)}',
+        description = '${escapeSql(description || '')}',
+        icon = '${escapeSql(icon || '📋')}',
+        items = '${escapeSql(itemsStr)}',
+        updated_at = CURRENT_TIMESTAMP
+      WHERE template_id = '${escapeSql(template_id)}'
+    `);
+  } else {
+    // 新增
+    db.run(`
+      INSERT INTO split_templates (template_id, name, description, icon, items, creator_id, creator_type, is_system)
+      VALUES (
+        '${escapeSql(template_id)}',
+        '${escapeSql(name)}',
+        '${escapeSql(description || '')}',
+        '${escapeSql(icon || '📋')}',
+        '${escapeSql(itemsStr)}',
+        '${escapeSql(creator_id || '')}',
+        '${escapeSql(creator_type || 'merchant')}',
+        ${is_system ? 1 : 0}
+      )
+    `);
+  }
+  
+  saveDatabase();
+  return getSplitTemplateById(template_id);
+}
+
+function getSplitTemplates(creator_id = null) {
+  let query = 'SELECT * FROM split_templates WHERE 1=1';
+  
+  if (creator_id) {
+    query += ` AND (creator_id = '${escapeSql(creator_id)}' OR is_system = 1)`;
+  }
+  
+  query += ' ORDER BY is_system DESC, usage_count DESC, created_at DESC';
+  
+  const result = db.exec(query);
+  if (!result.length) return [];
+  
+  const columns = result[0].columns;
+  return result[0].values.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => {
+      let value = row[i];
+      if (col === 'items' && value) {
+        try { value = JSON.parse(value); } catch(e) {}
+      }
+      obj[col] = value;
+    });
+    return obj;
+  });
+}
+
+function getSplitTemplateById(template_id) {
+  const result = db.exec(`SELECT * FROM split_templates WHERE template_id = '${escapeSql(template_id)}'`);
+  if (!result.length || !result[0].values.length) return null;
+  
+  const columns = result[0].columns;
+  const row = result[0].values[0];
+  const obj = {};
+  columns.forEach((col, i) => {
+    let value = row[i];
+    if (col === 'items' && value) {
+      try { value = JSON.parse(value); } catch(e) {}
+    }
+    obj[col] = value;
+  });
+  return obj;
+}
+
+function deleteSplitTemplate(template_id) {
+  db.run(`DELETE FROM split_templates WHERE template_id = '${escapeSql(template_id)}' AND is_system = 0`);
+  saveDatabase();
+  return { success: true };
+}
+
+function incrementTemplateUsage(template_id) {
+  db.run(`UPDATE split_templates SET usage_count = usage_count + 1 WHERE template_id = '${escapeSql(template_id)}'`);
+  saveDatabase();
+}
+
+// ========== 对账操作 ==========
+
+function saveReconciliationTask(task) {
+  const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
+  
+  db.run(`
+    INSERT INTO reconciliation_tasks (task_no, task_type, date_range_start, date_range_end, created_by)
+    VALUES (
+      '${escapeSql(task_no)}',
+      '${escapeSql(task_type)}',
+      '${escapeSql(date_range_start)}',
+      '${escapeSql(date_range_end)}',
+      '${escapeSql(created_by || '')}'
+    )
+  `);
+  
+  saveDatabase();
+  return getReconciliationTask(task_no);
+}
+
+function getReconciliationTask(task_no) {
+  const result = db.exec(`SELECT * FROM reconciliation_tasks WHERE task_no = '${escapeSql(task_no)}'`);
+  if (!result.length || !result[0].values.length) return null;
+  
+  const columns = result[0].columns;
+  const row = result[0].values[0];
+  const obj = {};
+  columns.forEach((col, i) => obj[col] = row[i]);
+  return obj;
+}
+
+function getReconciliationTasks(filters = {}) {
+  let query = 'SELECT * FROM reconciliation_tasks WHERE 1=1';
+  
+  if (filters.status) {
+    query += ` AND status = '${escapeSql(filters.status)}'`;
+  }
+  if (filters.task_type) {
+    query += ` AND task_type = '${escapeSql(filters.task_type)}'`;
+  }
+  
+  query += ' ORDER BY created_at DESC';
+  
+  const result = db.exec(query);
+  if (!result.length) return [];
+  
+  const columns = result[0].columns;
+  return result[0].values.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => obj[col] = row[i]);
+    return obj;
+  });
+}
+
+function updateReconciliationTask(task_no, updates) {
+  const fields = [];
+  if (updates.status) fields.push(`status = '${escapeSql(updates.status)}'`);
+  if (updates.total_records !== undefined) fields.push(`total_records = ${updates.total_records}`);
+  if (updates.matched_records !== undefined) fields.push(`matched_records = ${updates.matched_records}`);
+  if (updates.unmatched_records !== undefined) fields.push(`unmatched_records = ${updates.unmatched_records}`);
+  if (updates.difference_amount !== undefined) fields.push(`difference_amount = ${updates.difference_amount}`);
+  if (updates.report_url) fields.push(`report_url = '${escapeSql(updates.report_url)}'`);
+  if (updates.completed_at) fields.push(`completed_at = '${escapeSql(updates.completed_at)}'`);
+  
+  if (fields.length > 0) {
+    db.run(`UPDATE reconciliation_tasks SET ${fields.join(', ')} WHERE task_no = '${escapeSql(task_no)}'`);
+    saveDatabase();
+  }
+  
+  return getReconciliationTask(task_no);
+}
+
+function saveReconciliationDetail(detail) {
+  const { task_no, record_type, record_id, expected_amount, actual_amount, difference_amount, status, remark } = detail;
+  
+  db.run(`
+    INSERT INTO reconciliation_details (task_no, record_type, record_id, expected_amount, actual_amount, difference_amount, status, remark)
+    VALUES (
+      '${escapeSql(task_no)}',
+      '${escapeSql(record_type)}',
+      '${escapeSql(record_id || '')}',
+      ${expected_amount || 0},
+      ${actual_amount || 0},
+      ${difference_amount || 0},
+      '${escapeSql(status || 'matched')}',
+      '${escapeSql(remark || '')}'
+    )
+  `);
+  
+  saveDatabase();
+}
+
+function getReconciliationDetails(task_no) {
+  const result = db.exec(`SELECT * FROM reconciliation_details WHERE task_no = '${escapeSql(task_no)}'`);
+  if (!result.length) return [];
+  
+  const columns = result[0].columns;
+  return result[0].values.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => obj[col] = row[i]);
+    return obj;
+  });
+}
+
+function saveReconciliationDifference(diff) {
+  const { task_no, difference_type, severity, description, suggested_action } = diff;
+  
+  db.run(`
+    INSERT INTO reconciliation_differences (task_no, difference_type, severity, description, suggested_action)
+    VALUES (
+      '${escapeSql(task_no)}',
+      '${escapeSql(difference_type)}',
+      '${escapeSql(severity || 'medium')}',
+      '${escapeSql(description || '')}',
+      '${escapeSql(suggested_action || '')}'
+    )
+  `);
+  
+  saveDatabase();
+  
+  const result = db.exec('SELECT last_insert_rowid() as id');
+  return { id: result[0]?.values[0]?.[0], ...diff };
+}
+
+function getReconciliationDifferences(task_no) {
+  const result = db.exec(`SELECT * FROM reconciliation_differences WHERE task_no = '${escapeSql(task_no)}'`);
+  if (!result.length) return [];
+  
+  const columns = result[0].columns;
+  return result[0].values.map(row => {
+    const obj = {};
+    columns.forEach((col, i) => obj[col] = row[i]);
+    return obj;
+  });
+}
+
+function updateReconciliationDifference(id, updates) {
+  const fields = [];
+  if (updates.status) fields.push(`status = '${escapeSql(updates.status)}'`);
+  if (updates.resolved_by) fields.push(`resolved_by = '${escapeSql(updates.resolved_by)}'`);
+  if (updates.resolved_at) fields.push(`resolved_at = '${escapeSql(updates.resolved_at)}'`);
+  
+  if (fields.length > 0) {
+    db.run(`UPDATE reconciliation_differences SET ${fields.join(', ')} WHERE id = ${id}`);
+    saveDatabase();
+  }
+}
+
 module.exports = {
   initDatabase,
   closeDatabase,
@@ -930,5 +1244,21 @@ module.exports = {
   getSplitRuleItems,
   // 通知
   saveNotification,
-  getNotifications
+  getNotifications,
+  // 分账模板
+  saveSplitTemplate,
+  getSplitTemplates,
+  getSplitTemplateById,
+  deleteSplitTemplate,
+  incrementTemplateUsage,
+  // 对账
+  saveReconciliationTask,
+  getReconciliationTask,
+  getReconciliationTasks,
+  updateReconciliationTask,
+  saveReconciliationDetail,
+  getReconciliationDetails,
+  saveReconciliationDifference,
+  getReconciliationDifferences,
+  updateReconciliationDifference
 };
