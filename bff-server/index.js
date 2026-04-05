@@ -33,6 +33,12 @@ const QZT_CONFIG = {
   publicKey: fs.readFileSync(process.env.QZT_PUBLIC_KEY_PATH || path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
 
+// --- 全局常量 ---
+// 回调地址前缀（用于钱账通回调通知，必须公网可访问）
+const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3000';
+// 分页上限
+const MAX_PAGE_SIZE = 100;
+
 // --- 初始化 SQLite 数据库 ---
 let dbInitialized = false;
 async function initDb() {
@@ -70,6 +76,26 @@ const getSplitRuleById = (id) => dbSqlite.getSplitRuleById(id);
 const deleteSplitRule = (id) => dbSqlite.deleteSplitRule(id);
 const saveSplitRuleItem = (item) => dbSqlite.saveSplitRuleItem(item);
 const getSplitRuleItems = (rule_id) => dbSqlite.getSplitRuleItems(rule_id);
+
+// ========== LowDB → SQLite 适配层 ==========
+// 统一使用 SQLite，移除 LowDB；这些适配器让调用方无需改动签名
+const getAccountsByMerchantId = (merchant_id) => dbSqlite.getAccountsByMerchantId(merchant_id);
+const getBankCardsByMerchantId = (merchant_id) => dbSqlite.getBankCards(merchant_id);
+const createBankCard = (card) => dbSqlite.saveBankCard(card);
+const deleteBankCardRecord = (id) => dbSqlite.deleteBankCard(id);
+// getTransactions: LowDB签名 (merchantId, type, limit, offset) → SQLite签名 ({merchant_id, type, limit, offset})
+const getTransactions = (merchant_id, type, limit, offset) => dbSqlite.getTransactions({ merchant_id, type, limit, offset });
+const createTransaction = (tx) => dbSqlite.saveTransaction(tx);
+const updateTransactionStatus = (out_request_no, status, qzt_response) => dbSqlite.saveTransaction({ out_request_no, status, qzt_response });
+// getSplitRecords: LowDB签名 (merchantId, limit, offset) → SQLite签名 ({merchant_id, limit, offset})
+const getSplitRecords = (merchant_id, limit, offset) => dbSqlite.getSplitRecords({ merchant_id, limit, offset });
+const createSplitRecord = (record) => dbSqlite.saveSplitRecord(record);
+const updateSplitRecordStatus = (out_split_no, status, qzt_response) => dbSqlite.saveSplitRecord({ out_request_no: out_split_no, status, qzt_response });
+const createNotification = (notif) => dbSqlite.saveNotification(notif);
+const getNotificationByOutRequestNo = (out_request_no, notification_type) => dbSqlite.getNotificationByOutRequestNo(out_request_no, notification_type);
+const markNotificationProcessed = (id) => dbSqlite.markNotificationProcessed(id);
+const updateMerchantStatus = (id, status, qztAccountNo) => dbSqlite.updateMerchantStatus(id, status, qztAccountNo);
+const getMerchantByOutRequestNoFromDb = (out_request_no) => dbSqlite.getMerchantByOutRequestNo(out_request_no);
 
 // 角色权限判断
 const canSplit = (enterprise_type) => {
@@ -497,7 +523,7 @@ app.post('/api/merchant', async (req, res) => {
   } = req.body;
   
   const outRequestNo = `M${Date.now()}`;
-  const defaultBackUrl = `http://139.196.190.217/api/merchant/callback?out_request_no=${outRequestNo}`;
+  const defaultBackUrl = `${QZT_CALLBACK_URL}/api/merchant/callback?out_request_no=${outRequestNo}`;
   
   // 入网类型：1=企业，2=个体工商户，3=个人
   const entType = enterprise_type || '3';
@@ -1027,7 +1053,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
         legal_mobile,
         legal_name: '',
         legal_id_card: '',
-        back_url: back_url || 'http://139.196.190.217/'
+        back_url: back_url || QZT_CALLBACK_URL + '/'
       });
     } else {
       // 个人(导游等) - 使用 open.split.account.page.url (6.3)
@@ -1036,7 +1062,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
         register_name,
         legal_mobile,
         enterprise_type: entType,
-        back_url: back_url || 'http://139.196.190.217/'
+        back_url: back_url || QZT_CALLBACK_URL + '/'
       });
     }
 
@@ -1780,7 +1806,7 @@ app.get('/api/merchant/:id/flow', async (req, res) => {
       start_date,
       end_date,
       page: parseInt(page),
-      page_size: Math.min(parseInt(page_size), 30),
+      page_size: Math.min(parseInt(page_size), MAX_PAGE_SIZE),
       sort: sort || 'desc'
     };
 
@@ -1909,7 +1935,7 @@ app.get('/api/merchant/terminals', async (req, res) => {
     const { account_no, page, page_size } = req.query;
     if (!page || !page_size) return res.status(400).json({ code: 400, message: '缺少必填参数: page, page_size' });
 
-    const params = { page: parseInt(page), page_size: parseInt(page_size) };
+    const params = { page: parseInt(page), page_size: Math.min(parseInt(page_size), MAX_PAGE_SIZE) };
     if (account_no) params.account_no = account_no;
 
     const result = await callQzt('trans.merchant.query', params);
@@ -2080,7 +2106,7 @@ app.get('/api/account/balance', async (req, res) => {
     const { merchant_id } = req.query;
     
     // 从数据库获取账户信息
-    let accounts = await db.getAccountsByMerchantId(merchant_id || 1);
+    let accounts = await dbSqlite.getAccountsByMerchantId(merchant_id || 1);
     
     // 如果没有账户，尝试从钱账通查询
     if (!accounts || accounts.length === 0) {
@@ -2167,7 +2193,7 @@ app.post('/api/account/bind-merchant', async (req, res) => {
 app.get('/api/bank-cards', async (req, res) => {
   try {
     const { merchant_id } = req.query;
-    const cards = await db.getBankCardsByMerchantId(merchant_id || 1);
+    const cards = await getBankCardsByMerchantId(merchant_id || 1);
     
     // 隐藏敏感信息
     const safeCards = cards.map(c => ({
@@ -2222,7 +2248,7 @@ app.post('/api/bank-cards/bind', async (req, res) => {
     
     // 保存到数据库
     if (parsed.bind_state === '00') {
-      await db.createBankCard({
+      await createBankCard({
         merchant_id: merchant_id || 1,
         account_id: null,
         card_no: bank_card_no,
@@ -2257,7 +2283,7 @@ app.delete('/api/bank-cards/:id', async (req, res) => {
     const { id } = req.params;
     
     // 标记为删除
-    await db.deleteBankCard(id);
+    await dbSqlite.deleteBankCard(id);
     
     res.json({ code: 0, message: '解绑成功' });
   } catch (error) {
@@ -2291,15 +2317,11 @@ app.post('/api/recharge/apply', async (req, res) => {
     }
     
     // 保存交易记录
-    await db.createTransaction({
+    await createTransaction({
       merchant_id: merchant_id || 1,
-      account_id: null,
-      transaction_no: transactionNo,
+      out_request_no: transactionNo,
       transaction_type: 'RECHARGE',
       amount: parseFloat(amount),
-      fee: 0,
-      balance_before: 0,
-      balance_after: 0,
       status: parsed.status || 'PENDING',
       remark: remark || '充值',
       qzt_response: parsed
@@ -2325,9 +2347,8 @@ app.post('/api/recharge/apply', async (req, res) => {
 app.get('/api/recharge/records', async (req, res) => {
   try {
     const { merchant_id, page = 1, pageSize = 20 } = req.query;
-    const records = await db.getTransactions(merchant_id || 1, 'RECHARGE', parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
-    
-    res.json({ code: 0, data: records });
+    const ps = Math.min(parseInt(pageSize), MAX_PAGE_SIZE);
+    const records = await getTransactions(merchant_id || 1, 'RECHARGE', ps, (parseInt(page) - 1) * ps);
   } catch (error) {
     console.error('获取充值记录失败:', error.message);
     res.status(500).json({ code: 500, message: '获取充值记录失败', error: error.message });
@@ -2359,15 +2380,11 @@ app.post('/api/withdraw/apply', async (req, res) => {
     }
     
     // 保存交易记录
-    await db.createTransaction({
+    await createTransaction({
       merchant_id: merchant_id || 1,
-      account_id: null,
-      transaction_no: transactionNo,
+      out_request_no: transactionNo,
       transaction_type: 'WITHDRAW',
       amount: parseFloat(amount),
-      fee: 0,
-      balance_before: 0,
-      balance_after: 0,
       status: parsed.status || 'PENDING',
       remark: remark || '提现',
       qzt_response: parsed
@@ -2393,7 +2410,8 @@ app.post('/api/withdraw/apply', async (req, res) => {
 app.get('/api/withdraw/records', async (req, res) => {
   try {
     const { merchant_id, page = 1, pageSize = 20 } = req.query;
-    const records = await db.getTransactions(merchant_id || 1, 'WITHDRAW', parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+    const ps = Math.min(parseInt(pageSize), MAX_PAGE_SIZE);
+    const records = await getTransactions(merchant_id || 1, 'WITHDRAW', ps, (parseInt(page) - 1) * ps);
     
     res.json({ code: 0, data: records });
   } catch (error) {
@@ -2404,11 +2422,27 @@ app.get('/api/withdraw/records', async (req, res) => {
 
 /**
  * POST /api/split/apply - 申请分账
+ * 幂等：基于 out_split_no 查重，重复调用不会重复分账
  */
 app.post('/api/split/apply', async (req, res) => {
   try {
     const { merchant_id, order_no, total_amount, split_amount, receiver_account, receiver_name, remark } = req.body;
-    const splitNo = `S${Date.now()}`;
+    // 使用确定性 splitNo（基于 order_no）便于幂等查重
+    const splitNo = order_no ? `S${order_no}` : `S${Date.now()}`;
+    
+    // 幂等检查：查询该 splitNo 是否已存在且成功
+    const existingSplit = dbSqlite.getSplitRecords({ merchant_id: merchant_id || 1 })
+      .find(r => r.out_request_no === splitNo && r.status === 'SUCCESS');
+    if (existingSplit) {
+      return res.json({
+        code: 0,
+        data: {
+          split_no: splitNo,
+          status: 'SUCCESS',
+          message: '已分账（幂等跳过）'
+        }
+      });
+    }
     
     // 调用钱账通分账接口
     const result = await callQzt('split.apply', {
@@ -2429,11 +2463,11 @@ app.post('/api/split/apply', async (req, res) => {
     }
     
     // 保存分账记录
-    await db.createSplitRecord({
+    await createSplitRecord({
       merchant_id: merchant_id || 1,
-      split_no: splitNo,
+      out_request_no: splitNo,
       order_no: order_no || splitNo,
-      total_amount: parseFloat(total_amount),
+      amount: parseFloat(total_amount),
       split_amount: parseFloat(split_amount),
       receiver_account,
       receiver_name,
@@ -2462,7 +2496,8 @@ app.post('/api/split/apply', async (req, res) => {
 app.get('/api/split/records', async (req, res) => {
   try {
     const { merchant_id, page = 1, pageSize = 20 } = req.query;
-    const records = await db.getSplitRecords(merchant_id || 1, parseInt(pageSize), (parseInt(page) - 1) * parseInt(pageSize));
+    const ps = Math.min(parseInt(pageSize), MAX_PAGE_SIZE);
+    const records = await getSplitRecords(merchant_id || 1, ps, (parseInt(page) - 1) * ps);
     
     res.json({ code: 0, data: records });
   } catch (error) {
@@ -2490,17 +2525,26 @@ app.post('/api/callback/trade', async (req, res) => {
       }
     }
     
+    const refNo = parsed.out_request_no || parsed.transaction_no;
+    
+    // 幂等检查：已处理过的通知直接返回
+    if (refNo) {
+      const existingNotif = await getNotificationByOutRequestNo(refNo, 'TRADE');
+      if (existingNotif && existingNotif.processed === 1) {
+        return res.json({ code: 0, message: 'already processed' });
+      }
+    }
+    
     // 保存通知记录
-    await db.createNotification({
+    await createNotification({
       notification_type: 'TRADE',
-      reference_no: parsed.out_request_no || parsed.transaction_no,
-      content: parsed,
-      status: 'RECEIVED'
+      out_request_no: refNo,
+      content: parsed
     });
     
-    // 更新交易状态
+    // 更新交易状态（幂等：saveTransaction 基于 out_request_no 查重）
     if (parsed.out_request_no) {
-      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+      await updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
     }
     
     res.json({ code: 0, message: 'success' });
@@ -2527,15 +2571,22 @@ app.post('/api/callback/recharge', async (req, res) => {
       }
     }
     
-    await db.createNotification({
+    // 幂等检查：已处理过的通知直接返回
+    if (parsed.out_request_no) {
+      const existingNotif = await getNotificationByOutRequestNo(parsed.out_request_no, 'RECHARGE');
+      if (existingNotif && existingNotif.processed === 1) {
+        return res.json({ code: 0, message: 'already processed' });
+      }
+    }
+    
+    await createNotification({
       notification_type: 'RECHARGE',
-      reference_no: parsed.out_request_no,
-      content: parsed,
-      status: 'RECEIVED'
+      out_request_no: parsed.out_request_no,
+      content: parsed
     });
     
     if (parsed.out_request_no) {
-      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+      await updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
     }
     
     res.json({ code: 0, message: 'success' });
@@ -2562,15 +2613,22 @@ app.post('/api/callback/withdraw', async (req, res) => {
       }
     }
     
-    await db.createNotification({
+    // 幂等检查：已处理过的通知直接返回
+    if (parsed.out_request_no) {
+      const existingNotif = await getNotificationByOutRequestNo(parsed.out_request_no, 'WITHDRAW');
+      if (existingNotif && existingNotif.processed === 1) {
+        return res.json({ code: 0, message: 'already processed' });
+      }
+    }
+    
+    await createNotification({
       notification_type: 'WITHDRAW',
-      reference_no: parsed.out_request_no,
-      content: parsed,
-      status: 'RECEIVED'
+      out_request_no: parsed.out_request_no,
+      content: parsed
     });
     
     if (parsed.out_request_no) {
-      await db.updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
+      await updateTransactionStatus(parsed.out_request_no, status || 'SUCCESS', parsed);
     }
     
     res.json({ code: 0, message: 'success' });
@@ -2597,15 +2655,22 @@ app.post('/api/callback/split', async (req, res) => {
       }
     }
     
-    await db.createNotification({
+    // 幂等检查：已处理过的通知直接返回
+    if (parsed.out_split_no) {
+      const existingNotif = await getNotificationByOutRequestNo(parsed.out_split_no, 'SPLIT');
+      if (existingNotif && existingNotif.processed === 1) {
+        return res.json({ code: 0, message: 'already processed' });
+      }
+    }
+    
+    await createNotification({
       notification_type: 'SPLIT',
-      reference_no: parsed.out_split_no,
-      content: parsed,
-      status: 'RECEIVED'
+      out_request_no: parsed.out_split_no,
+      content: parsed
     });
     
     if (parsed.out_split_no) {
-      await db.updateSplitRecordStatus(parsed.out_split_no, status || 'SUCCESS', parsed);
+      await updateSplitRecordStatus(parsed.out_split_no, status || 'SUCCESS', parsed);
     }
     
     res.json({ code: 0, message: 'success' });
@@ -2632,18 +2697,25 @@ app.post('/api/callback/open-account', async (req, res) => {
       }
     }
     
-    await db.createNotification({
+    // 幂等检查：已处理过的通知直接返回
+    if (parsed.out_request_no) {
+      const existingNotif = await getNotificationByOutRequestNo(parsed.out_request_no, 'OPEN_ACCOUNT');
+      if (existingNotif && existingNotif.processed === 1) {
+        return res.json({ code: 0, message: 'already processed' });
+      }
+    }
+    
+    await createNotification({
       notification_type: 'OPEN_ACCOUNT',
-      reference_no: parsed.out_request_no,
-      content: parsed,
-      status: 'RECEIVED'
+      out_request_no: parsed.out_request_no,
+      content: parsed
     });
     
-    // 更新商户状态
+    // 更新商户状态（幂等：重复通知不会重复更新）
     if (parsed.out_request_no) {
-      const merchant = await db.getMerchantByOutRequestNo(parsed.out_request_no);
+      const merchant = await getMerchantByOutRequestNoFromDb(parsed.out_request_no);
       if (merchant) {
-        await db.updateMerchantStatus(merchant.id, status === 'SUCCESS' ? 'ACTIVE' : 'FAILED', parsed.account_no);
+        await updateMerchantStatus(merchant.id, status === 'SUCCESS' ? 'ACTIVE' : 'FAILED', parsed.account_no);
       }
     }
     
@@ -2833,7 +2905,7 @@ app.get('/api/tour-groups', (req, res) => {
     
     const total = toursWithDetails.length;
     const p = parseInt(page) || 1;
-    const ps = parseInt(page_size) || 10;
+    const ps = Math.min(parseInt(page_size) || 10, MAX_PAGE_SIZE);
     const list = toursWithDetails.slice((p - 1) * ps, p * ps);
     
     res.json({ code: 0, data: { list, total, page: p, page_size: ps } });
@@ -3065,6 +3137,7 @@ app.delete('/api/split-rule/:id', (req, res) => {
 /**
  * POST /api/tour-group/:id/split - 执行旅行团分账
  * 根据团队成员的分账比例进行分账
+ * 幂等：基于 out_split_no 查重，重复调用不会重复分账
  */
 app.post('/api/tour-group/:id/split', async (req, res) => {
   try {
@@ -3087,7 +3160,7 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
     const results = [];
     const orderNo = `SPLIT${Date.now()}`;
     
-    // 逐个成员执行分账
+    // 逐个成员执行分账（幂等：已成功的跳过）
     for (const member of members) {
       if (member.split_amount <= 0) continue;
       
@@ -3101,8 +3174,23 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
         continue;
       }
       
+      // 使用确定性 out_split_no（基于 orderNo + member.id）便于幂等查重
+      const outSplitNo = `S${orderNo}${member.id}`;
+      
+      // 幂等检查：查询该 out_split_no 是否已存在且成功
+      const existingSplit = dbSqlite.getSplitRecords({ merchant_id: member.merchant_id })
+        .find(r => r.out_request_no === outSplitNo && r.status === 'SUCCESS');
+      if (existingSplit) {
+        results.push({
+          member_id: member.id,
+          out_split_no: outSplitNo,
+          success: true,
+          message: '已分账（幂等跳过）'
+        });
+        continue;
+      }
+      
       try {
-        const outSplitNo = `S${Date.now()}${member.id}`;
         const amountFen = Math.round(member.split_amount * 100);
         
         const result = await callQzt('open.split.account.apply', {
@@ -3111,7 +3199,7 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
           split_amount: amountFen,
           split_account_no: targetMerchant.qzt_account_no,
           split_merchant_no: targetMerchant.qzt_merchant_no || '',
-          notify_url: `http://139.196.190.217/api/callback/split`
+          notify_url: `${QZT_CALLBACK_URL}/api/callback/split`
         });
         
         results.push({
@@ -3156,6 +3244,7 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
 /**
  * POST /api/balance/split - 通过余额分账（无需旅行团）
  * 只有商户(1)和旅行社(2)可以操作
+ * 幂等：基于 out_split_no 查重，重复调用不会重复分账
  */
 app.post('/api/balance/split', async (req, res) => {
   try {
@@ -3189,8 +3278,23 @@ app.post('/api/balance/split', async (req, res) => {
         continue;
       }
       
+      // 使用确定性 out_split_no（基于 orderNo + target_merchant_id）便于幂等查重
+      const outSplitNo = `S${orderNo}${item.target_merchant_id}`;
+      
+      // 幂等检查：查询该 out_split_no 是否已存在且成功
+      const existingSplit = dbSqlite.getSplitRecords({ merchant_id: merchant_id })
+        .find(r => r.out_request_no === outSplitNo && r.status === 'SUCCESS');
+      if (existingSplit) {
+        results.push({
+          target_merchant_id: item.target_merchant_id,
+          out_split_no: outSplitNo,
+          success: true,
+          message: '已分账（幂等跳过）'
+        });
+        continue;
+      }
+      
       try {
-        const outSplitNo = `S${Date.now()}${item.target_merchant_id}`;
         const amountFen = Math.round(item.split_amount * 100);
         
         const result = await callQzt('open.split.account.apply', {
@@ -3199,7 +3303,7 @@ app.post('/api/balance/split', async (req, res) => {
           split_amount: amountFen,
           split_account_no: targetMerchant.qzt_account_no,
           split_merchant_no: targetMerchant.qzt_merchant_no || '',
-          notify_url: `http://139.196.190.217/api/callback/split`
+          notify_url: `${QZT_CALLBACK_URL}/api/callback/split`
         });
         
         results.push({
@@ -3338,6 +3442,11 @@ app.post('/api/ai/parse-split', async (req, res) => {
       return res.status(400).json({ code: 400, message: '请输入分账需求描述' });
     }
     
+    // Prompt 注入防护：限制长度 + 过滤特殊字符
+    const MAX_INPUT_LEN = 500;
+    const inputText = String(text).slice(0, MAX_INPUT_LEN)
+      .replace(/[{}$`\\]/g, ''); // 移除模板注入字符
+    
     // MiniMax API 配置
     const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
     const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID;
@@ -3345,14 +3454,14 @@ app.post('/api/ai/parse-split', async (req, res) => {
     // 如果没有配置 MiniMax，使用规则解析
     if (!MINIMAX_API_KEY) {
       console.log('[AI] MiniMax API 未配置，使用规则解析');
-      const result = parseSplitByRules(text, context);
+      const result = parseSplitByRules(inputText, context);
       return res.json({ code: 0, data: result });
     }
     
-    // 调用 MiniMax API
+    // 调用 MiniMax API（使用过滤后的 inputText）
     const prompt = `你是一个分账助手。用户会用自然语言描述分账需求，请解析并返回JSON格式的分账方案。
 
-用户输入：${text}
+用户输入：${inputText}
 
 请返回以下JSON格式（不要包含其他文字，不要用markdown代码块）：
 {
@@ -3408,7 +3517,7 @@ app.post('/api/ai/parse-split', async (req, res) => {
       }
     } catch (e) {
       console.error('[AI] JSON 解析失败:', e.message);
-      result = parseSplitByRules(text, context);
+      result = parseSplitByRules(inputText, context);
     }
     
     res.json({ code: 0, data: result });
@@ -3416,7 +3525,7 @@ app.post('/api/ai/parse-split', async (req, res) => {
   } catch (error) {
     console.error('[AI] 解析失败:', error.message);
     // 降级为规则解析
-    const result = parseSplitByRules(req.body.text, req.body.context);
+    const result = parseSplitByRules(inputText, context);
     res.json({ code: 0, data: result });
   }
 });

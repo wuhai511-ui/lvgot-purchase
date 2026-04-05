@@ -181,6 +181,18 @@ function getMerchantById(id) {
   return _rowToObj(result[0].columns, result[0].values[0]);
 }
 
+function updateMerchantStatus(id, status, qztAccountNo) {
+  const idNum = parseInt(id);
+  if (isNaN(idNum)) return null;
+  if (qztAccountNo) {
+    db.run(`UPDATE merchants SET status=?, qzt_account_no=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, qztAccountNo, idNum]);
+  } else {
+    db.run(`UPDATE merchants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, idNum]);
+  }
+  saveDatabase();
+  return getMerchantById(idNum);
+}
+
 // ========== 银行卡 ==========
 function saveBankCard(card) {
   const { merchant_id, bank_code, bank_name, bank_card_no, bank_card_name, bank_type, bank_province, bank_city, bank_branch, status } = card;
@@ -204,6 +216,13 @@ function getBankCards(merchant_id) {
 function deleteBankCard(id) {
   db.run(`UPDATE bank_cards SET status = 'DELETED' WHERE id = ?`, [parseInt(id)]);
   saveDatabase(); return true;
+}
+
+// ========== 账户 ==========
+function getAccountsByMerchantId(merchant_id) {
+  const result = db.exec(`SELECT * FROM accounts WHERE merchant_id = ?`, [parseInt(merchant_id)]);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
 }
 
 // ========== 交易 ==========
@@ -381,6 +400,22 @@ function getNotifications(filters = {}) {
   return result[0].values.map(row => _rowToObj(result[0].columns, row));
 }
 
+function getNotificationByOutRequestNo(out_request_no, notification_type) {
+  if (!out_request_no) return null;
+  let query = `SELECT * FROM notifications WHERE out_request_no = ?`;
+  const params = [out_request_no];
+  if (notification_type) { query += ` AND notification_type = ?`; params.push(notification_type); }
+  query += ` ORDER BY created_at DESC LIMIT 1`;
+  const result = db.exec(query, params);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+function markNotificationProcessed(id) {
+  db.run(`UPDATE notifications SET processed = 1 WHERE id = ?`, [parseInt(id)]);
+  saveDatabase();
+}
+
 // ========== 分账模板 ==========
 function saveSplitTemplate(template) {
   const { template_id, name, description, icon, items, creator_id, creator_type, is_system } = template;
@@ -506,9 +541,11 @@ module.exports = {
   // 用户
   createUser, getUserByUsername,
   // 商户
-  saveMerchant, getMerchants, getMerchantByOutRequestNo, getMerchantById,
+  saveMerchant, getMerchants, getMerchantByOutRequestNo, getMerchantById, updateMerchantStatus,
   // 银行卡
   saveBankCard, getBankCards, deleteBankCard,
+  // 账户
+  getAccountsByMerchantId,
   // 交易
   saveTransaction, getTransactions,
   // 分账记录
@@ -522,7 +559,7 @@ module.exports = {
   // 分账规则明细
   saveSplitRuleItem, getSplitRuleItems,
   // 通知
-  saveNotification, getNotifications,
+  saveNotification, getNotifications, getNotificationByOutRequestNo, markNotificationProcessed,
   // 分账模板
   saveSplitTemplate, getSplitTemplates, getSplitTemplateById, deleteSplitTemplate, incrementTemplateUsage,
   // 对账

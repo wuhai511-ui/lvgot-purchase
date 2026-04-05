@@ -8,8 +8,7 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = 'http://139.196.190.217:3000';
-// const BASE_URL = 'http://localhost:3000';  // 本地调试
+const BASE_URL = process.env.BFF_TEST_BASE_URL || 'http://localhost:3000';
 
 // 测试结果收集
 const results = {
@@ -397,7 +396,7 @@ async function testUpload() {
 // ============================================================
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════╗');
-  console.log('║     旅购通 BFF 接口测试   139.196.190.217:3000           ║');
+  console.log(`║     旅购通 BFF 接口测试   ${BASE_URL.padEnd(27)}║`);
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log(`测试时间: ${new Date().toLocaleString('zh-CN')}`);
 
