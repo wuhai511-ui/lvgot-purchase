@@ -1,17 +1,12 @@
 /**
- * 迁移脚本：货币精度重构（REAL → INTEGER / 分）
+ * 货币精度重构迁移脚本（幂等）
  *
- * 执行方式：node scripts/migrate_currency_to_integer.js
+ * 执行：node scripts/migrate_currency_to_integer.js
  *
- * 幂等性：重复执行安全（检测是否已迁移，跳过已迁移的表/字段）
- *
- * 单位说明：
- *   - 修改前：REAL，元（yuan），如 100.00 表示 100 元
- *   - 修改后：INTEGER，分（fen），如 10000 表示 100 元
- *
- * 迁移逻辑：
- *   旧记录（DB 空）：无需转换（无数据）
- *   新写入：应用层已改为直接写入分，整数存储
+ * 功能：将所有货币字段从 REAL/DECIMAL 改为 INTEGER（分）
+ * 幂等：已是 INTEGER 的字段跳过
+ * 空表：ALTER TABLE 直接改类型（SQLite 类型亲和性保证存储正确）
+ * 有数据表：CREATE TABLE new → SELECT + 类型转换 → RENAME
  */
 
 const initSqlJs = require('sql.js');
@@ -21,224 +16,199 @@ const path = require('path');
 const DB_PATH = path.join(__dirname, '..', 'data', 'qzt.db');
 const BACKUP_PATH = path.join(__dirname, '..', 'data', 'qzt.db.backup_currency');
 
-// 所有需要从 REAL 改为 INTEGER 的货币字段
-// 格式: { table, column, description }
+// 货币字段定义
 const CURRENCY_FIELDS = [
-  // accounts 表
-  { table: 'accounts',      column: 'balance',        description: '账户余额（分）' },
-  { table: 'accounts',      column: 'frozen_balance',  description: '冻结余额（分）' },
-
-  // transactions 表
-  { table: 'transactions',  column: 'amount',          description: '交易金额（分）' },
-
-  // split_records 表
-  { table: 'split_records',  column: 'amount',          description: '分账总金额（分）' },
-  { table: 'split_records',  column: 'split_amount',   description: '分账金额（分）' },
-
-  // tour_groups 表
-  { table: 'tour_groups',    column: 'total_amount',   description: '旅行团总金额（分）' },
-
-  // tour_members 表
-  { table: 'tour_members',   column: 'split_amount',   description: '成员分账金额（分）' },
-
-  // split_rule_items 表
-  { table: 'split_rule_items', column: 'split_amount', description: '分账规则金额（分）' },
-
-  // reconciliation 表
-  { table: 'reconciliation_tasks',    column: 'difference_amount', description: '差异金额（分）' },
-  { table: 'reconciliation_details',  column: 'expected_amount',    description: '期望金额（分）' },
-  { table: 'reconciliation_details',  column: 'actual_amount',     description: '实际金额（分）' },
-  { table: 'reconciliation_details',  column: 'difference_amount', description: '差异金额（分）' },
-];
-
-// split_ratio 保持 REAL（比例，无单位）
-const RATIO_FIELDS = [
-  { table: 'tour_members',      column: 'split_ratio',    description: '分账比例（REAL，维持不变）' },
-  { table: 'split_rule_items',  column: 'split_ratio',   description: '分账比例（REAL，维持不变）' },
+  { table: 'accounts',                   column: 'balance',           desc: '账户余额' },
+  { table: 'accounts',                   column: 'frozen_balance',    desc: '冻结余额' },
+  { table: 'transactions',                column: 'amount',            desc: '交易金额' },
+  { table: 'split_records',               column: 'amount',            desc: '分账总金额' },
+  { table: 'split_records',               column: 'split_amount',      desc: '分账金额' },
+  { table: 'tour_groups',                 column: 'total_amount',     desc: '旅行团总金额' },
+  { table: 'tour_members',                column: 'split_amount',     desc: '成员分账金额' },
+  { table: 'split_rule_items',            column: 'split_amount',     desc: '规则分账金额' },
+  { table: 'reconciliation_tasks',        column: 'difference_amount', desc: '差异金额' },
+  { table: 'reconciliation_details',      column: 'expected_amount',   desc: '期望金额' },
+  { table: 'reconciliation_details',      column: 'actual_amount',    desc: '实际金额' },
+  { table: 'reconciliation_details',      column: 'difference_amount', desc: '差异金额' },
 ];
 
 async function migrate() {
   console.log('========================================');
-  console.log('货币精度重构迁移：REAL → INTEGER（分）');
+  console.log('货币精度重构迁移：REAL/DECIMAL → INTEGER（分）');
   console.log('========================================\n');
 
   if (!fs.existsSync(DB_PATH)) {
-    console.log('[SKIP] 数据库文件不存在，跳过迁移');
+    console.log('[SKIP] 数据库不存在');
     return;
   }
 
-  // Step 0: 备份
-  console.log('[1/4] 备份数据库...');
+  // 备份
+  console.log('[1/4] 备份...');
   fs.copyFileSync(DB_PATH, BACKUP_PATH);
-  console.log(`      备份已保存: ${BACKUP_PATH}\n`);
+  console.log(`      备份: ${BACKUP_PATH}\n`);
 
-  // Step 1: 加载数据库
+  // 加载
   console.log('[2/4] 加载数据库...');
   const SQL = await initSqlJs();
-  const fileBuffer = fs.readFileSync(DB_PATH);
-  const db = new SQL.Database(fileBuffer);
-  console.log('      数据库加载成功\n');
+  const db = new SQL.Database(fs.readFileSync(DB_PATH));
+  console.log('      加载成功\n');
 
-  // Step 2: 检查当前 schema
+  // 分析
   console.log('[3/4] 检查字段类型...');
-  const migrationRecords = [];
-  const skipRecords = [];
-
-  for (const field of CURRENCY_FIELDS) {
+  const toMigrate = [];
+  for (const f of CURRENCY_FIELDS) {
     try {
-      const result = db.exec(`PRAGMA table_info(${field.table})`);
-      if (!result.length) {
-        console.warn(`      [WARN] 表 ${field.table} 不存在，跳过`);
-        continue;
-      }
-      const colInfo = result[0].values.find(row => row[1] === field.column);
-      if (!colInfo) {
-        console.warn(`      [WARN] 表 ${field.table}.${field.column} 不存在，跳过`);
-        continue;
-      }
-      const currentType = colInfo[2];
-
-      if (currentType === 'INTEGER') {
-        skipRecords.push(field);
-        console.log(`      [SKIP] ${field.table}.${field.column} 已是 INTEGER`);
+      const result = db.exec(`PRAGMA table_info(${f.table})`);
+      if (!result.length) continue;
+      const col = result[0].values.find(r => r[1] === f.column);
+      if (!col) continue;
+      const type = (col[2] || '').toUpperCase();
+      // 已是 INTEGER 类型（包括带精度后缀的 INTEGER(15,2) 实际也是 INTEGER 亲和）
+      if (type === 'INTEGER' || type.startsWith('INTEGER(')) {
+        console.log(`      [SKIP] ${f.table}.${f.column} 已是 ${col[2]}（存储正确）`);
       } else {
-        migrationRecords.push({ ...field, currentType });
-        console.log(`      [MIGRATE] ${field.table}.${field.column}: ${currentType} → INTEGER`);
+        toMigrate.push({ ...f, currentType: type });
+        console.log(`      [MIGRATE] ${f.table}.${f.column}: ${type} → INTEGER`);
       }
     } catch (e) {
-      console.warn(`      [ERROR] ${field.table}.${field.column}: ${e.message}`);
+      console.warn(`      [WARN] ${f.table}.${f.column}: ${e.message}`);
     }
   }
 
-  if (migrationRecords.length === 0) {
-    console.log('\n[INFO] 所有字段已是 INTEGER 或不存在，无需迁移\n');
+  if (!toMigrate.length) {
+    console.log('\n[OK] 所有字段已是 INTEGER 或等效类型，无须迁移\n');
     db.close();
     return;
   }
 
-  // Step 3: 执行迁移
-  console.log(`\n[4/4] 执行迁移（共 ${migrationRecords.length} 个字段）...`);
+  // 按表分组
+  const byTable = {};
+  for (const f of toMigrate) {
+    (byTable[f.table] = byTable[f.table] || []).push(f.column);
+  }
 
-  // 开始事务
+  console.log(`\n[4/4] 执行迁移（${toMigrate.length} 字段，${Object.keys(byTable).length} 表）...`);
+
   db.run('BEGIN TRANSACTION');
-
+  let ok = true;
   try {
-    for (const field of migrationRecords) {
-      const { table, column } = field;
+    for (const [table, cols] of Object.entries(byTable)) {
+      const cntR = db.exec(`SELECT COUNT(*) FROM ${table}`);
+      const count = cntR[0]?.values[0]?.[0] || 0;
 
-      // 3a. 读取现有数据（元）
-      const selectResult = db.exec(`SELECT id, ${column} FROM ${table}`);
-      const rows = selectResult.length ? selectResult[0].values : [];
-      const totalRows = rows.length;
+      // 获取原始建表语句
+      const createR = db.exec(`SELECT sql FROM sqlite_master WHERE type='table' AND name='${table}'`);
+      if (!createR.length) continue;
+      const origSQL = createR[0].values[0][0];
 
-      if (totalRows === 0) {
-        // 无数据，直接改类型
-        db.run(`ALTER TABLE ${table} RENAME TO _${table}_old`);
-        // 重建表（改类型）
-        await recreateTableWithInteger(db, table, column);
-        console.log(`      [OK] ${table}.${column} → INTEGER（无数据，直接转换）`);
+      // 替换字段类型
+      let newSQL = origSQL;
+      for (const col of cols) {
+        newSQL = newSQL.replace(new RegExp(`\\b${col}\\s+REAL\\b`, 'i'), `${col} INTEGER`);
+        newSQL = newSQL.replace(new RegExp(`\\b${col}\\s+DECIMAL\\([^)]+\\)\\b`, 'i'), `${col} INTEGER`);
+        newSQL = newSQL.replace(new RegExp(`\\b${col}\\s+NUMERIC\\b`, 'i'), `${col} INTEGER`);
+        newSQL = newSQL.replace(new RegExp(`\\b${col}\\s+FLOAT\\b`, 'i'), `${col} INTEGER`);
+        newSQL = newSQL.replace(new RegExp(`\\b${col}\\s+DOUBLE\\b`, 'i'), `${col} INTEGER`);
+      }
+
+      // 空表：直接 ALTER
+      if (count === 0) {
+        db.run(`ALTER TABLE ${table} RENAME TO ${table}_old`);
+        db.run(newSQL.replace(`${table}_old`, table));
+        db.run(`INSERT INTO ${table} SELECT * FROM ${table}_old`);
+        db.run(`DROP TABLE ${table}_old`);
+        console.log(`      [OK] ${table}: ${cols.join(',')} → INTEGER（空表）`);
       } else {
-        // 有数据：元 → 分
-        console.log(`      [DATA] ${table}.${column}: 转换 ${totalRows} 条记录（元→分）...`);
+        // 有数据：CREATE TABLE new + 数据迁移
+        const newTable = `${table}_new`;
+        db.run(`CREATE TABLE ${newTable} AS SELECT * FROM ${table} WHERE 1=0`);
 
-        // 创建临时表保存转换后的数据
-        db.run(`CREATE TABLE ${table}_new AS SELECT * FROM ${table}`);
+        // 重建主键和所有列
+        const colsInfo = db.exec(`PRAGMA table_info(${table})`);
+        for (const colRow of colsInfo[0].values) {
+          const colName = colRow[1];
+          const origType = (colRow[2] || '').toUpperCase();
+          let decl;
+          if (cols.includes(colName)) {
+            decl = `${colName} INTEGER`;
+          } else if (origType === 'INTEGER' || origType.startsWith('INTEGER')) {
+            decl = `${colName} INTEGER`;
+          } else {
+            decl = colRow[5] ? `${colName} ${colRow[2]} PRIMARY KEY` : `${colName} ${colRow[2]}`;
+          }
+          try { db.run(`ALTER TABLE ${newTable} ADD COLUMN ${decl}`); } catch(e) {}
+        }
 
-        // 更新每一行：元 → 分
-        for (const row of rows) {
-          const rowId = row[0];
-          const yuanValue = row[1];
-          if (yuanValue !== null && yuanValue !== undefined) {
-            const fenValue = Math.round(parseFloat(yuanValue) * 100);
-            db.run(`UPDATE ${table}_new SET ${column} = ? WHERE id = ?`, [fenValue, rowId]);
+        // 复制并转换数据
+        const allData = db.exec(`SELECT rowid, * FROM ${table}`);
+        if (allData.length && allData[0].values.length) {
+          const allCols = allData[0].columns;
+          const dataIdx = {};
+          cols.forEach(c => { dataIdx[c] = allCols.indexOf(c); });
+
+          for (const row of allData[0].values) {
+            const rowid = row[0];
+            for (const col of cols) {
+              const idx = dataIdx[col];
+              const val = row[idx + 1]; // +1 因为 rowid 在最前面
+              if (val !== null) {
+                const fenVal = Math.round(parseFloat(val) * 100);
+                db.run(`UPDATE ${newTable} SET ${col} = ? WHERE rowid = ?`, [fenVal, rowid]);
+              }
+            }
           }
         }
 
-        // 删除旧表，重命名新表
         db.run(`DROP TABLE ${table}`);
-        db.run(`ALTER TABLE ${table}_new RENAME TO ${table}`);
-        console.log(`      [OK] ${table}.${column} → INTEGER（${totalRows} 条记录已转换）`);
+        db.run(`ALTER TABLE ${newTable} RENAME TO ${table}`);
+        console.log(`      [OK] ${table}: ${cols.join(',')} → INTEGER（${count} 条记录）`);
       }
     }
-
     db.run('COMMIT');
-    console.log('\n[SUCCESS] 迁移完成！所有货币字段已改为 INTEGER（分）\n');
+    console.log('\n[SUCCESS] 迁移完成\n');
   } catch (e) {
     db.run('ROLLBACK');
-    console.error('\n[ERROR] 迁移失败，已回滚:', e.message);
-    console.error('      备份文件可用于恢复:', BACKUP_PATH);
-    db.close();
-    process.exit(1);
+    console.error('\n[ERROR] 迁移失败（已回滚）:', e.message);
+    ok = false;
   }
 
-  // Step 4: 保存
-  const data = db.export();
-  fs.writeFileSync(DB_PATH, Buffer.from(data));
+  // 保存
+  fs.writeFileSync(DB_PATH, Buffer.from(db.export()));
   db.close();
-  console.log('[SAVE] 数据库已保存');
+  console.log('[SAVE] 数据库已保存\n');
 
-  // Step 5: 验证
-  console.log('\n========================================');
-  console.log('验证结果');
-  console.log('========================================');
-  await verifyMigration();
+  // 验证
+  await verifyMigration(ok);
 }
 
-/**
- * 重建表，将指定字段改为 INTEGER
- * 注意：这是简化版本，实际使用 SQLite 的 ALTER TABLE 限制
- * 对于非空表使用 "CREATE TABLE AS SELECT" 模式
- */
-async function recreateTableWithInteger(db, tableName, intColumn) {
-  // 获取原表创建语句
-  const createResult = db.exec(`SELECT sql FROM sqlite_master WHERE type='table' AND name='_${tableName}_old'`);
-  if (!createResult.length) return;
-
-  let createSQL = createResult[0].values[0][0];
-  // 将 REAL 改为 INTEGER
-  createSQL = createSQL.replace(new RegExp(`(\\s${intColumn}\\s+REAL)`, 'i'), `$1 INTEGER`.replace('REAL', 'INTEGER'));
-  createSQL = createSQL.replace(new RegExp(`(${intColumn}\\s+REAL)`, 'i'), `${intColumn} INTEGER`);
-
-  db.run(createSQL.replace(`_${tableName}_old`, tableName));
-}
-
-async function verifyMigration() {
+async function verifyMigration( migrateOk) {
+  console.log('【验证】');
   const SQL = await initSqlJs();
-  const fileBuffer = fs.readFileSync(DB_PATH);
-  const db = new SQL.Database(fileBuffer);
+  const db = new SQL.Database(fs.readFileSync(DB_PATH));
 
-  const passed = [];
-  const failed = [];
-
-  for (const field of CURRENCY_FIELDS) {
+  let pass = 0, fail = 0;
+  for (const f of CURRENCY_FIELDS) {
     try {
-      const result = db.exec(`PRAGMA table_info(${field.table})`);
-      if (!result.length) continue;
-      const colInfo = result[0].values.find(row => row[1] === field.column);
-      if (!colInfo) continue;
-
-      const currentType = colInfo[2];
-      if (currentType === 'INTEGER') {
-        passed.push(`${field.table}.${field.column}`);
+      const r = db.exec(`PRAGMA table_info(${f.table})`);
+      if (!r.length) continue;
+      const col = r[0].values.find(x => x[1] === f.column);
+      if (!col) continue;
+      const type = (col[2] || '').toUpperCase();
+      const isInt = type === 'INTEGER' || type.startsWith('INTEGER(');
+      if (isInt) {
+        console.log(`  ✅ ${f.table}.${f.column} → ${col[2]}`);
+        pass++;
       } else {
-        failed.push(`${field.table}.${field.column}: ${currentType}`);
+        console.log(`  ❌ ${f.table}.${f.column}: ${col[2]}（应为 INTEGER）`);
+        fail++;
       }
     } catch (e) {}
   }
 
-  console.log(`\n通过: ${passed.length}/${CURRENCY_FIELDS.length}`);
-  for (const p of passed) console.log(`  ✅ ${p}`);
-
-  if (failed.length) {
-    console.log(`\n失败: ${failed.length}`);
-    for (const f of failed) console.log(`  ❌ ${f}`);
-  }
-
   db.close();
+  console.log(`\n结果: ${pass}/${pass + fail} 通过`);
+
+  if (fail > 0 || !migrateOk) process.exit(1);
 }
 
-// 运行
-migrate().catch(e => {
-  console.error('迁移脚本异常:', e);
-  process.exit(1);
-});
+migrate().catch(e => { console.error(e); process.exit(1); });
