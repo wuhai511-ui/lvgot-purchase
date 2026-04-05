@@ -2124,24 +2124,29 @@ app.get('/api/account/balance', async (req, res) => {
         }
       }
       
+      // QZT 返回 fen（分），需除以 100 转为元
+      const qztBalance = parseInt(parsed.balance || 0);
+      const qztFrozen = parseInt(parsed.frozen_amount || 0);
       res.json({ 
         code: 0, 
         data: {
-          balance: parsed.balance || 0,
-          frozen_amount: parsed.frozen_amount || 0,
-          available_amount: (parsed.balance || 0) - (parsed.frozen_amount || 0)
+          balance: parseFloat((qztBalance / 100).toFixed(2)),
+          frozen_amount: parseFloat((qztFrozen / 100).toFixed(2)),
+          available_amount: parseFloat(((qztBalance - qztFrozen) / 100).toFixed(2))
         }
       });
     } else {
+      // DB 存储单位为分（fen），需除以 100 转为元
       const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
       const totalFrozen = accounts.reduce((sum, a) => sum + (parseFloat(a.frozen_amount) || 0), 0);
+      const totalAvailable = totalBalance - totalFrozen;
       
       res.json({
         code: 0,
         data: {
-          balance: totalBalance,
-          frozen_amount: totalFrozen,
-          available_amount: totalBalance - totalFrozen,
+          balance: parseFloat((totalBalance / 100).toFixed(2)),
+          frozen_amount: parseFloat((totalFrozen / 100).toFixed(2)),
+          available_amount: parseFloat((totalAvailable / 100).toFixed(2)),
           accounts: accounts
         }
       });
@@ -2300,10 +2305,13 @@ app.post('/api/recharge/apply', async (req, res) => {
     const { merchant_id, amount, bank_card_no, remark } = req.body;
     const transactionNo = `R${Date.now()}`;
     
+    // 元 → 分（QZT接口单位：分）
+    const amountFen = Math.round(parseFloat(amount) * 100);
+
     // 调用钱账通充值接口
     const result = await callQzt('recharge.apply', {
       out_request_no: transactionNo,
-      amount: String(amount),
+      amount: String(amountFen),
       bank_card_no: rsaEncrypt(bank_card_no)
     });
     
@@ -2321,7 +2329,7 @@ app.post('/api/recharge/apply', async (req, res) => {
       merchant_id: merchant_id || 1,
       out_request_no: transactionNo,
       transaction_type: 'RECHARGE',
-      amount: parseFloat(amount),
+      amount: amountFen, // 单位：分
       status: parsed.status || 'PENDING',
       remark: remark || '充值',
       qzt_response: parsed
@@ -2363,10 +2371,13 @@ app.post('/api/withdraw/apply', async (req, res) => {
     const { merchant_id, amount, bank_card_no, remark } = req.body;
     const transactionNo = `W${Date.now()}`;
     
+    // 元 → 分（QZT接口单位：分）
+    const amountFen = Math.round(parseFloat(amount) * 100);
+
     // 调用钱账通提现接口
     const result = await callQzt('withdraw.apply', {
       out_request_no: transactionNo,
-      amount: String(amount),
+      amount: String(amountFen),
       bank_card_no: rsaEncrypt(bank_card_no)
     });
     
@@ -2384,7 +2395,7 @@ app.post('/api/withdraw/apply', async (req, res) => {
       merchant_id: merchant_id || 1,
       out_request_no: transactionNo,
       transaction_type: 'WITHDRAW',
-      amount: parseFloat(amount),
+      amount: amountFen, // 单位：分
       status: parsed.status || 'PENDING',
       remark: remark || '提现',
       qzt_response: parsed
@@ -2448,8 +2459,8 @@ app.post('/api/split/apply', async (req, res) => {
     const result = await callQzt('split.apply', {
       out_split_no: splitNo,
       order_no: order_no || splitNo,
-      total_amount: String(total_amount),
-      split_amount: String(split_amount),
+      total_amount: String(Math.round(parseFloat(total_amount) * 100)),
+      split_amount: String(Math.round(parseFloat(split_amount) * 100)),
       receiver_account
     });
     
@@ -2462,13 +2473,13 @@ app.post('/api/split/apply', async (req, res) => {
       }
     }
     
-    // 保存分账记录
+    // 保存分账记录（单位：分）
     await createSplitRecord({
       merchant_id: merchant_id || 1,
       out_request_no: splitNo,
       order_no: order_no || splitNo,
-      amount: parseFloat(total_amount),
-      split_amount: parseFloat(split_amount),
+      amount: Math.round(parseFloat(total_amount) * 100),
+      split_amount: Math.round(parseFloat(split_amount) * 100),
       receiver_account,
       receiver_name,
       status: parsed.status || 'PENDING',
