@@ -12,18 +12,25 @@ require('express-async-errors');
 // 导入 SQLite 数据库模块
 const dbSqlite = require('./db-sqlite');
 
+// 导入认证中间件
+const { requireAuth, DEMO_MODE, issueToken } = require('./middleware/auth');
+
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  credentials: true
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // --- 钱账通配置 ---
 const QZT_CONFIG = {
-  appId: process.env.QZT_APP_ID || '7348882579718766592',
+  appId: process.env.QZT_APP_ID || '',
   version: '4.0',
   gateway: process.env.QZT_GATEWAY_URL || 'https://qztuat.xc-fintech.com/gateway/soa',
-  privateKey: fs.readFileSync(path.join(__dirname, 'keys', 'private_key.pem'), 'utf8'),
-  publicKey: fs.readFileSync(path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
+  privateKey: fs.readFileSync(process.env.QZT_PRIVATE_KEY_PATH || path.join(__dirname, 'keys', 'private_key.pem'), 'utf8'),
+  publicKey: fs.readFileSync(process.env.QZT_PUBLIC_KEY_PATH || path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
 
 // --- 初始化 SQLite 数据库 ---
@@ -246,7 +253,7 @@ merchantRouter.post('/upload', async (req, res) => {
 });
 
 // 2. 提交商户开户申请
-merchantRouter.post('/apply', async (req, res) => {
+merchantRouter.post('/apply', requireAuth, async (req, res) => {
   const {
     merchant_name,
     merchant_shortname,
@@ -682,6 +689,27 @@ app.post('/api/merchant/callback', async (req, res) => {
   try {
     const { status, result, sign } = req.body;
     console.log('收到钱账通开户回调:', JSON.stringify(req.body));
+
+    // P0 安全修复：验签
+    // 构造待验签内容：app_id + timestamp + version + service + paramsStr
+    if (sign) {
+      let paramsForSign = result;
+      let paramsStr = JSON.stringify(result);
+      if (typeof result === 'string') {
+        try { paramsForSign = JSON.parse(Buffer.from(result, 'base64').toString('utf8')); } catch(e) { paramsForSign = result; }
+        paramsStr = JSON.stringify(paramsForSign);
+      }
+      const signContent = QZT_CONFIG.appId + (req.body.timestamp || '') + QZT_CONFIG.version + 'callback' + paramsStr;
+      const signValid = verifyData(signContent, sign);
+      if (!signValid) {
+        console.error('[SECURITY] 钱账通回调验签失败，拒绝处理');
+        return res.status(403).send('FAIL');
+      }
+      console.log('[SECURITY] 钱账通回调验签通过');
+    } else {
+      console.warn('[SECURITY] 钱账通回调无 sign 字段，跳过验签（建议联系钱账通开启签名）');
+    }
+
     let parsed;
     try {
       parsed = JSON.parse(Buffer.from(result, 'base64').toString('utf8'));
@@ -2669,6 +2697,50 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
+// ================= 登录认证 API（演示用） =================
+/**
+ * POST /api/auth/login
+ * 演示模式：返回 Mock Token
+ * 生产模式：验证用户名密码后签发 JWT
+ */
+app.post('/api/auth/login', async (req, res) => {
+  if (DEMO_MODE) {
+    // 演示模式：直接返回 Mock Token
+    const demoToken = issueToken({ userId: 'demo-admin', role: 'admin', demo: true }, '7d');
+    return res.json({
+      code: 0,
+      data: {
+        token: demoToken,
+        user: { id: 'demo-admin', name: '演示管理员', role: 'admin' },
+        mode: 'demo'
+      }
+    });
+  }
+
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ code: 400, message: '用户名和密码不能为空' });
+  }
+
+  // TODO: 生产模式应从数据库验证用户密码
+  // 这里暂时拒绝非演示模式的登录（需先配置真实用户数据）
+  return res.status(401).json({ code: 401, message: '未配置认证，请设置 DEMO_MODE=true 或配置真实用户' });
+});
+
+/**
+ * GET /api/auth/status
+ * 查询当前认证状态
+ */
+app.get('/api/auth/status', (req, res) => {
+  res.json({
+    code: 0,
+    data: {
+      demoMode: DEMO_MODE,
+      authenticated: !DEMO_MODE
+    }
+  });
+});
+
 // ================= 旅行团管理 API =================
 
 /**

@@ -11,11 +11,13 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^1.13.6",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^4.22.1",
     "express-async-errors": "^3.1.1",
+    "jsonwebtoken": "^9.0.3",
     "jsrsasign": "^11.1.1",
     "lowdb": "^7.0.1",
     "sql.js": "^1.14.1",
