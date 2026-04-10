@@ -1,17 +1,29 @@
-// 主题颜色变量
-$primary-color: #1976D2;
-$success-color: #4CAF50;
-$warning-color: #F57C00;
-$danger-color: #E53935;
-$bg-color: #f0f2f5;
-$text-color: #1a1a1a;
+$primary-color: #0f766e;
+$primary-strong: #115e59;
+$primary-soft: #dff5f1;
+$success-color: #2f855a;
+$warning-color: #dd6b20;
+$danger-color: #c53030;
+$info-color: #3b82f6;
+$bg-color: #f4f7f2;
+$bg-soft: #fbfdf9;
+$card-color: #ffffff;
+$text-color: #16302b;
+$text-secondary: #58716b;
+$text-muted: #7b928c;
+$border-color: #d7e5e1;
+$shadow-sm: 0 10px 30px rgba(12, 74, 65, 0.08);
+$shadow-md: 0 16px 40px rgba(12, 74, 65, 0.12);
+$radius-sm: 10px;
+$radius-md: 18px;
+$radius-lg: 24px;
+$gradient-brand: linear-gradient(135deg, #0f766e 0%, #159a85 55%, #8fd7c8 100%);
+$gradient-soft: linear-gradient(180deg, #f7fbf9 0%, #eef7f4 100%);
 
-// Element Plus 主题覆盖变量
 $--color-primary: $primary-color;
 $--color-success: $success-color;
 $--color-warning: $warning-color;
 $--color-danger: $danger-color;
-$--color-info: #909399;
-
+$--color-info: $info-color;
 $--background-color-base: $bg-color;
 $--text-color-base: $text-color;
