@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 const QZT_CONFIG = {
   appId: process.env.QZT_APP_ID || '',
   version: '4.0',
-  gateway: process.env.QZT_GATEWAY_URL || 'https://qztuat.xc-fintech.com/gateway/soa',
+  gateway: process.env.QZT_GATEWAY_URL || 'https://test.wsmsd.cn/qzt/gateway/soa',
   privateKey: fs.readFileSync(process.env.QZT_PRIVATE_KEY_PATH || path.join(__dirname, 'keys', 'private_key.pem'), 'utf8'),
   publicKey: fs.readFileSync(process.env.QZT_PUBLIC_KEY_PATH || path.join(__dirname, 'keys', 'cloud_public_key.pem'), 'utf8')
 };
@@ -38,6 +38,9 @@ const QZT_CONFIG = {
 const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3000';
 // 分页上限
 const MAX_PAGE_SIZE = 100;
+
+// 货币单位转换：DB/钱账通存储分(fen) → API返回元(yuan)
+const toYuan = v => v == null ? 0 : parseFloat((parseInt(v) / 100).toFixed(2));
 
 // --- 初始化 SQLite 数据库 ---
 let dbInitialized = false;
@@ -2137,17 +2140,24 @@ app.get('/api/account/balance', async (req, res) => {
       });
     } else {
       // DB 存储单位为分（fen），需除以 100 转为元
-      const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0);
-      const totalFrozen = accounts.reduce((sum, a) => sum + (parseFloat(a.frozen_amount) || 0), 0);
+      const totalBalance = accounts.reduce((sum, a) => sum + (parseInt(a.balance) || 0), 0);
+      const totalFrozen = accounts.reduce((sum, a) => sum + (parseInt(a.frozen_balance) || 0), 0);
       const totalAvailable = totalBalance - totalFrozen;
-      
+
+      // 账户列表金额字段：分→元（统一，避免返回 fen 给前端导致显示错误）
+      const accountsYuan = accounts.map(a => ({
+        ...a,
+        balance: toYuan(a.balance),
+        frozen_balance: toYuan(a.frozen_balance)
+      }));
+
       res.json({
         code: 0,
         data: {
-          balance: parseFloat((totalBalance / 100).toFixed(2)),
-          frozen_amount: parseFloat((totalFrozen / 100).toFixed(2)),
-          available_amount: parseFloat((totalAvailable / 100).toFixed(2)),
-          accounts: accounts
+          balance: toYuan(totalBalance),
+          frozen_amount: toYuan(totalFrozen),
+          available_amount: toYuan(totalAvailable),
+          accounts: accountsYuan
         }
       });
     }
@@ -2900,14 +2910,15 @@ app.get('/api/tour-groups', (req, res) => {
       tours = tours.filter(t => t.end_date <= end_date);
     }
     
-    // 关联导游、司机、商店信息
+    // 关联导游、司机、商店信息；金额字段从分转元
     const toursWithDetails = tours.map(tour => {
       const guide = tour.guide_id ? getMerchantById(tour.guide_id) : null;
       const driver = tour.driver_id ? getMerchantById(tour.driver_id) : null;
       const shop = tour.shop_id ? getMerchantById(tour.shop_id) : null;
-      
+
       return {
         ...tour,
+        total_amount: toYuan(tour.total_amount),  // 分→元
         guide_name: guide?.register_name || guide?.legal_name || '',
         driver_name: driver?.register_name || driver?.legal_name || '',
         shop_name: shop?.register_name || ''
@@ -2941,10 +2952,11 @@ app.get('/api/tour-groups/:id', (req, res) => {
     const driver = tour.driver_id ? getMerchantById(tour.driver_id) : null;
     const shop = tour.shop_id ? getMerchantById(tour.shop_id) : null;
     
-    res.json({ 
-      code: 0, 
+    res.json({
+      code: 0,
       data: {
         ...tour,
+        total_amount: toYuan(tour.total_amount),  // 分→元
         guide_name: guide?.register_name || guide?.legal_name || '',
         driver_name: driver?.register_name || driver?.legal_name || '',
         shop_name: shop?.register_name || ''
@@ -3117,11 +3129,14 @@ app.get('/api/split-rule', (req, res) => {
     const { merchant_id } = req.query;
     const rules = getSplitRules(merchant_id);
     
-    // 获取每个规则的明细
-    const rulesWithItems = rules.map(rule => ({
-      ...rule,
-      items: getSplitRuleItems(rule.id)
-    }));
+    // 获取每个规则的明细；金额字段从分转元
+    const rulesWithItems = rules.map(rule => {
+      const items = getSplitRuleItems(rule.id).map(item => ({
+        ...item,
+        split_amount: toYuan(item.split_amount)  // 分→元
+      }));
+      return { ...rule, items };
+    });
     
     res.json({ code: 0, data: rulesWithItems });
   } catch (error) {
@@ -3202,8 +3217,9 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
       }
       
       try {
-        const amountFen = Math.round(member.split_amount * 100);
-        
+        // DB 已存分（yuan→fen 在 saveTourMember 时完成），避免 *100 重复转换导致 100x 放大
+        const amountFen = member.split_amount;
+
         const result = await callQzt('open.split.account.apply', {
           out_split_no: outSplitNo,
           order_no: orderNo,
@@ -3240,7 +3256,7 @@ app.post('/api/tour-group/:id/split', async (req, res) => {
       data: {
         tour_id: tour.id,
         order_no: orderNo,
-        total_amount: tour.total_amount,
+        total_amount: toYuan(tour.total_amount),  // 分→元
         results
       }
     });
@@ -3306,8 +3322,9 @@ app.post('/api/balance/split', async (req, res) => {
       }
       
       try {
-        const amountFen = Math.round(item.split_amount * 100);
-        
+        // DB 已存分（yuan→fen 在 saveSplitRuleItem 时完成），避免 *100 重复转换导致 100x 放大
+        const amountFen = item.split_amount;
+
         const result = await callQzt('open.split.account.apply', {
           out_split_no: outSplitNo,
           order_no: orderNo,
@@ -3316,7 +3333,7 @@ app.post('/api/balance/split', async (req, res) => {
           split_merchant_no: targetMerchant.qzt_merchant_no || '',
           notify_url: `${QZT_CALLBACK_URL}/api/callback/split`
         });
-        
+
         results.push({
           target_merchant_id: item.target_merchant_id,
           out_split_no: outSplitNo,
@@ -3497,7 +3514,7 @@ app.post('/api/ai/parse-split', async (req, res) => {
     const response = await axios.post(
       `https://api.minimax.chat/v1/text/chatcompletion_v2?GroupId=${MINIMAX_GROUP_ID}`,
       {
-        model: 'MiniMax-Text-01',
+        model: 'MiniMax-M2.5',
         messages: [
           { role: 'system', content: '你是一个专业的分账助手，帮助用户解析分账需求。' },
           { role: 'user', content: prompt }
