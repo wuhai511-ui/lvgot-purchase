@@ -311,11 +311,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page { padding: 20px 24px; }
+.page { padding: 20px 24px; overflow-x: auto; }
 .page-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 20px; }
-.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; min-width: 800px; }
 .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
-.card-body { padding: 20px; }
+.card-body { padding: 20px; overflow-x: auto; }
 .search-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .flex-spacer { flex: 1; }
 .account-name { font-weight: 500; color: #1976D2; }
