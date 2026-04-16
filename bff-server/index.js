@@ -506,6 +506,10 @@ app.use('/api/v1/merchants', merchantRouter);
 const terminalsRouter = require('./routes/terminals');
 app.use('/api/terminals', terminalsRouter);
 
+// 账户管理路由（多账户模式，含余额查询、银行卡绑定解绑）
+const accountsRouter = require('./routes/accounts');
+app.use('/api/accounts', accountsRouter);
+
 // 门店管理路由
 const storesRouter = require('./routes/stores');
 app.use('/api/stores', storesRouter);
