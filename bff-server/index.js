@@ -2548,12 +2548,12 @@ app.post('/api/trade/callback', async (req, res) => {
     // 查找或创建订单
     let order = getTradeOrderByOutOrderNo(out_order_no);
     if (!order) {
-      order = saveTradeOrder({
+      order = saveTradeOrderFromCallback({
         order_no: order_no || `ORD${Date.now()}`,
         out_order_no,
         payer_account_no: payer_account_no || '',
         payer_name: payer_name || '',
-        total_amount: Math.round(parseFloat(amount) || 0),
+        amount: Math.round(parseFloat(amount) || 0),
         status: status === 'SUCCESS' ? 'PAID' : 'PENDING'
       });
     }
