@@ -13,7 +13,7 @@ import request from '@/utils/request.js'
  * @returns {Promise<{file_no: string}>}
  */
 export async function upload(fileName, fileType, fileHash, fileContent) {
-  return request.post('/api/qzt/proxy', { service: 'file.upload.commn', params: {
+  return request.post('/api/qzt/proxy', { service: 'file.upload', params: {
     file_name: fileName,
     file_type: fileType,
     file_hash: fileHash,
@@ -27,5 +27,5 @@ export async function upload(fileName, fileType, fileHash, fileContent) {
  * @returns {Promise<{file_type, file_name, file_content}>}
  */
 export async function download(fileNo) {
-  return request.post('/api/qzt/proxy', { service: 'file.download.commn', params: { file_no: fileNo } })
+  return request.post('/api/qzt/proxy', { service: 'file.download', params: { file_no: fileNo } })
 }

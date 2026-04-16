@@ -42,7 +42,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, merchant_id, bank_account_no, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return request.post('/api/qzt/proxy', { service: 'merchant.query.final', params })
+  return request.post('/api/qzt/proxy', { service: 'merchant.terminal.query', params })
 }
 
 /**
@@ -53,7 +53,7 @@ export async function queryOpenResult(params) {
  * @returns {Promise<{out_request_no, file_no}>}
  */
 export async function queryVoucher(params) {
-  return request.post('/api/qzt/proxy', { service: 'bank.account.voucher.query', params })
+  return request.post('/api/qzt/proxy', { service: 'open.bank.account.cert.query', params })
 }
 
 /**
@@ -68,7 +68,7 @@ export async function queryVoucher(params) {
  * @returns {Promise<{out_request_no, merchant_id, bind_no}>}
  */
 export async function bindCard(params) {
-  return request.post('/api/qzt/proxy', { service: 'card.bind', params })
+  return request.post('/api/qzt/proxy', { service: 'bank.card.bind', params })
 }
 
 /**
@@ -80,7 +80,7 @@ export async function bindCard(params) {
  * @returns {Promise<{out_request_no, merchant_id}>}
  */
 export async function unbindCard(params) {
-  return request.post('/api/qzt/proxy', { service: 'card.unbind', params })
+  return request.post('/api/qzt/proxy', { service: 'bank.card.unbind', params })
 }
 
 /**

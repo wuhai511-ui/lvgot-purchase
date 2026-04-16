@@ -4,7 +4,7 @@
  * 生产环境可切换到真实 API
  */
 
-const BASE_URL = 'https://wuhai511-ui.github.io/lvgot-purchase'
+const BASE_URL = 'http://localhost:3001'
 const MOCK_DELAY = 300 // ms，模拟网络延迟
 
 // Mock 数据缓存

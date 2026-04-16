@@ -59,7 +59,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, merchant_id, account_no, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return request.post('/api/qzt/proxy', { service: 'payaccount.open.query', params })
+  return request.post('/api/qzt/proxy', { service: 'open.pay.account.cert.query', params })
 }
 
 /**
@@ -125,7 +125,7 @@ export async function queryFlow(params) {
  * @returns {Promise<{out_request_no, seq_no}>}
  */
 export async function ocrRecognize(params) {
-  return request.post('/api/qzt/proxy', { service: 'ocr.recognize', params })
+  return request.post('/api/qzt/proxy', { service: 'ocr.idcard', params })
 }
 
 /**
@@ -134,5 +134,5 @@ export async function ocrRecognize(params) {
  * @returns {Promise<{status, id_card_name, id_card_no, id_card_sex, ...}>}
  */
 export async function queryOcrResult(seqNo) {
-  return request.post('/api/qzt/proxy', { service: 'ocr.recognize.query', params: { seq_no: seqNo } })
+  return request.post('/api/qzt/proxy', { service: 'ocr.idcard.query', params: { seq_no: seqNo } })
 }

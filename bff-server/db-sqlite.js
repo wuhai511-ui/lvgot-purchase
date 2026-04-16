@@ -103,6 +103,10 @@ function createTables() {
   db.run("CREATE TABLE IF NOT EXISTS reconciliation_details (id INTEGER PRIMARY KEY AUTOINCREMENT, task_no TEXT NOT NULL, record_type TEXT NOT NULL, record_id TEXT, expected_amount INTEGER, actual_amount INTEGER, difference_amount INTEGER, status TEXT, remark TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS reconciliation_differences (id INTEGER PRIMARY KEY AUTOINCREMENT, task_no TEXT NOT NULL, difference_type TEXT NOT NULL, severity TEXT DEFAULT 'medium', description TEXT, suggested_action TEXT, status TEXT DEFAULT 'pending', resolved_by TEXT, resolved_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'user', merchant_id INTEGER, status TEXT DEFAULT 'ACTIVE', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS store_terminals (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL, merchant_no TEXT NOT NULL, terminal_no TEXT NOT NULL, account_no TEXT, status TEXT DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS trade_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_no TEXT UNIQUE NOT NULL, out_order_no TEXT, payer_account_no TEXT NOT NULL, payer_name TEXT, total_amount INTEGER NOT NULL DEFAULT 0, currency TEXT DEFAULT 'CNY', status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS trade_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, payment_seq_no TEXT UNIQUE, payment_type TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0, status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS trade_splits (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_id INTEGER NOT NULL, split_seq_no TEXT UNIQUE, receiver_account_no TEXT NOT NULL, receiver_name TEXT, amount INTEGER NOT NULL DEFAULT 0, status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
   console.log('数据表创建完成');
 }
 
@@ -416,6 +420,161 @@ function markNotificationProcessed(id) {
   saveDatabase();
 }
 
+// ========== 账户 ==========
+function getAccounts(merchant_id = null) {
+  let query = 'SELECT * FROM accounts WHERE 1=1';
+  const params = [];
+  if (merchant_id) { query += ' AND merchant_id = ?'; params.push(parseInt(merchant_id)); }
+  query += ' ORDER BY id DESC';
+  const result = db.exec(query, params);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
+function getAccountById(id) {
+  const result = db.exec('SELECT * FROM accounts WHERE id = ?', [parseInt(id)]);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+function saveAccount(account) {
+  const { id, merchant_id, account_no, balance, frozen_balance, status } = account;
+  if (id) {
+    db.run('UPDATE accounts SET merchant_id=?, account_no=?, balance=?, frozen_balance=?, status=? WHERE id=?',
+      [parseInt(merchant_id)||0, account_no||'', balance||0, frozen_balance||0, status||'ACTIVE', parseInt(id)]);
+    saveDatabase(); return account;
+  }
+  db.run('INSERT INTO accounts (merchant_id, account_no, balance, frozen_balance, status) VALUES (?, ?, ?, ?, ?)',
+    [parseInt(merchant_id)||0, account_no||'', balance||0, frozen_balance||0, status||'ACTIVE']);
+  saveDatabase();
+  const r = db.exec('SELECT last_insert_rowid() as id');
+  return { id: r[0]?.values[0]?.[0], ...account };
+}
+
+function updateAccountBalance(account_no, balance_increment) {
+  const acc = db.exec('SELECT id, balance FROM accounts WHERE account_no = ?', [account_no]);
+  if (!acc.length || !acc[0].values.length) return;
+  const currentBalance = acc[0].values[0][1] || 0;
+  db.run('UPDATE accounts SET balance = ? WHERE account_no = ?', [currentBalance + parseInt(balance_increment), account_no]);
+  saveDatabase();
+}
+
+// ========== 商终绑定 ==========
+function saveStoreTerminal(store_id, merchant_no, terminal_no, account_no = '') {
+  // 检查是否已存在
+  const existing = db.exec('SELECT id FROM store_terminals WHERE store_id=? AND merchant_no=? AND terminal_no=?',
+    [parseInt(store_id), merchant_no, terminal_no]);
+  if (existing.length && existing[0].values.length) {
+    db.run('UPDATE store_terminals SET account_no=?, status=? WHERE store_id=? AND merchant_no=? AND terminal_no=?',
+      [account_no, 'active', parseInt(store_id), merchant_no, terminal_no]);
+  } else {
+    db.run('INSERT INTO store_terminals (store_id, merchant_no, terminal_no, account_no, status) VALUES (?, ?, ?, ?, ?)',
+      [parseInt(store_id), merchant_no, terminal_no, account_no, 'active']);
+  }
+  saveDatabase();
+}
+
+function getStoreTerminalsByStoreId(store_id) {
+  const result = db.exec('SELECT * FROM store_terminals WHERE store_id = ? ORDER BY id DESC', [parseInt(store_id)]);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
+function deleteStoreTerminal(terminal_id) {
+  db.run('UPDATE store_terminals SET status=? WHERE id=?', ['deleted', parseInt(terminal_id)]);
+  saveDatabase();
+}
+
+// ========== 交易订单 ==========
+function saveTradeOrder(order) {
+  const { id, order_no, out_order_no, payer_account_no, payer_name, total_amount, currency, status } = order;
+  if (id) {
+    db.run('UPDATE trade_orders SET out_order_no=?, payer_account_no=?, payer_name=?, total_amount=?, currency=?, status=?, update_time=CURRENT_TIMESTAMP WHERE id=?',
+      [out_order_no||'', payer_account_no||'', payer_name||'', Math.round(parseFloat(total_amount))||0, currency||'CNY', status||'PENDING', parseInt(id)]);
+    saveDatabase(); return order;
+  }
+  db.run('INSERT INTO trade_orders (order_no, out_order_no, payer_account_no, payer_name, total_amount, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [order_no, out_order_no||'', payer_account_no||'', payer_name||'', Math.round(parseFloat(total_amount))||0, currency||'CNY', status||'PENDING']);
+  saveDatabase();
+  const r = db.exec('SELECT last_insert_rowid() as id');
+  return { id: r[0]?.values[0]?.[0], ...order };
+}
+
+function getTradeOrders(filters = {}) {
+  let query = 'SELECT * FROM trade_orders WHERE 1=1';
+  const params = [];
+  if (filters.merchant_id) { query += ' AND merchant_id = ?'; params.push(parseInt(filters.merchant_id)); }
+  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+  query += ' ORDER BY create_time DESC';
+  const result = db.exec(query, params);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
+function getTradeOrderById(id) {
+  const result = db.exec('SELECT * FROM trade_orders WHERE id = ?', [parseInt(id)]);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+function getTradeOrderByOutOrderNo(out_order_no) {
+  const result = db.exec('SELECT * FROM trade_orders WHERE out_order_no = ?', [out_order_no]);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+// ========== 支付流水 ==========
+function saveTradePayment(payment) {
+  const { id, order_id, payment_seq_no, payment_type, amount, status } = payment;
+  if (id) {
+    db.run('UPDATE trade_payments SET status=? WHERE id=?', [status||'PENDING', parseInt(id)]);
+    saveDatabase(); return payment;
+  }
+  // 检查是否已存在
+  const existing = db.exec('SELECT id FROM trade_payments WHERE payment_seq_no = ?', [payment_seq_no]);
+  if (existing.length && existing[0].values.length) {
+    db.run('UPDATE trade_payments SET status=? WHERE payment_seq_no=?', [status||'PENDING', payment_seq_no]);
+    saveDatabase(); return payment;
+  }
+  db.run('INSERT INTO trade_payments (order_id, payment_seq_no, payment_type, amount, status) VALUES (?, ?, ?, ?, ?)',
+    [parseInt(order_id), payment_seq_no||'', payment_type||'PAYMENT', Math.round(parseFloat(amount))||0, status||'PENDING']);
+  saveDatabase();
+  const r = db.exec('SELECT last_insert_rowid() as id');
+  return { id: r[0]?.values[0]?.[0], ...payment };
+}
+
+function getTradePaymentsByOrderId(order_id) {
+  const result = db.exec('SELECT * FROM trade_payments WHERE order_id = ? ORDER BY create_time ASC', [parseInt(order_id)]);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
+function getTradePaymentBySeqNo(payment_seq_no) {
+  const result = db.exec('SELECT * FROM trade_payments WHERE payment_seq_no = ?', [payment_seq_no]);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+// ========== 分账记录 ==========
+function saveTradeSplit(split) {
+  const { id, payment_id, split_seq_no, receiver_account_no, receiver_name, amount, status } = split;
+  if (id) {
+    db.run('UPDATE trade_splits SET status=? WHERE id=?', [status||'PENDING', parseInt(id)]);
+    saveDatabase(); return split;
+  }
+  db.run('INSERT INTO trade_splits (payment_id, split_seq_no, receiver_account_no, receiver_name, amount, status) VALUES (?, ?, ?, ?, ?, ?)',
+    [parseInt(payment_id), split_seq_no||'', receiver_account_no||'', receiver_name||'', Math.round(parseFloat(amount))||0, status||'PENDING']);
+  saveDatabase();
+  const r = db.exec('SELECT last_insert_rowid() as id');
+  return { id: r[0]?.values[0]?.[0], ...split };
+}
+
+function getTradeSplitsByPaymentId(payment_id) {
+  const result = db.exec('SELECT * FROM trade_splits WHERE payment_id = ? ORDER BY create_time ASC', [parseInt(payment_id)]);
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
 // ========== 分账模板 ==========
 function saveSplitTemplate(template) {
   const { template_id, name, description, icon, items, creator_id, creator_type, is_system } = template;
@@ -545,7 +704,7 @@ module.exports = {
   // 银行卡
   saveBankCard, getBankCards, deleteBankCard,
   // 账户
-  getAccountsByMerchantId,
+  getAccounts, getAccountById, saveAccount, updateAccountBalance, getAccountsByMerchantId,
   // 交易
   saveTransaction, getTransactions,
   // 分账记录
@@ -560,10 +719,21 @@ module.exports = {
   saveSplitRuleItem, getSplitRuleItems,
   // 通知
   saveNotification, getNotifications, getNotificationByOutRequestNo, markNotificationProcessed,
+
   // 分账模板
   saveSplitTemplate, getSplitTemplates, getSplitTemplateById, deleteSplitTemplate, incrementTemplateUsage,
   // 对账
   saveReconciliationTask, getReconciliationTask, getReconciliationTasks, updateReconciliationTask,
   saveReconciliationDetail, getReconciliationDetails,
-  saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference
+  saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference,
+  // 账户
+  getAccounts, getAccountById, saveAccount, updateAccountBalance,
+  // 商终绑定
+  saveStoreTerminal, getStoreTerminalsByStoreId, deleteStoreTerminal,
+  // 交易订单
+  saveTradeOrder, getTradeOrders, getTradeOrderById, getTradeOrderByOutOrderNo,
+  // 支付流水
+  saveTradePayment, getTradePaymentsByOrderId, getTradePaymentBySeqNo,
+  // 分账记录
+  saveTradeSplit, getTradeSplitsByPaymentId
 };

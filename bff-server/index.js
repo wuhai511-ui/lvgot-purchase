@@ -17,7 +17,7 @@ const { requireAuth, DEMO_MODE, issueToken } = require('./middleware/auth');
 
 const app = express();
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001'],
   credentials: true
 };
 app.use(cors(corsOptions));
@@ -35,7 +35,7 @@ const QZT_CONFIG = {
 
 // --- 全局常量 ---
 // 回调地址前缀（用于钱账通回调通知，必须公网可访问）
-const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3000';
+const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3001';
 // 分页上限
 const MAX_PAGE_SIZE = 100;
 
@@ -215,7 +215,7 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
   };
 
   // 先调用接口获取 file_key
-  const result = await callQzt('file.upload.commn', params);
+  const result = await callQzt('file.upload', params);
   
   // 检查第一次接口调用是否失败
   if (result.status === 'FAIL' || !result.result) {
@@ -238,7 +238,7 @@ async function uploadFileToQzt(fileName, fileType, fileBuffer) {
     params.file_key = parsed.file_key;
   }
 
-  const uploadResult = await callQzt('file.upload.commn', params);
+  const uploadResult = await callQzt('file.upload', params);
   
   if (uploadResult.status === 'FAIL' || !uploadResult.result) {
     throw new Error(`上传文件失败: ${uploadResult.message || '未知错误'}`);
@@ -952,7 +952,7 @@ app.post('/api/merchant/ocr', async (req, res) => {
 
     // 调用钱账通 OCR 识别
     // 注意：bff-server callQzt 把 params 序列化为字符串，和 qzt-client.js 的 doRequest 签名逻辑一致
-    const result = await callQzt('ocr.recognize', {
+    const result = await callQzt('ocr.idcard', {
       file_key: targetFileKey,
       file_type: type === 'license' ? 'license' : 'idcard',
       // ocr.recognize 是否需要 file_content 取决于钱账通接口定义
@@ -1941,7 +1941,7 @@ app.get('/api/merchant/terminals', async (req, res) => {
     const params = { page: parseInt(page), page_size: Math.min(parseInt(page_size), MAX_PAGE_SIZE) };
     if (account_no) params.account_no = account_no;
 
-    const result = await callQzt('trans.merchant.query', params);
+    const result = await callQzt('merchant.terminal.query', params);
 
     let parsed = { total_num: 0, mers: [] };
     if (result.result) {
@@ -1973,7 +1973,7 @@ app.post('/api/qzt/merchant/bind', async (req, res) => {
       if (!req.body[f]) return res.status(400).json({ code: 400, message: `缺少必填参数: ${f}` });
     }
 
-    const result = await callQzt('trans.merchant.bind', {
+    const result = await callQzt('merchant.terminal.bind', {
       account_no, channel_merchant_no, channel_term_no, device_type, term_type
     });
 
@@ -2004,7 +2004,7 @@ app.post('/api/qzt/merchant/unbind', async (req, res) => {
     const { account_no, merchant_no } = req.body;
     if (!account_no || !merchant_no) return res.status(400).json({ code: 400, message: '缺少必填参数: account_no, merchant_no' });
 
-    const result = await callQzt('trans.merchant.unbind', { account_no, merchant_no });
+    const result = await callQzt('merchant.terminal.unbind', { account_no, merchant_no });
 
     let parsed = { bind_state: '' };
     if (result.result) {
@@ -2045,7 +2045,7 @@ app.post('/api/qzt/bank-card/bind', async (req, res) => {
     // bank_card_no 敏感字段，使用 RSA 加密（复用 qzt-client 的加密逻辑）
     const encryptedCardNo = rsaEncrypt(bank_card_no);
 
-    const result = await callQzt('account.bank.card.bind', {
+    const result = await callQzt('bank.card.bind', {
       account_no, bank_type, bank_code,
       bank_card_no: encryptedCardNo,
       bank_card_name, bank_branch,
@@ -2080,7 +2080,7 @@ app.post('/api/qzt/bank-card/unbind', async (req, res) => {
     const { account_no, bank_account_no } = req.body;
     if (!account_no || !bank_account_no) return res.status(400).json({ code: 400, message: '缺少必填参数: account_no, bank_account_no' });
 
-    const result = await callQzt('account.bank.card.unbind', { account_no, bank_account_no });
+    const result = await callQzt('bank.card.unbind', { account_no, bank_account_no });
 
     let parsed = { bind_state: '' };
     if (result.result) {
@@ -2114,7 +2114,7 @@ app.get('/api/account/balance', async (req, res) => {
     // 如果没有账户，尝试从钱账通查询
     if (!accounts || accounts.length === 0) {
       // 调用钱账通余额查询接口
-      const result = await callQzt('balance.query', {
+      const result = await callQzt('account.balance.query', {
         account_no: req.query.account_no || '7445380068781174784' // 默认测试账户
       });
       
@@ -2175,7 +2175,7 @@ app.post('/api/account/bind-merchant', async (req, res) => {
     const { merchant_id, merchant_no } = req.body;
     
     // 调用钱账通商户绑定接口
-    const result = await callQzt('trans.merchant.bind', {
+    const result = await callQzt('merchant.terminal.bind', {
       account_no: merchant_no,
       merchant_no: merchant_no
     });
@@ -2240,7 +2240,7 @@ app.post('/api/bank-cards/bind', async (req, res) => {
     // 调用钱账通绑定银行卡接口
     const encryptedCardNo = rsaEncrypt(bank_card_no);
     
-    const result = await callQzt('account.bank.card.bind', {
+    const result = await callQzt('bank.card.bind', {
       account_no: account_no || '7445380068781174784',
       bank_type: bank_type || '1',
       bank_code,
@@ -2319,7 +2319,7 @@ app.post('/api/recharge/apply', async (req, res) => {
     const amountFen = Math.round(parseFloat(amount) * 100);
 
     // 调用钱账通充值接口
-    const result = await callQzt('recharge.apply', {
+    const result = await callQzt('account.recharge.apply', {
       out_request_no: transactionNo,
       amount: String(amountFen),
       bank_card_no: rsaEncrypt(bank_card_no)
@@ -2356,6 +2356,249 @@ app.post('/api/recharge/apply', async (req, res) => {
   } catch (error) {
     console.error('申请充值失败:', error.message);
     res.status(500).json({ code: 500, message: '申请充值失败', error: error.message });
+  }
+});
+
+// ========== Phase 1: 账户列表 + 余额查询 ==========
+
+/**
+ * GET /api/accounts - 账户列表
+ * 支持按 merchant_id 过滤
+ */
+app.get('/api/accounts', (req, res) => {
+  try {
+    const { merchant_id } = req.query;
+    const accounts = merchant_id
+      ? getAccountsByMerchantId(merchant_id)
+      : getAccounts();
+    res.json({ code: 0, data: accounts });
+  } catch (error) {
+    console.error('获取账户列表失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取账户列表失败' });
+  }
+});
+
+/**
+ * GET /api/accounts/:id - 账户详情
+ */
+app.get('/api/accounts/:id', (req, res) => {
+  try {
+    const account = getAccountById(req.params.id);
+    if (!account) return res.status(404).json({ code: 404, message: '账户不存在' });
+    res.json({ code: 0, data: account });
+  } catch (error) {
+    console.error('获取账户详情失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取账户详情失败' });
+  }
+});
+
+/**
+ * GET /api/accounts/:id/balance - 查询账户余额（从钱账通实时拉取）
+ * service: account.balance.query (7.7)
+ */
+app.get('/api/accounts/:id/balance', async (req, res) => {
+  try {
+    const account = getAccountById(req.params.id);
+    if (!account) return res.status(404).json({ code: 404, message: '账户不存在' });
+    const accountNo = account.account_no;
+    if (!accountNo) return res.status(400).json({ code: 400, message: '该账户尚未分配钱账通账号' });
+
+    const result = await callQzt('account.balance.query', { account_no: accountNo });
+    let parsed = { available_amount: '0', trans_amount: '0' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
+      }
+    }
+    const availableYuan = (parseInt(parsed.available_amount || 0) / 100).toFixed(2);
+    const transAmountYuan = (parseInt(parsed.trans_amount || 0) / 100).toFixed(2);
+    res.json({
+      code: 0,
+      data: {
+        account_no: accountNo,
+        available_amount: parseFloat(availableYuan),
+        trans_amount: parseFloat(transAmountYuan)
+      }
+    });
+  } catch (error) {
+    console.error('[7.7] 账户余额查询失败:', error.message);
+    res.status(500).json({ code: 500, message: '余额查询失败', error: error.message });
+  }
+});
+
+// ========== Phase 6: 交易订单 + 回调 ==========
+
+/**
+ * GET /api/orders - 订单列表
+ */
+app.get('/api/orders', (req, res) => {
+  try {
+    const { merchant_id, status, page = 1, pageSize = 20 } = req.query;
+    const filters = {};
+    if (merchant_id) filters.merchant_id = merchant_id;
+    if (status) filters.status = status;
+    const orders = getTradeOrders(filters);
+    // 分转元
+    const ordersYuan = orders.map(o => ({
+      ...o,
+      total_amount: o.total_amount / 100
+    }));
+    res.json({ code: 0, data: ordersYuan, total: ordersYuan.length });
+  } catch (error) {
+    console.error('获取订单列表失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取订单列表失败' });
+  }
+});
+
+/**
+ * GET /api/orders/:id - 订单详情（含支付流水 + 分账记录）
+ */
+app.get('/api/orders/:id', (req, res) => {
+  try {
+    const order = getTradeOrderById(req.params.id);
+    if (!order) return res.status(404).json({ code: 404, message: '订单不存在' });
+
+    const payments = getTradePaymentsByOrderId(order.id);
+    const paymentsWithSplits = payments.map(p => {
+      const splits = getTradeSplitsByPaymentId(p.id);
+      return {
+        ...p,
+        amount_yuan: p.amount / 100,
+        splits: splits.map(s => ({ ...s, amount_yuan: s.amount / 100 }))
+      };
+    });
+
+    res.json({
+      code: 0,
+      data: {
+        ...order,
+        total_amount_yuan: order.total_amount / 100,
+        payments: paymentsWithSplits
+      }
+    });
+  } catch (error) {
+    console.error('获取订单详情失败:', error.message);
+    res.status(500).json({ code: 500, message: '获取订单详情失败' });
+  }
+});
+
+/**
+ * POST /api/trade/callback - 接收钱账通交易订阅回调
+ * 支持支付、退款两种类型
+ */
+app.post('/api/trade/callback', async (req, res) => {
+  try {
+    const payload = req.body;
+    console.log('[trade/callback] 收到交易回调:', JSON.stringify(payload));
+
+    const {
+      payment_seq_no,      // 支付流水号
+      out_order_no,        // 外部订单号
+      order_no,            // 内部订单号
+      payer_account_no,    // 付款方账户
+      payer_name,          // 付款方名称
+      amount,              // 金额（分）
+      status,              // 交易状态
+      trade_type           // PAYMENT=支付 / REFUND=退款
+    } = payload;
+
+    if (!payment_seq_no || !out_order_no) {
+      return res.json({ code: 0, message: '缺少必填字段' });
+    }
+
+    // 查找或创建订单
+    let order = getTradeOrderByOutOrderNo(out_order_no);
+    if (!order) {
+      order = saveTradeOrder({
+        order_no: order_no || `ORD${Date.now()}`,
+        out_order_no,
+        payer_account_no: payer_account_no || '',
+        payer_name: payer_name || '',
+        total_amount: Math.round(parseFloat(amount) || 0),
+        status: status === 'SUCCESS' ? 'PAID' : 'PENDING'
+      });
+    }
+
+    // 保存支付流水（幂等）
+    const paymentType = trade_type === 'REFUND' ? 'REFUND' : 'PAYMENT';
+    saveTradePayment({
+      order_id: order.id,
+      payment_seq_no,
+      payment_type: paymentType,
+      amount: Math.round(parseFloat(amount) || 0),
+      status: status === 'SUCCESS' ? 'SUCCESS' : 'PENDING'
+    });
+
+    // 更新订单状态
+    const allPayments = getTradePaymentsByOrderId(order.id);
+    const totalPaid = allPayments.filter(p => p.payment_type === 'PAYMENT' && p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0);
+    const totalRefunded = allPayments.filter(p => p.payment_type === 'REFUND' && p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0);
+    let orderStatus = 'PENDING';
+    if (totalPaid >= order.total_amount && totalRefunded === 0) orderStatus = 'PAID';
+    else if (totalRefunded >= totalPaid) orderStatus = 'REFUNDED';
+    else if (totalRefunded > 0) orderStatus = 'PARTIAL_REFUND';
+    saveTradeOrder({ ...order, status: orderStatus });
+
+    console.log(`[trade/callback] 订单${order.order_no}状态更新为: ${orderStatus}`);
+    res.json({ code: 0, message: '接收成功' });
+  } catch (error) {
+    console.error('[trade/callback] 处理失败:', error.message);
+    res.status(500).json({ code: 500, message: '处理失败' });
+  }
+});
+
+/**
+ * POST /api/orders/:id/splits - 对指定支付流水发起分账
+ */
+app.post('/api/orders/:id/splits', async (req, res) => {
+  try {
+    const { payment_id, split_list } = req.body;
+    if (!payment_id || !split_list || !split_list.length) {
+      return res.status(400).json({ code: 400, message: '缺少 payment_id 或 split_list' });
+    }
+
+    const payment = getTradePaymentBySeqNo(payment_id);
+    if (!payment) return res.status(404).json({ code: 404, message: '支付流水不存在' });
+
+    // 调用钱账通分账接口
+    const params = {
+      out_request_no: `SPL${Date.now()}`,
+      order_no: payment.payment_seq_no,
+      split_list: split_list.map(item => ({
+        receiver_account_no: item.receiver_account_no,
+        amount: String(Math.round(parseFloat(item.amount) * 100)), // 元→分
+        remark: item.remark || ''
+      }))
+    };
+
+    const result = await callQzt('trans.trade.fund.split', params);
+    let parsed = { status: 'PENDING' };
+    if (result.result) {
+      try {
+        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+      } catch(e) {
+        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
+      }
+    }
+
+    // 保存分账记录
+    const splits = (parsed.split_list || []).map((s, i) =>
+      saveTradeSplit({
+        payment_id: payment.id,
+        split_seq_no: s.split_seq_no || `SPL${Date.now()}_${i}`,
+        receiver_account_no: split_list[i]?.receiver_account_no || '',
+        receiver_name: '',
+        amount: Math.round(parseFloat(split_list[i]?.amount || 0) * 100),
+        status: s.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED'
+      })
+    );
+
+    res.json({ code: 0, data: { status: parsed.status || 'PENDING', splits } });
+  } catch (error) {
+    console.error('[分账] 失败:', error.message);
+    res.status(500).json({ code: 500, message: '分账申请失败', error: error.message });
   }
 });
 
@@ -2789,7 +3032,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 // ================= 登录认证 API（演示用） =================
 /**
  * POST /api/auth/login
