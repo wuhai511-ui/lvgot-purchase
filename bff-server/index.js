@@ -526,6 +526,14 @@ app.use('/api/withdraw', withdrawRouter);
 const ordersRouter = require('./routes/orders');
 app.use('/api/orders', ordersRouter);
 
+// 商户管理路由（支付账户开户已有，本文件补充银行内部户相关）
+const merchantsRouter = require('./routes/merchants');
+app.use('/api/merchants', merchantsRouter);
+
+// 文件上传路由（OSS + QZT 文件注册）
+const uploadRouter = require('./routes/upload');
+app.use('/api/upload', uploadRouter);
+
 // 兼容旧版前端：POST /api/merchant → 根据类型选择接口
 // 个人（enterprise_type=3）：使用 open.split.account.apply (6.9) 直接申请
 // 企业/个体工商户（enterprise_type=1或2）：使用 open.split.account.page.url (6.3) 获取 H5 页面
