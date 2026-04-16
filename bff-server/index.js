@@ -99,6 +99,11 @@ const getNotificationByOutRequestNo = (out_request_no, notification_type) => dbS
 const markNotificationProcessed = (id) => dbSqlite.markNotificationProcessed(id);
 const updateMerchantStatus = (id, status, qztAccountNo) => dbSqlite.updateMerchantStatus(id, status, qztAccountNo);
 const getMerchantByOutRequestNoFromDb = (out_request_no) => dbSqlite.getMerchantByOutRequestNo(out_request_no);
+const getTradeOrderByOutOrderNo = (out_order_no) => dbSqlite.getTradeOrderByOutOrderNo(out_order_no);
+const saveTradeOrderFromCallback = (order) => dbSqlite.saveTradeOrder(order);
+const saveTradePayment = (payment) => dbSqlite.saveTradePayment(payment);
+const getTradePaymentsByOrderId = (orderId) => dbSqlite.getTradePaymentsByOrderId(orderId);
+const getTradePaymentBySeqNo = (seqNo) => dbSqlite.getTradePaymentBySeqNo(seqNo);
 
 // 角色权限判断
 const canSplit = (enterprise_type) => {
@@ -2559,7 +2564,7 @@ app.post('/api/trade/callback', async (req, res) => {
     if (totalPaid >= order.total_amount && totalRefunded === 0) orderStatus = 'PAID';
     else if (totalRefunded >= totalPaid) orderStatus = 'REFUNDED';
     else if (totalRefunded > 0) orderStatus = 'PARTIAL_REFUND';
-    saveTradeOrder({ ...order, status: orderStatus });
+    saveTradeOrderFromCallback({ ...order, status: orderStatus });
 
     console.log(`[trade/callback] 订单${order.order_no}状态更新为: ${orderStatus}`);
     res.json({ code: 0, message: '接收成功' });
