@@ -462,6 +462,8 @@ function updateAccountBalance(account_no, balance_increment) {
 
 // ========== 门店 ==========
 function saveStore({ id, merchant_id, store_name, status }) {
+  // 确保 (merchant_id, store_name) 唯一索引存在（atomic upsert 前置条件）
+  db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stores_merchant_name ON stores(merchant_id, store_name)`);
   if (id) {
     db.run(`INSERT INTO stores (id, merchant_id, store_name, status)
             VALUES (?, ?, ?, ?)
@@ -469,13 +471,22 @@ function saveStore({ id, merchant_id, store_name, status }) {
               store_name=excluded.store_name, status=excluded.status`,
       [parseInt(id), parseInt(merchant_id), store_name, status || 'ACTIVE']);
   } else {
+    // 原子 upsert：根据 merchant_id+store_name 判断是否已存在
     db.run(`INSERT INTO stores (merchant_id, store_name, status)
-            VALUES (?, ?, ?)`,
+            VALUES (?, ?, ?)
+            ON CONFLICT(merchant_id, store_name) DO UPDATE SET
+              store_name=excluded.store_name, status=excluded.status`,
       [parseInt(merchant_id), store_name, status || 'ACTIVE']);
   }
   saveDatabase();
-  const r = db.exec('SELECT last_insert_rowid() as id');
-  return { id: id || r[0]?.values[0]?.[0], merchant_id, store_name, status: status || 'ACTIVE' };
+  // ON CONFLICT 触发 UPDATE 时 last_insert_rowid() 返回 0，需主动查询真实 id
+  let returnedId = id;
+  if (!returnedId) {
+    const r = db.exec('SELECT id FROM stores WHERE merchant_id=? AND store_name=?',
+      [parseInt(merchant_id), store_name]);
+    returnedId = r[0]?.values[0]?.[0];
+  }
+  return { id: returnedId, merchant_id, store_name, status: status || 'ACTIVE' };
 }
 
 function getStores(merchant_id = null) {
@@ -541,30 +552,40 @@ function saveTradeOrder({ id, merchant_id, out_order_no, account_no, payee_accou
               updated_at=CURRENT_TIMESTAMP`,
       [parseInt(id), parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
        Math.round(amount||0), status||'PENDING', split_status||'']);
-  } else if (out_order_no) {
-    // 尝试 UPDATE（out_order_no 不一定有 UNIQUE 约束，跳过 INSERT ... ON CONFLICT）
-    const existing = db.exec('SELECT id FROM trade_orders WHERE out_order_no=?', [out_order_no||'']);
-    if (existing.length && existing[0].values.length) {
-      db.run(`UPDATE trade_orders SET
-                merchant_id=?, order_no=?, payer_account_no=?, account_no=?, payee_account_no=?, amount=?, status=?, split_status=?, updated_at=CURRENT_TIMESTAMP
-              WHERE out_order_no=?`,
-        [parseInt(merchant_id)||0, finalOrderNo, account_no||'', account_no||'', payee_account_no||'', Math.round(amount||0),
-         status||'PENDING', split_status||'', out_order_no||'']);
-    } else {
-      db.run(`INSERT INTO trade_orders (merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
-         Math.round(amount||0), status||'PENDING', split_status||'']);
-    }
   } else {
-    db.run(`INSERT INTO trade_orders (merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
-       Math.round(amount||0), status||'PENDING', split_status||'']);
+    // 原子 upsert：先确保 out_order_no UNIQUE 索引存在（ignore 失败），然后用 transaction 包裹 check-then-upsert
+    try {
+      db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_trade_orders_out_order_no ON trade_orders(out_order_no)`);
+    } catch (e) { /* 索引已存在或重复数据，忽略 */ }
+    db.run('BEGIN');
+    try {
+      const existing = db.exec('SELECT id FROM trade_orders WHERE out_order_no=?', [out_order_no||'']);
+      if (existing.length && existing[0].values.length) {
+        db.run(`UPDATE trade_orders SET
+                  merchant_id=?, order_no=?, payer_account_no=?, account_no=?, payee_account_no=?, amount=?, status=?, split_status=?, updated_at=CURRENT_TIMESTAMP
+                WHERE out_order_no=?`,
+          [parseInt(merchant_id)||0, finalOrderNo, account_no||'', account_no||'', payee_account_no||'', Math.round(amount||0),
+           status||'PENDING', split_status||'', out_order_no||'']);
+      } else {
+        db.run(`INSERT INTO trade_orders (merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
+           Math.round(amount||0), status||'PENDING', split_status||'']);
+      }
+      db.run('COMMIT');
+    } catch (e) {
+      db.run('ROLLBACK');
+      throw e;
+    }
   }
   saveDatabase();
-  const r = db.exec('SELECT last_insert_rowid() as id');
-  return { id: id || r[0]?.values[0]?.[0], merchant_id, out_order_no, account_no, amount, status };
+  // 无论是 INSERT 还是 UPDATE，通过 out_order_no 查询真实 id
+  let returnedId = id;
+  if (!returnedId && out_order_no) {
+    const r = db.exec('SELECT id FROM trade_orders WHERE out_order_no=?', [out_order_no||'']);
+    returnedId = r[0]?.values[0]?.[0];
+  }
+  return { id: returnedId, merchant_id, out_order_no, account_no, amount, status };
 }
 
 function getTradeOrders(filters = {}) {
