@@ -530,6 +530,46 @@ app.use('/api/orders', ordersRouter);
 const merchantsRouter = require('./routes/merchants');
 app.use('/api/merchants', merchantsRouter);
 
+// ================= Task 14: 银行内部户开户（QZT 6.1 / 6.12） =================
+
+// POST /api/merchant/bank-account-page — 获取银行内部户开户页面（QZT 6.1）
+app.post('/api/merchant/bank-account-page', async (req, res) => {
+  const { merchant_id, register_name, legal_mobile, enterprise_type, back_url } = req.body;
+  if (!merchant_id) return res.status(400).json({ code: 400, message: '缺少 merchant_id' });
+  const merchant = dbSqlite.getMerchantById(merchant_id);
+  if (!merchant) return res.status(404).json({ code: 404, message: '商户不存在' });
+  if (String(enterprise_type || merchant.enterprise_type) === '3') {
+    return res.status(400).json({ code: 400, message: '个人商户无需银行内部户' });
+  }
+  const outRequestNo = 'BA_' + Date.now();
+  try {
+    const result = await callQzt('open.bank.account.page.url', {
+      out_request_no: outRequestNo,
+      register_name: register_name || merchant.register_name,
+      legal_mobile: legal_mobile || merchant.legal_mobile,
+      enterprise_type: enterprise_type || merchant.enterprise_type,
+      back_url: back_url || `${QZT_CALLBACK_URL}/api/merchant/callback?out_request_no=${outRequestNo}`,
+    });
+    res.json({ code: 0, data: { redirect_url: result.redirect_url, out_request_no: outRequestNo } });
+  } catch (err) {
+    console.error('[6.1] 银行内部户开户页面获取失败:', err.message);
+    res.status(500).json({ code: 500, message: '银行内部户开户页面获取失败', error: err.message });
+  }
+});
+
+// GET /api/merchant/bank-account-query — 查询银行开户凭证（QZT 6.12）
+app.get('/api/merchant/bank-account-query', async (req, res) => {
+  const { out_request_no } = req.query;
+  if (!out_request_no) return res.status(400).json({ code: 400, message: '缺少 out_request_no' });
+  try {
+    const result = await callQzt('open.bank.account.voucher.query', { out_request_no });
+    res.json({ code: 0, data: result });
+  } catch (err) {
+    console.error('[6.12] 银行开户凭证查询失败:', err.message);
+    res.status(500).json({ code: 500, message: '银行开户凭证查询失败', error: err.message });
+  }
+});
+
 // 文件上传路由（OSS + QZT 文件注册）
 const uploadRouter = require('./routes/upload');
 app.use('/api/upload', uploadRouter);
