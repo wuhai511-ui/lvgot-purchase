@@ -1,66 +1,38 @@
 /**
- * 交易模块 API
+ * 交易订单相关 API
+ * 多账户模式：订单与账户编号关联
  */
 import { get, post } from './request.js'
 
 /**
- * 创建支付
- * @param {Object} data - 支付数据
+ * 获取订单列表
+ * @param {object} params - { merchant_id?, account_no?, status?, limit?, offset? }
  */
-export function createPayment(data) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      paymentId: 'P' + Date.now(),
-      qrCode: 'https://bgualqb.cn/qr/' + Date.now(),
-      amount: data.amount,
-      status: 'pending',
-    },
-  })
+export const getOrders = (params = {}) => {
+  return get('/api/orders', params)
 }
 
 /**
- * 获取分账记录
- * @param {Object} params - 查询参数
+ * 获取订单详情
+ * @param {number|string} orderId
  */
-export function getSplitRecords(params) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      list: [
-        {
-          recordId: 'SR001',
-          orderId: 'O001',
-          amount: 100.00,
-          splitRatio: 0.6,
-          status: 'completed',
-        },
-      ],
-      total: 1,
-    },
-  })
+export const getOrderDetail = (orderId) => {
+  return get(`/api/orders/${orderId}`)
 }
 
 /**
- * 获取交易消息
- * @param {Object} params - 查询参数
+ * 发起手动分账
+ * @param {number|string} orderId
+ * @param {array} payeeList - [{account_no, amount}]
  */
-export function getTradeMessages(params) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      list: [
-        {
-          messageId: 'MSG001',
-          type: 'payment',
-          content: '收到一笔支付',
-          createTime: new Date().toISOString(),
-        },
-      ],
-      total: 1,
-    },
-  })
+export const splitOrder = (orderId, payeeList) => {
+  return post(`/api/orders/${orderId}/splits`, { payee_list: payeeList })
+}
+
+/**
+ * 批量创建订单
+ * @param {array} orders - [{out_order_no, account_no, payee_account_no, amount}]
+ */
+export const batchCreateOrders = (orders) => {
+  return post('/api/orders/batch', { orders })
 }
