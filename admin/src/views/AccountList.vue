@@ -1,11 +1,11 @@
 <template>
   <div class="page">
-    <div class="page-title">💰 账户列表</div>
+    <div class="page-title">账户资料</div>
+    <div class="page-subtitle">维护商户主体信息、查看开户状态，并在这里直接继续开户或补充资料。</div>
 
-    <!-- 搜索筛选 -->
     <div class="card">
-      <div class="card-body search-bar">
-        <el-input v-model="searchForm.keyword" placeholder="账户名称/编号/手机号" clearable style="width: 200px" @keyup.enter="handleSearch" />
+      <div class="card-body search-bar" style="max-width: 1464px; margin: 0 auto;">
+        <el-input v-model="searchForm.keyword" placeholder="账户名称/编号/手机号" clearable style="width: 220px" @keyup.enter="handleSearch" />
         <el-select v-model="searchForm.status" placeholder="开户状态" clearable style="width: 140px">
           <el-option label="全部" value="" />
           <el-option label="待开户" value="PENDING" />
@@ -22,14 +22,13 @@
         <el-button type="primary" @click="handleSearch">搜索</el-button>
         <el-button @click="handleReset">重置</el-button>
         <div class="flex-spacer"></div>
-        <el-button type="primary" @click="goToOpening">
+        <el-button type="primary" plain @click="goToOpening">
           <el-icon><Plus /></el-icon>
           申请开户
         </el-button>
       </div>
     </div>
 
-    <!-- 数据表格 -->
     <div class="card">
       <div class="card-body">
         <el-table :data="accountList" v-loading="loading" stripe>
@@ -43,7 +42,7 @@
             <template #default="{ row }">{{ row.alias || '-' }}</template>
           </el-table-column>
           <el-table-column prop="mobile" label="绑定手机号" width="130" />
-          <el-table-column prop="enterpriseType" label="入网类型" width="100">
+          <el-table-column prop="enterpriseType" label="入网类型" width="110">
             <template #default="{ row }">
               <el-tag size="small" :type="row.enterpriseType === '3' ? 'warning' : 'primary'">
                 {{ enterpriseTypeMap[row.enterpriseType] || '未知' }}
@@ -62,7 +61,7 @@
               </el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="status" label="开户状态" width="100">
+          <el-table-column prop="status" label="开户状态" width="110">
             <template #default="{ row }">
               <el-tag size="small" :type="statusType[row.status]">
                 {{ statusMap[row.status] || '未知' }}
@@ -75,10 +74,10 @@
           <el-table-column prop="operator" label="操作人" width="100">
             <template #default="{ row }">{{ row.operator || '系统' }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
-              <el-button v-if="row.status === 'PENDING'" type="success" link size="small" @click="continueOpening(row)">
+              <el-button v-if="row.status === 'PENDING' || row.status === 'PERSONAL_PENDING'" type="success" link size="small" @click="continueOpening(row)">
                 继续开户
               </el-button>
               <el-button v-if="row.qztUrl" type="warning" link size="small" @click="openQztPage(row)">
@@ -88,7 +87,6 @@
           </el-table-column>
         </el-table>
 
-        <!-- 分页 -->
         <div class="pagination">
           <el-pagination
             v-model:current-page="pagination.page"
@@ -103,7 +101,6 @@
       </div>
     </div>
 
-    <!-- 详情弹窗 -->
     <el-dialog v-model="showDetail" title="账户详情" width="600px">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="账户编号">{{ currentAccount.accountNo }}</el-descriptions-item>
@@ -129,9 +126,7 @@
       </el-descriptions>
       <template #footer>
         <el-button @click="showDetail = false">关闭</el-button>
-        <el-button v-if="currentAccount.qztUrl" type="primary" @click="openQztPage(currentAccount)">
-          打开签约页
-        </el-button>
+        <el-button v-if="currentAccount.qztUrl" type="primary" @click="openQztPage(currentAccount)">打开签约页</el-button>
       </template>
     </el-dialog>
   </div>
@@ -146,7 +141,6 @@ import { getMerchantList } from '@/api/merchant'
 
 const router = useRouter()
 
-// 状态映射
 const enterpriseTypeMap = {
   '1': '企业',
   '2': '个体户',
@@ -154,62 +148,56 @@ const enterpriseTypeMap = {
 }
 
 const roleTypeMap = {
-  'PLATFORM': '平台',
-  'MERCHANT': '商户',
-  'OTHER': '其他'
+  PLATFORM: '平台',
+  MERCHANT: '商户',
+  OTHER: '其他'
 }
 
 const signStatusMap = {
-  'PENDING': '待签约',
-  'SIGNED': '已签约',
-  'FAILED': '签约失败'
+  PENDING: '待签约',
+  SIGNED: '已签约',
+  FAILED: '签约失败'
 }
 
 const signStatusType = {
-  'PENDING': 'warning',
-  'SIGNED': 'success',
-  'FAILED': 'danger'
+  PENDING: 'warning',
+  SIGNED: 'success',
+  FAILED: 'danger'
 }
 
 const statusMap = {
-  'PENDING': '待开户',
-  'PROCESSING': '开户中',
-  'ACTIVE': '已开户',
-  'FAILED': '开户失败',
-  'PERSONAL_PENDING': '待完善'
+  PENDING: '待开户',
+  PROCESSING: '开户中',
+  ACTIVE: '已开户',
+  FAILED: '开户失败',
+  PERSONAL_PENDING: '待完善'
 }
 
 const statusType = {
-  'PENDING': 'info',
-  'PROCESSING': 'warning',
-  'ACTIVE': 'success',
-  'FAILED': 'danger',
-  'PERSONAL_PENDING': 'warning'
+  PENDING: 'info',
+  PROCESSING: 'warning',
+  ACTIVE: 'success',
+  FAILED: 'danger',
+  PERSONAL_PENDING: 'warning'
 }
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   status: '',
   signStatus: ''
 })
 
-// 分页
 const pagination = reactive({
   page: 1,
   pageSize: 20,
   total: 0
 })
 
-// 数据
 const accountList = ref([])
 const loading = ref(false)
-
-// 详情弹窗
 const showDetail = ref(false)
 const currentAccount = ref({})
 
-// 获取列表
 const fetchList = async () => {
   loading.value = true
   try {
@@ -219,10 +207,9 @@ const fetchList = async () => {
       page: pagination.page,
       pageSize: pagination.pageSize
     })
-    
+
     if (res.code === 0) {
-      // 转换数据格式
-      accountList.value = (res.data || []).map(item => ({
+      accountList.value = (res.data || []).map((item) => ({
         id: item.id,
         accountNo: item.qzt_response?.account_no || `TEMP_${item.id}`,
         accountName: item.register_name,
@@ -240,20 +227,18 @@ const fetchList = async () => {
       }))
       pagination.total = accountList.value.length
     }
-  } catch (e) {
-    console.error('获取账户列表失败:', e)
+  } catch (error) {
+    console.error('获取账户列表失败:', error)
   } finally {
     loading.value = false
   }
 }
 
-// 搜索
 const handleSearch = () => {
   pagination.page = 1
   fetchList()
 }
 
-// 重置
 const handleReset = () => {
   searchForm.keyword = ''
   searchForm.status = ''
@@ -261,7 +246,6 @@ const handleReset = () => {
   handleSearch()
 }
 
-// 分页
 const handleSizeChange = (size) => {
   pagination.pageSize = size
   fetchList()
@@ -272,34 +256,31 @@ const handlePageChange = (page) => {
   fetchList()
 }
 
-// 跳转开户页
 const goToOpening = () => {
   router.push('/account-opening')
 }
 
-// 查看详情
 const viewDetail = (row) => {
   currentAccount.value = row
   showDetail.value = true
 }
 
-// 继续开户
 const continueOpening = (row) => {
   if (row.qztUrl) {
     window.open(row.qztUrl, '_blank')
-  } else {
-    ElMessage.warning('暂无开户链接，请重新申请')
+    return
   }
+
+  router.push('/account-opening')
+  ElMessage.info('未找到原开户链接，已跳转到开户申请页重新发起。')
 }
 
-// 打开钱账通页面
 const openQztPage = (row) => {
   if (row.qztUrl) {
     window.open(row.qztUrl, '_blank')
   }
 }
 
-// 格式化时间
 const formatTime = (time) => {
   if (!time) return '-'
   return time.replace('T', ' ').substring(0, 19)
@@ -311,11 +292,11 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.page { padding: 20px 24px; overflow-x: auto; }
-.page-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 20px; }
-.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; min-width: 800px; }
-.card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
-.card-body { padding: 20px; overflow-x: auto; }
+.page { padding: 20px 24px; }
+.page-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 8px; }
+.page-subtitle { margin-bottom: 18px; color: #58716b; line-height: 1.8; font-size: 14px; }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+.card-body { padding: 20px; }
 .search-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .flex-spacer { flex: 1; }
 .account-name { font-weight: 500; color: #1976D2; }

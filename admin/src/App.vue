@@ -68,7 +68,7 @@
             <div class="topbar-title">{{ currentMenuName }}</div>
             <div class="topbar-subtitle">围绕商户经营、分账协作和个人提现闭环设计的山海青绿工作台。</div>
           </div>
-          <div class="topbar-actions">
+          <div class="topbar-actions" style="max-width: 1464px; margin: 0 auto; width: 100%;">
             <span class="metric-chip">门店 12 家</span>
             <span class="metric-chip">今日待处理 5 项</span>
             <el-button type="primary" plain @click="router.push('/withdraw')">去提现</el-button>
