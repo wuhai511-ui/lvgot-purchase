@@ -156,7 +156,7 @@ onMounted(() => {
 .topbar-title { font-size: 28px; font-weight: 700; color: $text-color; }
 .topbar-subtitle { margin-top: 8px; max-width: 760px; color: $text-secondary; line-height: 1.7; }
 .topbar-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
-.content-panel { min-height: calc(100vh - 110px); }
+.content-panel { min-height: calc(100vh - 110px); overflow-x: auto; }
 @media (max-width: 1200px) { .layout-shell { grid-template-columns: 1fr; } .sidebar { border-right: none; border-bottom: 1px solid rgba(215,229,225,0.9); } }
 @media (max-width: 768px) { .main-panel { padding: 16px; } .topbar { flex-direction: column; } .topbar-title { font-size: 22px; } }
 </style>
