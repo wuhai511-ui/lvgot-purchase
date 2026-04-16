@@ -459,6 +459,38 @@ function updateAccountBalance(account_no, balance_increment) {
   saveDatabase();
 }
 
+// ========== 门店 ==========
+function saveStore({ id, merchant_id, store_name, status }) {
+  if (id) {
+    db.run('UPDATE stores SET store_name=?, status=? WHERE id=?', [store_name, status || 'ACTIVE', parseInt(id)]);
+    saveDatabase(); return { id: parseInt(id), merchant_id, store_name, status };
+  }
+  db.run('INSERT INTO stores (merchant_id, store_name, status) VALUES (?, ?, ?)',
+    [parseInt(merchant_id), store_name, status || 'ACTIVE']);
+  saveDatabase();
+  const r = db.exec('SELECT last_insert_rowid() as id');
+  return { id: r[0]?.values[0]?.[0], merchant_id, store_name, status: status || 'ACTIVE' };
+}
+
+function getStores(merchant_id = null) {
+  const result = merchant_id
+    ? db.exec('SELECT * FROM stores WHERE merchant_id=?', [parseInt(merchant_id)])
+    : db.exec('SELECT * FROM stores');
+  if (!result.length) return [];
+  return result[0].values.map(row => _rowToObj(result[0].columns, row));
+}
+
+function getStoreById(id) {
+  const result = db.exec('SELECT * FROM stores WHERE id=?', [parseInt(id)]);
+  if (!result.length || !result[0].values.length) return null;
+  return _rowToObj(result[0].columns, result[0].values[0]);
+}
+
+function deleteStore(id) {
+  db.run('UPDATE stores SET status=? WHERE id=?', ['DELETED', parseInt(id)]);
+  saveDatabase(); return true;
+}
+
 // ========== 商终绑定 ==========
 function saveStoreTerminal(store_id, merchant_no, terminal_no, account_no = '') {
   // 检查是否已存在
@@ -726,6 +758,8 @@ module.exports = {
   saveReconciliationTask, getReconciliationTask, getReconciliationTasks, updateReconciliationTask,
   saveReconciliationDetail, getReconciliationDetails,
   saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference,
+  // 门店
+  saveStore, getStores, getStoreById, deleteStore,
   // 商终绑定
   saveStoreTerminal, getStoreTerminalsByStoreId, deleteStoreTerminal,
   // 交易订单
