@@ -103,8 +103,9 @@ function createTables() {
   db.run("CREATE TABLE IF NOT EXISTS reconciliation_details (id INTEGER PRIMARY KEY AUTOINCREMENT, task_no TEXT NOT NULL, record_type TEXT NOT NULL, record_id TEXT, expected_amount INTEGER, actual_amount INTEGER, difference_amount INTEGER, status TEXT, remark TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS reconciliation_differences (id INTEGER PRIMARY KEY AUTOINCREMENT, task_no TEXT NOT NULL, difference_type TEXT NOT NULL, severity TEXT DEFAULT 'medium', description TEXT, suggested_action TEXT, status TEXT DEFAULT 'pending', resolved_by TEXT, resolved_at DATETIME, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, role TEXT DEFAULT 'user', merchant_id INTEGER, status TEXT DEFAULT 'ACTIVE', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
-  db.run("CREATE TABLE IF NOT EXISTS store_terminals (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL, merchant_no TEXT NOT NULL, terminal_no TEXT NOT NULL, account_no TEXT, status TEXT DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
-  db.run("CREATE TABLE IF NOT EXISTS trade_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, order_no TEXT UNIQUE NOT NULL, out_order_no TEXT, payer_account_no TEXT NOT NULL, payer_name TEXT, total_amount INTEGER NOT NULL DEFAULT 0, currency TEXT DEFAULT 'CNY', status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP, update_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS stores (id INTEGER PRIMARY KEY AUTOINCREMENT, merchant_id INTEGER NOT NULL, store_name TEXT NOT NULL, status TEXT DEFAULT 'ACTIVE', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
+  db.run("CREATE TABLE IF NOT EXISTS store_terminals (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL, merchant_no TEXT NOT NULL, terminal_no TEXT NOT NULL, account_no TEXT, status TEXT DEFAULT 'active', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(store_id, merchant_no, terminal_no))");
+  db.run("CREATE TABLE IF NOT EXISTS trade_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, merchant_id INTEGER, out_order_no TEXT UNIQUE NOT NULL, account_no TEXT NOT NULL, payee_account_no TEXT, amount INTEGER NOT NULL DEFAULT 0, status TEXT DEFAULT 'PENDING', split_status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS trade_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, payment_seq_no TEXT UNIQUE, payment_type TEXT NOT NULL, amount INTEGER NOT NULL DEFAULT 0, status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
   db.run("CREATE TABLE IF NOT EXISTS trade_splits (id INTEGER PRIMARY KEY AUTOINCREMENT, payment_id INTEGER NOT NULL, split_seq_no TEXT UNIQUE, receiver_account_no TEXT NOT NULL, receiver_name TEXT, amount INTEGER NOT NULL DEFAULT 0, status TEXT DEFAULT 'PENDING', create_time DATETIME DEFAULT CURRENT_TIMESTAMP)");
   console.log('数据表创建完成');
@@ -462,14 +463,19 @@ function updateAccountBalance(account_no, balance_increment) {
 // ========== 门店 ==========
 function saveStore({ id, merchant_id, store_name, status }) {
   if (id) {
-    db.run('UPDATE stores SET store_name=?, status=? WHERE id=?', [store_name, status || 'ACTIVE', parseInt(id)]);
-    saveDatabase(); return { id: parseInt(id), merchant_id, store_name, status };
+    db.run(`INSERT INTO stores (id, merchant_id, store_name, status)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              store_name=excluded.store_name, status=excluded.status`,
+      [parseInt(id), parseInt(merchant_id), store_name, status || 'ACTIVE']);
+  } else {
+    db.run(`INSERT INTO stores (merchant_id, store_name, status)
+            VALUES (?, ?, ?)`,
+      [parseInt(merchant_id), store_name, status || 'ACTIVE']);
   }
-  db.run('INSERT INTO stores (merchant_id, store_name, status) VALUES (?, ?, ?)',
-    [parseInt(merchant_id), store_name, status || 'ACTIVE']);
   saveDatabase();
   const r = db.exec('SELECT last_insert_rowid() as id');
-  return { id: r[0]?.values[0]?.[0], merchant_id, store_name, status: status || 'ACTIVE' };
+  return { id: id || r[0]?.values[0]?.[0], merchant_id, store_name, status: status || 'ACTIVE' };
 }
 
 function getStores(merchant_id = null) {
@@ -493,20 +499,22 @@ function deleteStore(id) {
 
 // ========== 商终绑定 ==========
 function saveStoreTerminal(store_id, merchant_no, terminal_no, account_no = '') {
-  // 检查是否已存在
-  const existing = db.exec('SELECT id FROM store_terminals WHERE store_id=? AND merchant_no=? AND terminal_no=?',
-    [parseInt(store_id), merchant_no, terminal_no]);
-  if (existing.length && existing[0].values.length) {
-    db.run('UPDATE store_terminals SET account_no=?, status=? WHERE store_id=? AND merchant_no=? AND terminal_no=?',
-      [account_no, 'active', parseInt(store_id), merchant_no, terminal_no]);
-  } else {
-    db.run('INSERT INTO store_terminals (store_id, merchant_no, terminal_no, account_no, status) VALUES (?, ?, ?, ?, ?)',
-      [parseInt(store_id), merchant_no, terminal_no, account_no, 'active']);
-  }
+  // INSERT ... ON CONFLICT 原子 upsert（根据 store_id+merchant_no+terminal_no 判断）
+  db.run(`INSERT INTO store_terminals (store_id, merchant_no, terminal_no, account_no, status)
+          VALUES (?, ?, ?, ?, 'active')
+          ON CONFLICT(store_id, merchant_no, terminal_no) DO UPDATE SET
+            account_no=excluded.account_no, status='active'`,
+    [parseInt(store_id), merchant_no, terminal_no, account_no]);
   saveDatabase();
 }
 
 function getStoreTerminalsByStoreId(store_id) {
+  // null/undefined → 返回全部（非 deleted）
+  if (store_id == null) {
+    const result = db.exec('SELECT * FROM store_terminals WHERE status != ? ORDER BY id DESC', ['deleted']);
+    if (!result.length) return [];
+    return result[0].values.map(row => _rowToObj(result[0].columns, row));
+  }
   const result = db.exec('SELECT * FROM store_terminals WHERE store_id = ? ORDER BY id DESC', [parseInt(store_id)]);
   if (!result.length) return [];
   return result[0].values.map(row => _rowToObj(result[0].columns, row));
@@ -518,18 +526,45 @@ function deleteStoreTerminal(terminal_id) {
 }
 
 // ========== 交易订单 ==========
-function saveTradeOrder(order) {
-  const { id, order_no, out_order_no, payer_account_no, payer_name, total_amount, currency, status } = order;
+function saveTradeOrder({ id, merchant_id, out_order_no, account_no, payee_account_no, amount, status, split_status, order_no }) {
+  // order_no 为旧表必填字段，缺失时自动生成
+  const finalOrderNo = order_no || ('ON_' + Date.now() + Math.random().toString(36).slice(2, 8));
+  // 由于 out_order_no 在旧表上没有 UNIQUE 约束，用 check-then-upsert 模式
   if (id) {
-    db.run('UPDATE trade_orders SET out_order_no=?, payer_account_no=?, payer_name=?, total_amount=?, currency=?, status=?, update_time=CURRENT_TIMESTAMP WHERE id=?',
-      [out_order_no||'', payer_account_no||'', payer_name||'', Math.round(parseFloat(total_amount))||0, currency||'CNY', status||'PENDING', parseInt(id)]);
-    saveDatabase(); return order;
+    db.run(`INSERT INTO trade_orders (id, merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              merchant_id=excluded.merchant_id, order_no=excluded.order_no, out_order_no=excluded.out_order_no,
+              payer_account_no=excluded.payer_account_no,
+              account_no=excluded.account_no, payee_account_no=excluded.payee_account_no,
+              amount=excluded.amount, status=excluded.status, split_status=excluded.split_status,
+              updated_at=CURRENT_TIMESTAMP`,
+      [parseInt(id), parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
+       Math.round(amount||0), status||'PENDING', split_status||'']);
+  } else if (out_order_no) {
+    // 尝试 UPDATE（out_order_no 不一定有 UNIQUE 约束，跳过 INSERT ... ON CONFLICT）
+    const existing = db.exec('SELECT id FROM trade_orders WHERE out_order_no=?', [out_order_no||'']);
+    if (existing.length && existing[0].values.length) {
+      db.run(`UPDATE trade_orders SET
+                merchant_id=?, order_no=?, payer_account_no=?, account_no=?, payee_account_no=?, amount=?, status=?, split_status=?, updated_at=CURRENT_TIMESTAMP
+              WHERE out_order_no=?`,
+        [parseInt(merchant_id)||0, finalOrderNo, account_no||'', account_no||'', payee_account_no||'', Math.round(amount||0),
+         status||'PENDING', split_status||'', out_order_no||'']);
+    } else {
+      db.run(`INSERT INTO trade_orders (merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
+         Math.round(amount||0), status||'PENDING', split_status||'']);
+    }
+  } else {
+    db.run(`INSERT INTO trade_orders (merchant_id, order_no, out_order_no, payer_account_no, account_no, payee_account_no, amount, status, split_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [parseInt(merchant_id)||0, finalOrderNo, out_order_no||'', account_no||'', account_no||'', payee_account_no||'',
+       Math.round(amount||0), status||'PENDING', split_status||'']);
   }
-  db.run('INSERT INTO trade_orders (order_no, out_order_no, payer_account_no, payer_name, total_amount, currency, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [order_no, out_order_no||'', payer_account_no||'', payer_name||'', Math.round(parseFloat(total_amount))||0, currency||'CNY', status||'PENDING']);
   saveDatabase();
   const r = db.exec('SELECT last_insert_rowid() as id');
-  return { id: r[0]?.values[0]?.[0], ...order };
+  return { id: id || r[0]?.values[0]?.[0], merchant_id, out_order_no, account_no, amount, status };
 }
 
 function getTradeOrders(filters = {}) {
