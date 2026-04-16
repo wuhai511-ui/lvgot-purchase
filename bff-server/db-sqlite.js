@@ -726,8 +726,6 @@ module.exports = {
   saveReconciliationTask, getReconciliationTask, getReconciliationTasks, updateReconciliationTask,
   saveReconciliationDetail, getReconciliationDetails,
   saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference,
-  // 账户
-  getAccounts, getAccountById, saveAccount, updateAccountBalance,
   // 商终绑定
   saveStoreTerminal, getStoreTerminalsByStoreId, deleteStoreTerminal,
   // 交易订单
