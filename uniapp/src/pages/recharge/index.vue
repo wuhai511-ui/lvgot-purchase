@@ -7,7 +7,17 @@
 
     <!-- 充值表单 -->
     <template v-if="!showGuide">
-      <view class="balance-hint">当前余额：¥ {{ accountStore.currentAccount.balance }}</view>
+      <!-- 账户选择 + 余额区域 -->
+      <view class="balance-hint">
+        <picker mode="selector" :range="accounts" range-key="account_no" @change="onAccountChange">
+          <view class="account-picker">
+            <text class="picker-label">{{ currentAccountNo || '请选择账户' }}</text>
+            <text class="picker-arrow">▼</text>
+          </view>
+        </picker>
+        <text class="balance-value">余额：¥{{ (currentBalance / 100).toFixed(2) }}</text>
+      </view>
+      <view v-if="currentAccountType === 'PERSONAL'" class="personal-warn">⚠️ 个人账户不支持充值</view>
 
       <view class="amount-card">
         <view class="amount-label">充值金额</view>
@@ -100,13 +110,49 @@
 </template>
 
 <script setup>
-import { ref, reactive, onBeforeUnmount } from 'vue'
+import { ref, reactive, onBeforeUnmount, onShow } from 'vue'
 import { useAccountStore } from '@/store/account'
+import { getAccounts } from '@/api/account'
+import { applyRecharge } from '@/api/recharge'
 
 const accountStore = useAccountStore()
+const accounts = ref([])
+const currentAccountNo = ref('')
+const currentBalance = ref(0)
+const currentAccountType = ref('')
 const amount = ref(500)
 const payMethod = ref('balance')
 const loading = ref(false)
+
+// 多账户切换
+onShow(async () => {
+  const accs = accountStore.accounts
+  if (accs.length) {
+    accounts.value = accs
+  } else {
+    const res = await getAccounts(1)
+    if (res.code === 0) {
+      accounts.value = res.data || []
+      accountStore.setAccounts(accounts.value)
+    }
+  }
+  currentAccountNo.value = accountStore.currentAccountNo
+  const acc = accountStore.currentAccount
+  if (acc) {
+    currentBalance.value = acc.balance || 0
+    currentAccountType.value = acc.account_type || ''
+  }
+})
+
+const onAccountChange = (e) => {
+  const idx = e.detail.value
+  const acc = accounts.value[idx]
+  if (!acc) return
+  accountStore.selectAccount(acc.account_no)
+  currentAccountNo.value = acc.account_no
+  currentBalance.value = acc.balance || 0
+  currentAccountType.value = acc.account_type || ''
+}
 
 // 充值引导页状态
 const showGuide = ref(false)
@@ -180,9 +226,54 @@ const startPoll = (orderNo) => {
 
 // 发起充值
 const doRecharge = async () => {
+  if (!currentAccountNo.value) {
+    uni.showToast({ title: '请先选择账户', icon: 'none' }); return
+  }
+  if (currentAccountType.value === 'PERSONAL') {
+    uni.showToast({ title: '个人账户不支持充值', icon: 'none' }); return
+  }
   if (!amount.value || amount.value <= 0) {
     uni.showToast({ title: '请输入金额', icon: 'none' }); return
   }
+
+  loading.value = true
+  try {
+    // 优先使用 BFF 多账户接口
+    const bffRes = await applyRecharge({
+      account_no: currentAccountNo.value,
+      amount: amount.value,
+      remark: '',
+    })
+    if (bffRes.code === 0) {
+      Object.assign(rechargeInfo, {
+        orderNo: bffRes.data?.out_request_no || `CZ${Date.now()}`,
+        accountNo: currentAccountNo.value,
+        amount: amount.value,
+        expireTime: bffRes.data?.expire_time || new Date(Date.now() + 24 * 3600 * 1000).toLocaleString(),
+      })
+      rechargeStatus.value = 'idle'
+      showGuide.value = true
+      startPoll(rechargeInfo.orderNo)
+      return
+    }
+    // BFF 未上线，降级走原逻辑
+    console.warn('[Recharge] BFF not available, mock fallback')
+    throw new Error('BFF not available')
+  } catch (e) {
+    // 降级 Mock（保留原有逻辑）
+    Object.assign(rechargeInfo, {
+      orderNo: `CZ${new Date().toISOString().slice(0,10).replace(/-/g,'')}${Math.random().toString().slice(2,8)}`,
+      accountNo: currentAccountNo.value || '***1234',
+      amount: amount.value,
+      expireTime: new Date(Date.now() + 24 * 3600 * 1000).toLocaleString(),
+    })
+    rechargeStatus.value = 'idle'
+    showGuide.value = true
+    startPoll(rechargeInfo.orderNo)
+  } finally {
+    loading.value = false
+  }
+}
 
   loading.value = true
   try {
@@ -248,7 +339,12 @@ onBeforeUnmount(() => {
 <style scoped lang="scss">
 @import '@/static/styles/variables.scss';
 
-.balance-hint { text-align: center; color: #888; font-size: 13px; padding: 12px; }
+.balance-hint { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; color: #888; font-size: 13px; }
+.account-picker { display: flex; align-items: center; gap: 6px; background: #f0f0f0; padding: 6px 14px; border-radius: 16px; }
+.picker-label { color: #333; font-size: 13px; }
+.picker-arrow { font-size: 10px; color: #888; }
+.balance-value { font-size: 13px; color: #666; }
+.personal-warn { text-align: center; color: #d4380d; font-size: 12px; padding: 4px 0 8px; }
 .amount-card { margin: 16px; padding: 20px; background: #fff; border-radius: $border-radius-lg; box-shadow: $shadow-md; }
 .amount-label { font-size: 13px; color: #888; margin-bottom: 8px; }
 .amount-input-wrap { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
