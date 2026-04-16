@@ -505,6 +505,14 @@ app.use('/api/terminals', terminalsRouter);
 const storesRouter = require('./routes/stores');
 app.use('/api/stores', storesRouter);
 
+// 充值路由
+const rechargeRouter = require('./routes/recharge');
+app.use('/api/recharge', rechargeRouter);
+
+// 提现路由
+const withdrawRouter = require('./routes/withdraw');
+app.use('/api/withdraw', withdrawRouter);
+
 // 兼容旧版前端：POST /api/merchant → 根据类型选择接口
 // 个人（enterprise_type=3）：使用 open.split.account.apply (6.9) 直接申请
 // 企业/个体工商户（enterprise_type=1或2）：使用 open.split.account.page.url (6.3) 获取 H5 页面
