@@ -497,6 +497,10 @@ app.get('/api/merchants', (req, res) => {
 app.use('/api/merchant', merchantRouter);
 app.use('/api/v1/merchants', merchantRouter);
 
+// 商终管理路由
+const terminalsRouter = require('./routes/terminals');
+app.use('/api/terminals', terminalsRouter);
+
 // 兼容旧版前端：POST /api/merchant → 根据类型选择接口
 // 个人（enterprise_type=3）：使用 open.split.account.apply (6.9) 直接申请
 // 企业/个体工商户（enterprise_type=1或2）：使用 open.split.account.page.url (6.3) 获取 H5 页面
