@@ -1,0 +1,8 @@
+{
+  "appId": "LVGOT001",
+  "appName": "旅购通",
+  "enableBankInternalAccount": false,
+  "enableEContract": false,
+  "paymentAuthType": "SMS",
+  "withdrawAuthType": "SMS"
+}

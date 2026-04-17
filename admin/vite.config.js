@@ -12,6 +12,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    assetsDir: 'static'
+    assetsDir: 'static',
+    sourcemap: false,
+    minify: false,
+    chunkSizeWarningLimit: 2000
   }
 })

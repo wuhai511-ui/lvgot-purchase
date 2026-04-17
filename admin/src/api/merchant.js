@@ -5,7 +5,7 @@
  */
 import { post, upload } from './request.js'
 
-const BASE = '/api/merchant'
+const BASE = '/api/v1/merchant'
 
 /**
  * 手机号+验证码登录（Mock）
@@ -46,7 +46,7 @@ export const uploadFile = async (file) => {
   }
   const fileContent = btoa(binary)
   
-  return post('/api/merchant/upload', {
+  return post('/api/v1/merchant/upload', {
     file_name: file.name,
     file_type: file.name.split('.').pop() || 'jpg',
     file_content: fileContent
@@ -121,7 +121,7 @@ export const callOCR = (fileKey, type) => {
  * POST /api/qzt/recharge/pre-order
  */
 export const rechargePreOrder = (data) => {
-  return post('/api/qzt/recharge/pre-order', {
+  return post('/api/v1/recharge/pre-order', {
     amount: data.amount,
     account_type: data.accountType || 'lakala',
   })
@@ -132,7 +132,7 @@ export const rechargePreOrder = (data) => {
  * GET /api/qzt/recharge/status?order_no=xxx
  */
 export const rechargeStatus = (orderNo) => {
-  return post('/api/qzt/recharge/status', { order_no: orderNo })
+  return post('/api/v1/recharge/status', { order_no: orderNo })
 }
 
 /**
@@ -140,7 +140,7 @@ export const rechargeStatus = (orderNo) => {
  * POST /api/qzt/split/pre-order
  */
 export const splitPreOrder = (data) => {
-  return post('/api/qzt/split/pre-order', data)
+  return post('/api/v1/split/pre-order', data)
 }
 
 /**
@@ -148,7 +148,7 @@ export const splitPreOrder = (data) => {
  * POST /api/qzt/split/confirm
  */
 export const splitConfirm = (data) => {
-  return post('/api/qzt/split/confirm', data)
+  return post('/api/v1/split/confirm', data)
 }
 
 /**
@@ -156,7 +156,7 @@ export const splitConfirm = (data) => {
  * POST /api/qzt/withdraw/pre-order
  */
 export const withdrawPreOrder = (data) => {
-  return post('/api/qzt/withdraw/pre-order', data)
+  return post('/api/v1/withdraw/pre-order', data)
 }
 
 /**

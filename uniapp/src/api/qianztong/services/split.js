@@ -38,7 +38,7 @@ export async function getOpenPageUrl(params) {
  * @returns {Promise<{out_request_no, split_apply_no}>}
  */
 export async function applyOpen(params) {
-  return request.post('/api/qzt/proxy', { service: 'open.split.account.apply', params })
+  return request.post('/api/qzt/proxy', { service: 'split.account.apply', params })
 }
 
 /**
@@ -50,7 +50,7 @@ export async function applyOpen(params) {
  * @returns {Promise<{out_request_no, split_id}>}
  */
 export async function confirmOpen(params) {
-  return request.post('/api/qzt/proxy', { service: 'open.split.account.apply.affirm', params })
+  return request.post('/api/qzt/proxy', { service: 'split.account.confirm', params })
 }
 
 /**
@@ -60,7 +60,7 @@ export async function confirmOpen(params) {
  * @returns {Promise<{out_request_no, merchant_id, split_id, status, ...}>}
  */
 export async function queryOpenResult(params) {
-  return request.post('/api/qzt/proxy', { service: 'open.split.account.apply.query', params })
+  return request.post('/api/qzt/proxy', { service: 'split.account.query', params })
 }
 
 /**
@@ -72,7 +72,7 @@ export async function queryOpenResult(params) {
  * @returns {Promise<{out_request_no, url}>}
  */
 export async function supplementAgreement(params) {
-  return request.post('/api/qzt/proxy', { service: 'open.split.account.agreement.replenish', params })
+  return request.post('/api/qzt/proxy', { service: 'split.account.agreement.supplement', params })
 }
 
 /**
@@ -85,7 +85,7 @@ export async function supplementAgreement(params) {
  * @returns {Promise<{out_request_no, split_status}>}
  */
 export async function split(params) {
-  return request.post('/api/qzt/proxy', { service: 'trans.trade.fund.split', params })
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split', params })
 }
 
 /**
@@ -97,7 +97,7 @@ export async function split(params) {
  * @returns {Promise<{out_request_no, split_status, split_list}>}
  */
 export async function querySplitResult(params) {
-  return request.post('/api/qzt/proxy', { service: 'trans.trade.fund.split.query', params })
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.query', params })
 }
 
 /**

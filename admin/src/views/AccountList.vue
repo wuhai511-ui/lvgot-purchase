@@ -74,7 +74,7 @@
           <el-table-column prop="operator" label="操作人" width="100">
             <template #default="{ row }">{{ row.operator || '系统' }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }">
               <el-button type="primary" link size="small" @click="viewDetail(row)">详情</el-button>
               <el-button v-if="row.status === 'PENDING' || row.status === 'PERSONAL_PENDING'" type="success" link size="small" @click="continueOpening(row)">
@@ -83,8 +83,6 @@
               <el-button v-if="row.qztUrl" type="warning" link size="small" @click="openQztPage(row)">
                 打开签约页
               </el-button>
-              <el-button type="primary" link size="small" @click="goToRecharge(row)">充值</el-button>
-              <el-button type="warning" link size="small" @click="goToWithdraw(row)">提现</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -281,16 +279,6 @@ const openQztPage = (row) => {
   if (row.qztUrl) {
     window.open(row.qztUrl, '_blank')
   }
-}
-
-const goToRecharge = (row) => {
-  const accountNo = row.accountNo || row.account_no
-  router.push({ path: '/recharge', query: { account_no: accountNo } })
-}
-
-const goToWithdraw = (row) => {
-  const accountNo = row.accountNo || row.account_no
-  router.push({ path: '/withdraw', query: { account_no: accountNo } })
 }
 
 const formatTime = (time) => {

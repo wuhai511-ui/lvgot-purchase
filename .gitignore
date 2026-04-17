@@ -3,20 +3,5 @@ dist/
 .DS_Store
 *.log
 .env
-*.pem
-*.der
-*.key
-*.crt
-
 # 钱账通密钥（敏感）
-bff-server/keys/
-
-# SQLite 数据库文件
-bff-server/data/
-bff-server/database.json
-
-# 本地商户数据
-bff-server/merchant.json
-
-# 调试工具
-bff-server/tools/
+uniapp/src/config/keys/

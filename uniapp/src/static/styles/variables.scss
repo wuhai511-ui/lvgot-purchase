@@ -1,31 +1,27 @@
-$brand-color: #0f766e;
-$brand-strong: #115e59;
-$brand-soft: #dff5f1;
-$brand-mist: #eff8f4;
-$brand-gradient: linear-gradient(135deg, #0f766e 0%, #13917d 55%, #8fd7c8 100%);
-$brand-warm: #f4efe3;
-$success-color: #2f855a;
-$warning-color: #dd6b20;
-$danger-color: #c53030;
-$text-color: #16302b;
-$text-secondary: #58716b;
-$text-muted: #7b928c;
-$border-color: #d7e5e1;
-$page-bg: #f4f7f2;
-$card-bg: #ffffff;
-$font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-$spacing-xs: 6px;
-$spacing-sm: 10px;
+// 主题色
+$primary-color: #1976D2;
+$primary-gradient: linear-gradient(135deg, #1976D2, #42A5F5);
+$success-color: #4CAF50;
+$warning-color: #FF9800;
+$danger-color: #E53935;
+
+// 字体
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+// 间距
+$spacing-xs: 4px;
+$spacing-sm: 8px;
 $spacing-md: 16px;
 $spacing-lg: 24px;
 $spacing-xl: 32px;
-$border-radius-sm: 10px;
-$border-radius-md: 18px;
-$border-radius-lg: 24px;
-$border-radius-xl: 30px;
-$shadow-sm: 0 8px 24px rgba(12, 74, 65, 0.08);
-$shadow-md: 0 18px 44px rgba(12, 74, 65, 0.12);
-$shadow-lg: 0 28px 60px rgba(12, 74, 65, 0.16);
 
-$primary-color: $brand-color;
-$primary-gradient: $brand-gradient;
+// 圆角
+$border-radius-sm: 4px;
+$border-radius-md: 8px;
+$border-radius-lg: 12px;
+$border-radius-xl: 16px;
+
+// 阴影
+$shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+$shadow-md: 0 2px 12px rgba(0, 0, 0, 0.08);
+$shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.12);

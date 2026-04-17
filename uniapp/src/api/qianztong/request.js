@@ -12,5 +12,5 @@ export async function qztRequest(service, params = {}) {
 export async function qztFileUpload(fileName, fileType, fileHash, fileContentBase64, extraParams = {}) {
   // 文件上传如果也有BFF的接口可以提出来，或者继续走 qztRequest /api/qzt/proxy 但带上内容
   const params = { file_name: fileName, file_type: fileType, file_hash: fileHash, file_content: fileContentBase64, ...extraParams }
-  return await qztRequest('file.upload', params)
+  return await qztRequest('file.upload.commn', params)
 }

@@ -17,7 +17,7 @@ const { requireAuth, DEMO_MODE, issueToken } = require('./middleware/auth');
 
 const app = express();
 const corsOptions = {
-  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3001'],
+  origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
   credentials: true
 };
 app.use(cors(corsOptions));
@@ -35,7 +35,7 @@ const QZT_CONFIG = {
 
 // --- 全局常量 ---
 // 回调地址前缀（用于钱账通回调通知，必须公网可访问）
-const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3001';
+const QZT_CALLBACK_URL = process.env.QZT_CALLBACK_URL || 'http://localhost:3000';
 // 分页上限
 const MAX_PAGE_SIZE = 100;
 
@@ -99,11 +99,6 @@ const getNotificationByOutRequestNo = (out_request_no, notification_type) => dbS
 const markNotificationProcessed = (id) => dbSqlite.markNotificationProcessed(id);
 const updateMerchantStatus = (id, status, qztAccountNo) => dbSqlite.updateMerchantStatus(id, status, qztAccountNo);
 const getMerchantByOutRequestNoFromDb = (out_request_no) => dbSqlite.getMerchantByOutRequestNo(out_request_no);
-const getTradeOrderByOutOrderNo = (out_order_no) => dbSqlite.getTradeOrderByOutOrderNo(out_order_no);
-const saveTradeOrderFromCallback = (order) => dbSqlite.saveTradeOrder(order);
-const saveTradePayment = (payment) => dbSqlite.saveTradePayment(payment);
-const getTradePaymentsByOrderId = (orderId) => dbSqlite.getTradePaymentsByOrderId(orderId);
-const getTradePaymentBySeqNo = (seqNo) => dbSqlite.getTradePaymentBySeqNo(seqNo);
 
 // 角色权限判断
 const canSplit = (enterprise_type) => {
@@ -501,78 +496,6 @@ app.get('/api/merchants', (req, res) => {
 // 同时挂载到 /api/merchant 和 /api/v1/merchants
 app.use('/api/merchant', merchantRouter);
 app.use('/api/v1/merchants', merchantRouter);
-
-// 商终管理路由
-const terminalsRouter = require('./routes/terminals');
-app.use('/api/terminals', terminalsRouter);
-
-// 账户管理路由（多账户模式，含余额查询、银行卡绑定解绑）
-const accountsRouter = require('./routes/accounts');
-app.use('/api/accounts', accountsRouter);
-
-// 门店管理路由
-const storesRouter = require('./routes/stores');
-app.use('/api/stores', storesRouter);
-
-// 充值路由
-const rechargeRouter = require('./routes/recharge');
-app.use('/api/recharge', rechargeRouter);
-
-// 提现路由
-const withdrawRouter = require('./routes/withdraw');
-app.use('/api/withdraw', withdrawRouter);
-
-// 交易订单路由
-const ordersRouter = require('./routes/orders');
-app.use('/api/orders', ordersRouter);
-
-// 商户管理路由（支付账户开户已有，本文件补充银行内部户相关）
-const merchantsRouter = require('./routes/merchants');
-app.use('/api/merchants', merchantsRouter);
-
-// ================= Task 14: 银行内部户开户（QZT 6.1 / 6.12） =================
-
-// POST /api/merchant/bank-account-page — 获取银行内部户开户页面（QZT 6.1）
-app.post('/api/merchant/bank-account-page', async (req, res) => {
-  const { merchant_id, register_name, legal_mobile, enterprise_type, back_url } = req.body;
-  if (!merchant_id) return res.status(400).json({ code: 400, message: '缺少 merchant_id' });
-  const merchant = dbSqlite.getMerchantById(merchant_id);
-  if (!merchant) return res.status(404).json({ code: 404, message: '商户不存在' });
-  if (String(enterprise_type || merchant.enterprise_type) === '3') {
-    return res.status(400).json({ code: 400, message: '个人商户无需银行内部户' });
-  }
-  const outRequestNo = 'BA_' + Date.now();
-  try {
-    const result = await callQzt('open.bank.account.page.url', {
-      out_request_no: outRequestNo,
-      register_name: register_name || merchant.register_name,
-      legal_mobile: legal_mobile || merchant.legal_mobile,
-      enterprise_type: enterprise_type || merchant.enterprise_type,
-      back_url: back_url || `${QZT_CALLBACK_URL}/api/merchant/callback?out_request_no=${outRequestNo}`,
-    });
-    res.json({ code: 0, data: { redirect_url: result.redirect_url, out_request_no: outRequestNo } });
-  } catch (err) {
-    console.error('[6.1] 银行内部户开户页面获取失败:', err.message);
-    res.status(500).json({ code: 500, message: '银行内部户开户页面获取失败', error: err.message });
-  }
-});
-
-// GET /api/merchant/bank-account-query — 查询银行开户凭证（QZT 6.12）
-app.get('/api/merchant/bank-account-query', async (req, res) => {
-  const { out_request_no } = req.query;
-  if (!out_request_no) return res.status(400).json({ code: 400, message: '缺少 out_request_no' });
-  try {
-    const result = await callQzt('open.bank.account.voucher.query', { out_request_no });
-    res.json({ code: 0, data: result });
-  } catch (err) {
-    console.error('[6.12] 银行开户凭证查询失败:', err.message);
-    res.status(500).json({ code: 500, message: '银行开户凭证查询失败', error: err.message });
-  }
-});
-
-// 文件上传路由（OSS + QZT 文件注册）
-const uploadRouter = require('./routes/upload');
-app.use('/api/upload', uploadRouter);
 
 // 兼容旧版前端：POST /api/merchant → 根据类型选择接口
 // 个人（enterprise_type=3）：使用 open.split.account.apply (6.9) 直接申请
@@ -2436,249 +2359,6 @@ app.post('/api/recharge/apply', async (req, res) => {
   }
 });
 
-// ========== Phase 1: 账户列表 + 余额查询 ==========
-
-/**
- * GET /api/accounts - 账户列表
- * 支持按 merchant_id 过滤
- */
-app.get('/api/accounts', (req, res) => {
-  try {
-    const { merchant_id } = req.query;
-    const accounts = merchant_id
-      ? getAccountsByMerchantId(merchant_id)
-      : getAccounts();
-    res.json({ code: 0, data: accounts });
-  } catch (error) {
-    console.error('获取账户列表失败:', error.message);
-    res.status(500).json({ code: 500, message: '获取账户列表失败' });
-  }
-});
-
-/**
- * GET /api/accounts/:id - 账户详情
- */
-app.get('/api/accounts/:id', (req, res) => {
-  try {
-    const account = getAccountById(req.params.id);
-    if (!account) return res.status(404).json({ code: 404, message: '账户不存在' });
-    res.json({ code: 0, data: account });
-  } catch (error) {
-    console.error('获取账户详情失败:', error.message);
-    res.status(500).json({ code: 500, message: '获取账户详情失败' });
-  }
-});
-
-/**
- * GET /api/accounts/:id/balance - 查询账户余额（从钱账通实时拉取）
- * service: account.balance.query (7.7)
- */
-app.get('/api/accounts/:id/balance', async (req, res) => {
-  try {
-    const account = getAccountById(req.params.id);
-    if (!account) return res.status(404).json({ code: 404, message: '账户不存在' });
-    const accountNo = account.account_no;
-    if (!accountNo) return res.status(400).json({ code: 400, message: '该账户尚未分配钱账通账号' });
-
-    const result = await callQzt('account.balance.query', { account_no: accountNo });
-    let parsed = { available_amount: '0', trans_amount: '0' };
-    if (result.result) {
-      try {
-        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
-      } catch(e) {
-        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
-      }
-    }
-    const availableYuan = (parseInt(parsed.available_amount || 0) / 100).toFixed(2);
-    const transAmountYuan = (parseInt(parsed.trans_amount || 0) / 100).toFixed(2);
-    res.json({
-      code: 0,
-      data: {
-        account_no: accountNo,
-        available_amount: parseFloat(availableYuan),
-        trans_amount: parseFloat(transAmountYuan)
-      }
-    });
-  } catch (error) {
-    console.error('[7.7] 账户余额查询失败:', error.message);
-    res.status(500).json({ code: 500, message: '余额查询失败', error: error.message });
-  }
-});
-
-// ========== Phase 6: 交易订单 + 回调 ==========
-
-/**
- * GET /api/orders - 订单列表
- */
-app.get('/api/orders', (req, res) => {
-  try {
-    const { merchant_id, status, page = 1, pageSize = 20 } = req.query;
-    const filters = {};
-    if (merchant_id) filters.merchant_id = merchant_id;
-    if (status) filters.status = status;
-    const orders = getTradeOrders(filters);
-    // 分转元
-    const ordersYuan = orders.map(o => ({
-      ...o,
-      total_amount: o.total_amount / 100
-    }));
-    res.json({ code: 0, data: ordersYuan, total: ordersYuan.length });
-  } catch (error) {
-    console.error('获取订单列表失败:', error.message);
-    res.status(500).json({ code: 500, message: '获取订单列表失败' });
-  }
-});
-
-/**
- * GET /api/orders/:id - 订单详情（含支付流水 + 分账记录）
- */
-app.get('/api/orders/:id', (req, res) => {
-  try {
-    const order = getTradeOrderById(req.params.id);
-    if (!order) return res.status(404).json({ code: 404, message: '订单不存在' });
-
-    const payments = getTradePaymentsByOrderId(order.id);
-    const paymentsWithSplits = payments.map(p => {
-      const splits = getTradeSplitsByPaymentId(p.id);
-      return {
-        ...p,
-        amount_yuan: p.amount / 100,
-        splits: splits.map(s => ({ ...s, amount_yuan: s.amount / 100 }))
-      };
-    });
-
-    res.json({
-      code: 0,
-      data: {
-        ...order,
-        total_amount_yuan: order.total_amount / 100,
-        payments: paymentsWithSplits
-      }
-    });
-  } catch (error) {
-    console.error('获取订单详情失败:', error.message);
-    res.status(500).json({ code: 500, message: '获取订单详情失败' });
-  }
-});
-
-/**
- * POST /api/trade/callback - 接收钱账通交易订阅回调
- * 支持支付、退款两种类型
- */
-app.post('/api/trade/callback', async (req, res) => {
-  try {
-    const payload = req.body;
-    console.log('[trade/callback] 收到交易回调:', JSON.stringify(payload));
-
-    const {
-      payment_seq_no,      // 支付流水号
-      out_order_no,        // 外部订单号
-      order_no,            // 内部订单号
-      payer_account_no,    // 付款方账户
-      payer_name,          // 付款方名称
-      amount,              // 金额（分）
-      status,              // 交易状态
-      trade_type           // PAYMENT=支付 / REFUND=退款
-    } = payload;
-
-    if (!payment_seq_no || !out_order_no) {
-      return res.json({ code: 0, message: '缺少必填字段' });
-    }
-
-    // 查找或创建订单
-    let order = getTradeOrderByOutOrderNo(out_order_no);
-    if (!order) {
-      order = saveTradeOrderFromCallback({
-        order_no: order_no || `ORD${Date.now()}`,
-        out_order_no,
-        payer_account_no: payer_account_no || '',
-        payer_name: payer_name || '',
-        amount: Math.round(parseFloat(amount) || 0),
-        status: status === 'SUCCESS' ? 'PAID' : 'PENDING'
-      });
-    }
-
-    // 保存支付流水（幂等）
-    const paymentType = trade_type === 'REFUND' ? 'REFUND' : 'PAYMENT';
-    saveTradePayment({
-      order_id: order.id,
-      payment_seq_no,
-      payment_type: paymentType,
-      amount: Math.round(parseFloat(amount) || 0),
-      status: status === 'SUCCESS' ? 'SUCCESS' : 'PENDING'
-    });
-
-    // 更新订单状态
-    const allPayments = getTradePaymentsByOrderId(order.id);
-    const totalPaid = allPayments.filter(p => p.payment_type === 'PAYMENT' && p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0);
-    const totalRefunded = allPayments.filter(p => p.payment_type === 'REFUND' && p.status === 'SUCCESS').reduce((sum, p) => sum + p.amount, 0);
-    let orderStatus = 'PENDING';
-    if (totalPaid >= order.total_amount && totalRefunded === 0) orderStatus = 'PAID';
-    else if (totalRefunded >= totalPaid) orderStatus = 'REFUNDED';
-    else if (totalRefunded > 0) orderStatus = 'PARTIAL_REFUND';
-    saveTradeOrderFromCallback({ ...order, status: orderStatus });
-
-    console.log(`[trade/callback] 订单${order.order_no}状态更新为: ${orderStatus}`);
-    res.json({ code: 0, message: '接收成功' });
-  } catch (error) {
-    console.error('[trade/callback] 处理失败:', error.message);
-    res.status(500).json({ code: 500, message: '处理失败' });
-  }
-});
-
-/**
- * POST /api/orders/:id/splits - 对指定支付流水发起分账
- */
-app.post('/api/orders/:id/splits', async (req, res) => {
-  try {
-    const { payment_id, split_list } = req.body;
-    if (!payment_id || !split_list || !split_list.length) {
-      return res.status(400).json({ code: 400, message: '缺少 payment_id 或 split_list' });
-    }
-
-    const payment = getTradePaymentBySeqNo(payment_id);
-    if (!payment) return res.status(404).json({ code: 404, message: '支付流水不存在' });
-
-    // 调用钱账通分账接口
-    const params = {
-      out_request_no: `SPL${Date.now()}`,
-      order_no: payment.payment_seq_no,
-      split_list: split_list.map(item => ({
-        receiver_account_no: item.receiver_account_no,
-        amount: String(Math.round(parseFloat(item.amount) * 100)), // 元→分
-        remark: item.remark || ''
-      }))
-    };
-
-    const result = await callQzt('trans.trade.fund.split', params);
-    let parsed = { status: 'PENDING' };
-    if (result.result) {
-      try {
-        parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
-      } catch(e) {
-        parsed = typeof result.result === 'string' ? JSON.parse(result.result) : (result.result || parsed);
-      }
-    }
-
-    // 保存分账记录
-    const splits = (parsed.split_list || []).map((s, i) =>
-      saveTradeSplit({
-        payment_id: payment.id,
-        split_seq_no: s.split_seq_no || `SPL${Date.now()}_${i}`,
-        receiver_account_no: split_list[i]?.receiver_account_no || '',
-        receiver_name: '',
-        amount: Math.round(parseFloat(split_list[i]?.amount || 0) * 100),
-        status: s.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED'
-      })
-    );
-
-    res.json({ code: 0, data: { status: parsed.status || 'PENDING', splits } });
-  } catch (error) {
-    console.error('[分账] 失败:', error.message);
-    res.status(500).json({ code: 500, message: '分账申请失败', error: error.message });
-  }
-});
-
 /**
  * GET /api/recharge/records - 充值记录
  */
@@ -3109,7 +2789,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message });
 });
 
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 3000;
 // ================= 登录认证 API（演示用） =================
 /**
  * POST /api/auth/login

@@ -1,0 +1,303 @@
+// Prisma Schema — 旅购通 BFF Server (SQLite for dev, swap to PostgreSQL for production)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 用户表
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("user")
+  merchantId   String?
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 商户表
+model Merchant {
+  id                 String    @id @default(uuid())
+  outRequestNo       String    @unique
+  registerName       String?
+  legalMobile        String?
+  legalName          String?
+  legalIdCard        String?
+  licenseNo          String?
+  enterpriseType     String    @default("3")
+  splitRole          String    @default("other")
+  guideCertNo        String?
+  guideCertImg       String?
+  address            String?
+  email              String?
+  backUrl            String?
+  status             String    @default("PENDING")
+  qztAccountNo       String?
+  qztMerchantNo      String?
+  qztResponse        String?
+  callbackMessage    String?
+  callbackAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  accounts   Account[]
+  bankCards  BankCard[]
+  stores     Store[]
+  tourGroups TourGroup[]
+  splitRules SplitRule[]
+}
+
+// 账户表
+model Account {
+  id            String   @id @default(uuid())
+  merchantId    String
+  accountNo     String   @unique
+  balance       Int      @default(0)
+  frozenBalance Int      @default(0)
+  accountType   String?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+}
+
+// 银行卡表
+model BankCard {
+  id           String   @id @default(uuid())
+  merchantId   String
+  bankCode     String?
+  bankName     String?
+  cardNo       String
+  cardName     String?
+  bankType     String   @default("2")
+  bankProvince String?
+  bankCity     String?
+  bankBranch   String?
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+
+  merchant Merchant @relation(fields: [merchantId], references: [id])
+}
+
+// 交易表
+model Transaction {
+  id              String   @id @default(uuid())
+  merchantId      String?
+  outRequestNo    String   @unique
+  transactionType String
+  amount          Int
+  status          String   @default("PENDING")
+  bankCardNo      String?
+  remark          String?
+  qztResponse     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// 分账记录表
+model SplitRecord {
+  id              String   @id @default(uuid())
+  merchantId      String?
+  outRequestNo    String   @unique
+  orderNo         String?
+  amount          Int
+  splitAccountNo  String?
+  splitAmount     Int?
+  status          String   @default("PENDING")
+  qztResponse     String?
+  createdAt       DateTime @default(now())
+}
+
+// 通知记录表
+model Notification {
+  id               String   @id @default(uuid())
+  notificationType String
+  outRequestNo     String?
+  content          String?
+  processed        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+}
+
+// 旅行团表
+model TourGroup {
+  id           String    @id @default(uuid())
+  merchantId   String
+  tourNo       String    @unique
+  tourName     String
+  routeName    String?
+  days         Int       @default(1)
+  itinerary    String?
+  startDate    DateTime?
+  endDate      DateTime?
+  peopleCount  Int       @default(1)
+  guideId      Int?
+  driverId     Int?
+  shopId       Int?
+  attractions  String?
+  hotelName    String?
+  hotelPhone   String?
+  hotelAddress String?
+  totalAmount  Int       @default(0)
+  splitStatus  String    @default("PENDING")
+  status       String    @default("ACTIVE")
+  remark       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  merchant Merchant     @relation(fields: [merchantId], references: [id])
+  members  TourMember[]
+}
+
+// 团队成员表
+model TourMember {
+  id          String   @id @default(uuid())
+  tourId      String
+  merchantId  String
+  role        String
+  splitRatio  Float    @default(0)
+  splitAmount Int      @default(0)
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+
+  tour TourGroup @relation(fields: [tourId], references: [id])
+}
+
+// 分账规则表
+model SplitRule {
+  id          String   @id @default(uuid())
+  merchantId  String
+  ruleName    String
+  ruleType    String   @default("FIXED")
+  defaultRule Boolean  @default(false)
+  status      String   @default("ACTIVE")
+  createdAt   DateTime @default(now())
+
+  merchant Merchant        @relation(fields: [merchantId], references: [id])
+  items   SplitRuleItem[]
+}
+
+// 分账规则项表
+model SplitRuleItem {
+  id               String   @id @default(uuid())
+  ruleId           String
+  targetMerchantId String
+  splitRatio       Float    @default(0)
+  splitAmount      Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  rule SplitRule @relation(fields: [ruleId], references: [id])
+}
+
+// 门店表
+model Store {
+  id         String   @id @default(uuid())
+  merchantId String
+  storeName  String
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+
+  merchant  Merchant        @relation(fields: [merchantId], references: [id])
+  terminals StoreTerminal[]
+}
+
+// 门店终端表
+model StoreTerminal {
+  id          String   @id @default(uuid())
+  storeId     String
+  merchantNo  String
+  terminalNo  String
+  accountNo   String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, merchantNo, terminalNo])
+}
+
+// 交易订单表
+model TradeOrder {
+  id             String   @id @default(uuid())
+  merchantId     String?
+  outOrderNo     String   @unique
+  accountNo      String
+  payeeAccountNo String?
+  amount         Int      @default(0)
+  status         String   @default("PENDING")
+  splitStatus    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  payments TradePayment[]
+}
+
+// 交易支付表
+model TradePayment {
+  id           String   @id @default(uuid())
+  orderId      String
+  paymentSeqNo String?  @unique
+  paymentType  String
+  amount       Int      @default(0)
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+
+  order  TradeOrder   @relation(fields: [orderId], references: [id])
+  splits TradeSplit[]
+}
+
+// 交易分账表
+model TradeSplit {
+  id                String   @id @default(uuid())
+  paymentId         String
+  splitSeqNo        String?  @unique
+  receiverAccountNo String
+  receiverName     String?
+  amount            Int      @default(0)
+  status            String   @default("PENDING")
+  createdAt         DateTime @default(now())
+
+  payment TradePayment @relation(fields: [paymentId], references: [id])
+}
+
+// 对账任务表
+model ReconciliationTask {
+  id                 String    @id @default(uuid())
+  taskNo             String    @unique
+  taskType           String
+  status             String    @default("pending")
+  dateRangeStart     DateTime?
+  dateRangeEnd       DateTime?
+  totalRecords       Int       @default(0)
+  matchedRecords     Int       @default(0)
+  unmatchedRecords   Int       @default(0)
+  differenceAmount   Int       @default(0)
+  reportUrl          String?
+  createdBy          String?
+  createdAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  details ReconciliationDetail[]
+}
+
+// 对账明细表
+model ReconciliationDetail {
+  id             String   @id @default(uuid())
+  taskNo         String
+  recordType     String
+  recordId       String?
+  expectedAmount Int?
+  actualAmount   Int?
+  diffAmount     Int?
+  status         String?
+  remark         String?
+  createdAt      DateTime @default(now())
+
+  task ReconciliationTask @relation(fields: [taskNo], references: [taskNo])
+}

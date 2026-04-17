@@ -15,7 +15,7 @@ import request from '@/utils/request.js'
  * @returns {Promise<{out_request_no, split_status}>}
  */
 export async function split(params) {
-  return request.post('/api/qzt/proxy', { service: 'trans.trade.fund.split', params })
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split', params })
 }
 
 /**
@@ -27,7 +27,7 @@ export async function split(params) {
  * @returns {Promise<{out_request_no, split_status, split_list}>}
  */
 export async function querySplit(params) {
-  return request.post('/api/qzt/proxy', { service: 'trans.trade.fund.split.query', params })
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.query', params })
 }
 
 /**
@@ -39,7 +39,7 @@ export async function querySplit(params) {
  * @returns {Promise<{out_request_no, revoke_status}>}
  */
 export async function revokeSplit(params) {
-  return request.post('/api/qzt/proxy', { service: 'trans.trade.fund.split.cancel', params })
+  return request.post('/api/qzt/proxy', { service: 'trade.balance.split.cancel', params })
 }
 
 /**

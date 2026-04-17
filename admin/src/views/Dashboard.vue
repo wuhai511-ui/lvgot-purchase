@@ -1,227 +1,346 @@
-﻿<template>
-  <div class="dashboard-page">
-    <section class="hero card">
-      <div>
-        <div class="hero-kicker">商户经营总览</div>
-        <h1>把今天的收款、分账和提现动作放在一张工作台里。</h1>
-        <p>面向旅购通商户与门店经营者设计，先看经营状态，再完成高频资金动作。</p>
+<template>
+  <div class="dashboard">
+    <div class="page-title">📊 工作台</div>
+    
+    <!-- 账户余额卡片 -->
+    <div class="balance-cards">
+      <div class="balance-card main">
+        <div class="balance-label">💼 主账户余额</div>
+        <div class="balance-amount">¥{{ formatMoney(balanceInfo.balance) }}</div>
+        <div class="balance-detail">
+          <span>可用: ¥{{ formatMoney(balanceInfo.available_amount) }}</span>
+          <span>冻结: ¥{{ formatMoney(balanceInfo.frozen_amount) }}</span>
+        </div>
       </div>
-      <div class="hero-side surface-muted">
-        <div class="hero-side__label">账户状态</div>
-        <div class="hero-side__value">正常经营中</div>
-        <div class="hero-side__meta">
-          <span class="status-pill success">可分账</span>
-          <span class="status-pill info">可提现</span>
-        </div>
-        <div class="hero-side__foot">最近一次到账预计 T+1 完成，当前无异常阻塞。</div>
+      <div class="balance-card">
+        <div class="balance-label">🏦 待结算金额</div>
+        <div class="balance-amount">¥{{ formatMoney(balanceInfo.frozen_amount) }}</div>
       </div>
-    </section>
+      <div class="balance-card">
+        <div class="balance-label">📜 累计分账</div>
+        <div class="balance-amount">¥{{ formatMoney(totalSplitAmount) }}</div>
+      </div>
+      <div class="balance-card">
+        <div class="balance-label">👥 账户总数</div>
+        <div class="balance-amount">{{ accountCount }}</div>
+        <div class="balance-detail">
+          <span>已开户: {{ activeAccountCount }}</span>
+          <span>待开户: {{ pendingAccountCount }}</span>
+        </div>
+      </div>
+    </div>
 
-    <section class="overview-grid">
-      <article class="metric-card metric-card--featured">
-        <div class="metric-card__label">可提现金额</div>
-        <div class="metric-card__value">¥{{ formatMoney(balanceInfo.available_amount || 0) }}</div>
-        <div class="metric-card__meta">冻结金额 ¥{{ formatMoney(balanceInfo.frozen_amount || 0) }}</div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-card__label">今日收款</div>
-        <div class="metric-card__value">¥{{ formatMoney(todayTradeAmount) }}</div>
-        <div class="metric-card__meta">共 {{ todayTradeCount }} 笔交易</div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-card__label">待分账金额</div>
-        <div class="metric-card__value">¥{{ formatMoney(balanceInfo.frozen_amount || 0) }}</div>
-        <div class="metric-card__meta">今日分账 {{ todaySplitCount }} 笔</div>
-      </article>
-      <article class="metric-card">
-        <div class="metric-card__label">门店表现</div>
-        <div class="metric-card__value">{{ activeStoreCount }}</div>
-        <div class="metric-card__meta">家门店有交易动静</div>
-      </article>
-    </section>
+    <!-- 快捷操作 -->
+    <div class="card">
+      <div class="card-header">💡 快捷操作</div>
+      <div class="card-body shortcuts">
+        <el-button type="primary" @click="$router.push('/account')">💰 账户列表</el-button>
+        <el-button type="success" @click="$router.push('/account-opening')">📝 申请开户</el-button>
+        <el-button type="warning" @click="$router.push('/recharge')">🔄 充值</el-button>
+        <el-button @click="$router.push('/withdraw')">📤 提现</el-button>
+        <el-button @click="$router.push('/split-record')">📋 分账记录</el-button>
+        <el-button @click="$router.push('/bank-card')">💳 银行卡</el-button>
+        <el-button @click="$router.push('/tour-group')">🎒 旅行团</el-button>
+        <el-button @click="$router.push('/split-rule')">📐 分账规则</el-button>
+      </div>
+    </div>
 
-    <section class="workbench-grid">
-      <article class="card action-card">
-        <div class="section-heading">
-          <div>
-            <h2>快捷动作</h2>
-            <p>优先完成商户每天最常用的资金任务。</p>
+    <!-- 图表区域 -->
+    <div class="chart-row">
+      <div class="card chart-card">
+        <div class="card-header">📈 近7日交易趋势</div>
+        <div class="card-body">
+          <v-chart :option="tradeChartOption" autoresize style="height: 280px" />
+        </div>
+      </div>
+      <div class="card chart-card">
+        <div class="card-header">💰 分账金额分布</div>
+        <div class="card-body">
+          <v-chart :option="splitPieOption" autoresize style="height: 280px" />
+        </div>
+      </div>
+    </div>
+
+    <!-- 数据统计 -->
+    <div class="card">
+      <div class="card-header">📊 业务概览</div>
+      <div class="card-body stats-grid">
+        <div class="stat-item">
+          <div class="stat-value">{{ todayTradeCount }}</div>
+          <div class="stat-label">今日交易笔数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">¥{{ formatMoney(todayTradeAmount) }}</div>
+          <div class="stat-label">今日交易金额</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">{{ todaySplitCount }}</div>
+          <div class="stat-label">今日分账笔数</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">¥{{ formatMoney(todaySplitAmount) }}</div>
+          <div class="stat-label">今日分账金额</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">{{ activeTourCount }}</div>
+          <div class="stat-label">进行中旅行团</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">{{ pendingWithdrawCount }}</div>
+          <div class="stat-label">待处理提现</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 最近交易 -->
+    <div class="card">
+      <div class="card-header">📜 最近分账记录</div>
+      <div class="card-body">
+        <el-table :data="recentRecords" v-loading="loading" stripe>
+          <el-table-column prop="split_no" label="分账单号" width="200"/>
+          <el-table-column prop="receiver_name" label="收款方" width="150"/>
+          <el-table-column prop="split_amount" label="金额" width="120">
+            <template #default="{row}"><span class="money">¥{{ formatMoney(row.split_amount) }}</span></template>
+          </el-table-column>
+          <el-table-column prop="status" label="状态" width="100">
+            <template #default="{row}">
+              <el-tag size="small" :type="statusType[row.status]">{{ statusMap[row.status] || row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="时间" width="170">
+            <template #default="{row}">{{ formatTime(row.created_at) }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+    </div>
+
+    <!-- 待办事项 -->
+    <div class="card">
+      <div class="card-header">📋 待办事项</div>
+      <div class="card-body">
+        <div class="todo-list">
+          <div class="todo-item" v-for="todo in todoList" :key="todo.id" @click="handleTodo(todo)">
+            <el-badge :value="todo.count" :type="todo.type" class="todo-badge">
+              <span class="todo-text">{{ todo.title }}</span>
+            </el-badge>
+            <el-icon><ArrowRight /></el-icon>
           </div>
         </div>
-        <div class="quick-actions">
-          <button v-for="item in quickActions" :key="item.path" class="quick-action" @click="router.push(item.path)">
-            <div class="quick-action__icon">{{ item.icon }}</div>
-            <div>
-              <div class="quick-action__title">{{ item.title }}</div>
-              <div class="quick-action__desc">{{ item.desc }}</div>
-            </div>
-          </button>
-        </div>
-      </article>
-
-      <article class="card insight-card">
-        <div class="section-heading">
-          <div>
-            <h2>今日经营节奏</h2>
-            <p>把经营指标、待处理事项和资金提醒放在一起看。</p>
-          </div>
-        </div>
-        <div class="insight-list">
-          <div class="insight-row"><span>累计分账金额</span><strong>¥{{ formatMoney(totalSplitAmount) }}</strong></div>
-          <div class="insight-row"><span>待处理提现</span><strong>{{ pendingWithdrawCount }} 笔</strong></div>
-          <div class="insight-row"><span>进行中的团队协同</span><strong>{{ activeTourCount }} 个</strong></div>
-          <div class="insight-row"><span>账户资料待补充</span><strong>{{ pendingAccountCount }} 项</strong></div>
-        </div>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article class="card">
-        <div class="section-heading">
-          <div>
-            <h2>最近分账动态</h2>
-            <p>快速确认资金从哪来、分到哪里、有没有卡点。</p>
-          </div>
-          <el-button text @click="router.push('/split-record')">查看全部</el-button>
-        </div>
-        <div class="feed-list" v-loading="loading">
-          <div v-for="record in recentRecords.slice(0, 5)" :key="record.split_no" class="feed-item">
-            <div>
-              <div class="feed-title">商户 → {{ record.receiver_name || '分账对象' }}</div>
-              <div class="feed-desc">{{ formatTime(record.created_at) }} · {{ record.order_no || record.split_no }}</div>
-            </div>
-            <div class="feed-side">
-              <div class="feed-amount">¥{{ formatMoney(record.split_amount) }}</div>
-              <span class="status-pill" :class="pillClass(record.status)">{{ statusMap[record.status] || record.status }}</span>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="section-heading">
-          <div>
-            <h2>待处理事项</h2>
-            <p>只保留真的需要商户马上处理的任务。</p>
-          </div>
-        </div>
-        <div class="todo-stack">
-          <button v-for="todo in todoList" :key="todo.id" class="todo-item" @click="handleTodo(todo)">
-            <div>
-              <div class="todo-title">{{ todo.title }}</div>
-              <div class="todo-desc">{{ todo.desc }}</div>
-            </div>
-            <div class="todo-count">{{ todo.count }}</div>
-          </button>
-        </div>
-      </article>
-    </section>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { use } from 'echarts/core'
+import { CanvasRenderer } from 'echarts/renderers'
+import { LineChart, PieChart } from 'echarts/charts'
+import { 
+  TitleComponent, TooltipComponent, LegendComponent, 
+  GridComponent 
+} from 'echarts/components'
+import VChart from 'vue-echarts'
+import { ArrowRight } from '@element-plus/icons-vue'
 import { getAccountBalance } from '@/api/account'
 import { getSplitRecords } from '@/api/split'
 import { getMerchantList } from '@/api/merchant'
 import { formatMoney } from '@/utils/format'
+
+// 注册 ECharts 组件
+use([CanvasRenderer, LineChart, PieChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
 const router = useRouter()
 const loading = ref(false)
 const balanceInfo = ref({ balance: 0, frozen_amount: 0, available_amount: 0 })
 const recentRecords = ref([])
 const totalSplitAmount = ref(0)
-const activeStoreCount = ref(9)
+
+// 统计数据
+const accountCount = ref(0)
+const activeAccountCount = ref(0)
 const pendingAccountCount = ref(0)
-const todayTradeCount = ref(128)
-const todayTradeAmount = ref(156800)
-const todaySplitCount = ref(86)
-const activeTourCount = ref(12)
-const pendingWithdrawCount = ref(3)
+const todayTradeCount = ref(0)
+const todayTradeAmount = ref(0)
+const todaySplitCount = ref(0)
+const todaySplitAmount = ref(0)
+const activeTourCount = ref(0)
+const pendingWithdrawCount = ref(0)
 
-const statusMap = { PENDING: '处理中', SUCCESS: '已到账', FAILED: '异常待处理' }
-const quickActions = [
-  { path: '/split-record', icon: '分', title: '查看分账', desc: '跟进资金链路与状态' },
-  { path: '/withdraw', icon: '提', title: '发起提现', desc: '确认到账规则和提现进度' },
-  { path: '/store', icon: '店', title: '门店管理', desc: '查看门店活跃和经营表现' },
-  { path: '/account', icon: '户', title: '账户资料', desc: '维护商户主体与结算资料' }
-]
-
+// 待办事项
 const todoList = computed(() => [
-  { id: 1, title: '待处理提现', desc: '优先确认到账中的申请与失败原因。', count: pendingWithdrawCount.value, path: '/withdraw' },
-  { id: 2, title: '待完善账户资料', desc: '补充资料后可减少提现与分账阻塞。', count: pendingAccountCount.value, path: '/account' },
-  { id: 3, title: '进行中的团队协同', desc: '查看今日导游、司机等协同分账动态。', count: activeTourCount.value, path: '/tour-group' }
+  { id: 1, title: '待开户申请', count: pendingAccountCount.value, type: 'warning', path: '/account' },
+  { id: 2, title: '待处理提现', count: pendingWithdrawCount.value, type: 'danger', path: '/withdraw' },
+  { id: 3, title: '进行中旅行团', count: activeTourCount.value, type: 'primary', path: '/tour-group' }
 ])
 
-const formatTime = (time) => (!time ? '-' : time.replace('T', ' ').substring(0, 19))
-const pillClass = (status) => (status === 'SUCCESS' ? 'success' : status === 'FAILED' ? 'danger' : 'warning')
-const handleTodo = (todo) => todo.path && router.push(todo.path)
+const statusMap = {
+  'PENDING': '处理中',
+  'SUCCESS': '成功',
+  'FAILED': '失败'
+}
+
+const statusType = {
+  'PENDING': 'warning',
+  'SUCCESS': 'success',
+  'FAILED': 'danger'
+}
+
+// 交易趋势图表配置
+const tradeChartOption = ref({
+  tooltip: { trigger: 'axis' },
+  grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+  xAxis: { 
+    type: 'category', 
+    data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+    boundaryGap: false
+  },
+  yAxis: { type: 'value' },
+  series: [{
+    name: '交易金额',
+    type: 'line',
+    smooth: true,
+    areaStyle: { opacity: 0.3 },
+    data: [0, 0, 0, 0, 0, 0, 0],
+    itemStyle: { color: '#1976D2' }
+  }]
+})
+
+// 分账分布饼图配置
+const splitPieOption = ref({
+  tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+  legend: { bottom: '5%', left: 'center' },
+  series: [{
+    name: '分账分布',
+    type: 'pie',
+    radius: ['40%', '70%'],
+    avoidLabelOverlap: false,
+    itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+    label: { show: false, position: 'center' },
+    emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
+    labelLine: { show: false },
+    data: [
+      { value: 0, name: '商户', itemStyle: { color: '#1976D2' } },
+      { value: 0, name: '旅行社', itemStyle: { color: '#4CAF50' } },
+      { value: 0, name: '导游', itemStyle: { color: '#FF9800' } },
+      { value: 0, name: '平台', itemStyle: { color: '#9C27B0' } }
+    ]
+  }]
+})
+
+const formatTime = (time) => {
+  if (!time) return '-'
+  return time.replace('T', ' ').substring(0, 19)
+}
+
+const handleTodo = (todo) => {
+  if (todo.path) {
+    router.push(todo.path)
+  }
+}
 
 const fetchData = async () => {
   loading.value = true
   try {
-    const [balanceRes, splitRes, merchantRes] = await Promise.all([getAccountBalance(), getSplitRecords({ pageSize: 10 }), getMerchantList()])
-    if (balanceRes.code === 0) balanceInfo.value = balanceRes.data || balanceInfo.value
+    // 获取账户余额
+    const balanceRes = await getAccountBalance()
+    if (balanceRes.code === 0) {
+      balanceInfo.value = balanceRes.data
+    }
+    
+    // 获取分账记录
+    const splitRes = await getSplitRecords({ pageSize: 10 })
     if (splitRes.code === 0) {
       recentRecords.value = splitRes.data || []
-      totalSplitAmount.value = recentRecords.value.filter((item) => item.status === 'SUCCESS').reduce((sum, item) => sum + (parseFloat(item.split_amount) || 0), 0)
-      pendingWithdrawCount.value = recentRecords.value.filter((item) => item.status === 'PENDING').length || pendingWithdrawCount.value
+      totalSplitAmount.value = recentRecords.value
+        .filter(r => r.status === 'SUCCESS')
+        .reduce((sum, r) => sum + (parseFloat(r.split_amount) || 0), 0)
     }
+
+    // 获取账户列表统计
+    const merchantRes = await getMerchantList()
     if (merchantRes.code === 0) {
       const merchants = merchantRes.data || []
-      activeStoreCount.value = Math.max(merchants.filter((item) => item.status === 'ACTIVE').length, activeStoreCount.value)
-      pendingAccountCount.value = merchants.filter((item) => ['PENDING', 'PERSONAL_PENDING'].includes(item.status)).length
+      accountCount.value = merchants.length
+      activeAccountCount.value = merchants.filter(m => m.status === 'ACTIVE').length
+      pendingAccountCount.value = merchants.filter(m => m.status === 'PENDING' || m.status === 'PERSONAL_PENDING').length
     }
-  } catch (error) {
-    console.error('获取工作台数据失败:', error)
+
+    // 模拟图表数据（实际应从后端获取）
+    tradeChartOption.value.series[0].data = [3200, 4500, 3800, 5200, 4800, 6100, 5500]
+    splitPieOption.value.series[0].data = [
+      { value: 45000, name: '商户', itemStyle: { color: '#1976D2' } },
+      { value: 25000, name: '旅行社', itemStyle: { color: '#4CAF50' } },
+      { value: 15000, name: '导游', itemStyle: { color: '#FF9800' } },
+      { value: 5000, name: '平台', itemStyle: { color: '#9C27B0' } }
+    ]
+
+    // 模拟统计数据
+    todayTradeCount.value = 128
+    todayTradeAmount.value = 156800
+    todaySplitCount.value = 86
+    todaySplitAmount.value = 45200
+    activeTourCount.value = 12
+    pendingWithdrawCount.value = 3
+
+  } catch (e) {
+    console.error('获取数据失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-onMounted(fetchData)
+onMounted(() => {
+  fetchData()
+})
 </script>
 
-<style scoped lang="scss">
-@import '@/styles/variables.scss';
-.dashboard-page { display: grid; gap: 20px; }
-.hero { display: grid; grid-template-columns: 1.4fr 0.8fr; gap: 20px; padding: 28px; }
-.hero-kicker { display: inline-flex; padding: 6px 12px; border-radius: 999px; background: rgba(223,245,241,0.9); color: $primary-strong; font-size: 12px; font-weight: 700; }
-.hero h1 { margin-top: 16px; font-size: 34px; line-height: 1.3; color: $text-color; }
-.hero p { margin-top: 12px; max-width: 720px; color: $text-secondary; line-height: 1.8; }
-.hero-side { border-radius: $radius-md; padding: 22px; border: 1px solid $border-color; }
-.hero-side__label { font-size: 12px; color: $text-muted; }
-.hero-side__value { margin-top: 10px; font-size: 28px; font-weight: 700; }
-.hero-side__meta { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-.hero-side__foot { margin-top: 16px; color: $text-secondary; line-height: 1.7; }
-.overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.metric-card { padding: 22px; background: rgba(255,255,255,0.92); border: 1px solid rgba(215,229,225,0.8); border-radius: $radius-md; box-shadow: $shadow-sm; }
-.metric-card--featured { background: $gradient-brand; color: #fff; }
-.metric-card__label { font-size: 13px; color: inherit; opacity: 0.82; }
-.metric-card__value { margin-top: 10px; font-size: 30px; font-weight: 700; }
-.metric-card__meta { margin-top: 8px; font-size: 13px; color: inherit; opacity: 0.76; }
-.workbench-grid, .content-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
-.action-card, .insight-card, .content-grid > .card { padding: 22px; }
-.section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-.section-heading h2 { font-size: 18px; color: $text-color; }
-.section-heading p { margin-top: 6px; color: $text-secondary; line-height: 1.7; }
-.quick-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.quick-action { border: 1px solid $border-color; border-radius: 18px; background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%); padding: 18px; display: flex; gap: 14px; align-items: flex-start; text-align: left; cursor: pointer; }
-.quick-action__icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; background: rgba(15,118,110,0.1); color: $primary-color; font-weight: 700; }
-.quick-action__title { font-size: 15px; font-weight: 700; color: $text-color; }
-.quick-action__desc { margin-top: 6px; font-size: 13px; line-height: 1.6; color: $text-secondary; }
-.insight-list, .todo-stack, .feed-list { display: grid; gap: 12px; }
-.insight-row, .feed-item, .todo-item { border: 1px solid rgba(215,229,225,0.8); border-radius: 16px; background: #fbfdfc; }
-.insight-row { display: flex; justify-content: space-between; align-items: center; padding: 16px; color: $text-secondary; }
-.insight-row strong { color: $text-color; font-size: 16px; }
-.feed-item, .todo-item { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 16px; }
-.feed-title, .todo-title { font-size: 15px; font-weight: 700; color: $text-color; }
-.feed-desc, .todo-desc { margin-top: 6px; color: $text-secondary; font-size: 13px; }
-.feed-side { text-align: right; }
-.feed-amount { font-size: 18px; font-weight: 700; color: $warning-color; margin-bottom: 8px; }
-.todo-item { cursor: pointer; text-align: left; }
-.todo-count { min-width: 42px; height: 42px; border-radius: 14px; background: rgba(15,118,110,0.1); color: $primary-strong; display: flex; align-items: center; justify-content: center; font-weight: 700; }
-@media (max-width: 1200px) { .hero, .workbench-grid, .content-grid { grid-template-columns: 1fr; } .overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 768px) { .hero, .metric-card, .action-card, .insight-card, .content-grid > .card { padding: 18px; } .hero h1 { font-size: 26px; } .overview-grid, .quick-actions { grid-template-columns: 1fr; } }
+<style scoped>
+.dashboard { padding: 20px 24px; }
+.page-title { font-size: 20px; font-weight: 700; color: #1a1a1a; margin-bottom: 20px; }
+
+/* 余额卡片 */
+.balance-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+.balance-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.balance-card.main { background: linear-gradient(135deg, #1976D2, #42a5f5); color: #fff; }
+.balance-label { font-size: 14px; color: #888; margin-bottom: 8px; }
+.balance-card.main .balance-label { color: rgba(255,255,255,0.8); }
+.balance-amount { font-size: 24px; font-weight: 700; }
+.balance-detail { margin-top: 8px; font-size: 12px; display: flex; gap: 16px; opacity: 0.8; }
+
+/* 卡片通用 */
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+.card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; color: #1a1a1a; }
+.card-body { padding: 20px; }
+.shortcuts { display: flex; gap: 12px; flex-wrap: wrap; }
+
+/* 图表区域 */
+.chart-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 16px; }
+.chart-card { min-height: 360px; }
+
+/* 统计网格 */
+.stats-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; text-align: center; }
+.stat-item { padding: 16px; background: #f8f9fa; border-radius: 8px; }
+.stat-value { font-size: 24px; font-weight: 700; color: #1976D2; margin-bottom: 8px; }
+.stat-label { font-size: 13px; color: #666; }
+
+/* 待办事项 */
+.todo-list { display: flex; flex-direction: column; gap: 12px; }
+.todo-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+.todo-item:hover { background: #e3f2fd; }
+.todo-badge { margin-right: 12px; }
+.todo-text { font-size: 14px; color: #333; }
+
+/* 响应式 */
+@media (max-width: 1200px) {
+  .balance-cards { grid-template-columns: repeat(2, 1fr); }
+  .chart-row { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 768px) {
+  .balance-cards { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
