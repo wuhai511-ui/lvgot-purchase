@@ -25,7 +25,7 @@
             <template #default="{row}">
               <el-button type="primary" link size="small" @click="editStore(row)">编辑</el-button>
               <el-button type="success" link size="small" @click="goToTerminals(row)">商终管理</el-button>
-              <el-button type="danger" link size="small" @click="deleteStore(row)">删除</el-button>
+              <el-button type="danger" link size="small" @click="handleDeleteStore(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -196,7 +196,7 @@ const handleSaveStore = async () => {
 }
 
 // 删除门店
-const deleteStore = (row) => {
+const handleDeleteStore = (row) => {
   ElMessageBox.confirm(`确定要删除门店「${row.store_name}」吗？`, '删除确认', { type: 'warning' })
     .then(async () => {
       try {
