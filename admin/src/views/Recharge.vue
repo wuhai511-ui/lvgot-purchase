@@ -41,11 +41,6 @@
               <template #prepend>¥</template>
             </el-input>
           </el-form-item>
-          <el-form-item label="银行卡" prop="bank_card_no">
-            <el-select v-model="form.bank_card_no" placeholder="选择银行卡" style="width:300px">
-              <el-option v-for="card in bankCards" :key="card.id" :label="`${card.bank_name} (${card.card_no_masked})`" :value="card.card_no"/>
-            </el-select>
-          </el-form-item>
           <el-form-item label="备注">
             <el-input v-model="form.remark" placeholder="选填" style="width:300px"/>
           </el-form-item>
@@ -79,6 +74,34 @@
       </div>
     </div>
 
+    <!-- 收款账户信息弹窗 -->
+    <el-dialog v-model="showPayeeDialog" title="转账信息" width="520px" :close-on-click-modal="false">
+      <div class="payee-info">
+        <div class="payee-alert">
+          <el-icon style="color: #e6a23c; font-size: 18px; margin-right: 8px;"><WarningFilled /></el-icon>
+          <span>请使用以下收款账户信息完成转账，转账完成后系统会自动确认到账</span>
+        </div>
+        <el-descriptions :column="1" border style="margin-top: 16px;">
+          <el-descriptions-item label="充值订单号" label-width="140px">
+            <span class="highlight-value">{{ payeeInfo.recharge_order_no }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="充值金额" label-width="140px">
+            <span class="highlight-value money">¥{{ payeeInfo.amount }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="收款账户" label-width="140px">{{ payeeInfo.payee_acc_no }}</el-descriptions-item>
+          <el-descriptions-item label="收款账户名" label-width="140px">{{ payeeInfo.payee_acc_name }}</el-descriptions-item>
+          <el-descriptions-item label="收款开户银行" label-width="140px">{{ payeeInfo.payee_bank }}</el-descriptions-item>
+          <el-descriptions-item label="收款开户行号" label-width="140px">{{ payeeInfo.payee_bank_no || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="收款开户名" label-width="140px">{{ payeeInfo.payee_bank_name }}</el-descriptions-item>
+          <el-descriptions-item label="收款开户地区" label-width="140px">{{ payeeInfo.payee_bank_area }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="showPayeeDialog = false; showResult = true">我已转账，查看结果</el-button>
+        <el-button @click="resetForm">关闭</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 充值记录 -->
     <div class="card" style="margin-top: 16px;">
       <div class="card-header">📜 最近充值记录</div>
@@ -106,8 +129,8 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
 import { applyRecharge, getRechargeRecords } from '@/api/recharge'
-import { getBankCards } from '@/api/bankCard'
 import { getAccountBalance } from '@/api/account'
 import { getMerchantList } from '@/api/merchant'
 
@@ -115,6 +138,7 @@ const route = useRoute()
 const formRef = ref()
 const submitting = ref(false)
 const showResult = ref(false)
+const showPayeeDialog = ref(false)
 const loadingRecords = ref(false)
 
 const selectedMerchantId = ref(null)
@@ -124,21 +148,29 @@ const availableAmount = ref(0)
 
 const form = reactive({
   amount: null,
-  bank_card_no: '',
   remark: ''
 })
 
 const rules = {
-  amount: [{ required: true, message: '请输入充值金额', trigger: 'blur' }],
-  bank_card_no: [{ required: true, message: '请选择银行卡', trigger: 'change' }]
+  amount: [{ required: true, message: '请输入充值金额', trigger: 'blur' }]
 }
 
-const bankCards = ref([])
 const records = ref([])
 const result = reactive({
   status: '',
   amount: 0,
   message: ''
+})
+
+const payeeInfo = reactive({
+  recharge_order_no: '',
+  amount: 0,
+  payee_acc_no: '',
+  payee_acc_name: '',
+  payee_bank: '',
+  payee_bank_no: '',
+  payee_bank_name: '',
+  payee_bank_area: ''
 })
 
 const statusMap = {
@@ -169,12 +201,10 @@ const fetchAccountList = async () => {
         accountNo: item.qzt_response?.account_no
       }))
 
-      // 如果 URL 带有 merchant_id 参数，自动选中
       if (route.query.merchant_id) {
         selectedMerchantId.value = parseInt(route.query.merchant_id)
         handleAccountChange(selectedMerchantId.value)
       } else if (accountList.value.length > 0) {
-        // 默认选中第一个账户
         selectedMerchantId.value = accountList.value[0].id
         handleAccountChange(selectedMerchantId.value)
       }
@@ -187,7 +217,6 @@ const fetchAccountList = async () => {
 const handleAccountChange = async (merchantId) => {
   if (!merchantId) return
 
-  // 获取余额
   try {
     const res = await getAccountBalance(merchantId)
     if (res.code === 0) {
@@ -198,17 +227,6 @@ const handleAccountChange = async (merchantId) => {
     console.error('获取余额失败:', e)
   }
 
-  // 获取银行卡
-  try {
-    const res = await getBankCards(merchantId)
-    if (res.code === 0) {
-      bankCards.value = res.data || []
-    }
-  } catch (e) {
-    console.error('获取银行卡失败:', e)
-  }
-
-  // 获取充值记录
   fetchRecords()
 }
 
@@ -241,17 +259,22 @@ const handleRecharge = async () => {
     const res = await applyRecharge({
       merchant_id: selectedMerchantId.value,
       amount: form.amount,
-      bank_card_no: form.bank_card_no,
       remark: form.remark
     })
 
     if (res.code === 0) {
-      result.status = res.data.status || 'PENDING'
-      result.amount = form.amount
-      result.message = res.data.message || ''
-      showResult.value = true
+      // 保存收款账户信息，弹窗展示
+      payeeInfo.recharge_order_no = res.data.recharge_order_no || ''
+      payeeInfo.amount = form.amount
+      payeeInfo.payee_acc_no = res.data.payee_acc_no || ''
+      payeeInfo.payee_acc_name = res.data.payee_acc_name || ''
+      payeeInfo.payee_bank = res.data.payee_bank || ''
+      payeeInfo.payee_bank_no = res.data.payee_bank_no || ''
+      payeeInfo.payee_bank_name = res.data.payee_bank_name || ''
+      payeeInfo.payee_bank_area = res.data.payee_bank_area || ''
+
+      showPayeeDialog.value = true
       fetchRecords()
-      // 刷新余额
       handleAccountChange(selectedMerchantId.value)
     } else {
       ElMessage.error(res.message || '充值申请失败')
@@ -265,9 +288,9 @@ const handleRecharge = async () => {
 
 const resetForm = () => {
   form.amount = null
-  form.bank_card_no = ''
   form.remark = ''
   showResult.value = false
+  showPayeeDialog.value = false
 }
 
 onMounted(() => {
@@ -285,4 +308,13 @@ onMounted(() => {
 .balance-label { color: #666; font-size: 14px; }
 .balance-value { font-size: 20px; font-weight: 700; color: #1976D2; margin-left: 8px; }
 .balance-value.available { color: #4CAF50; }
+.payee-info { padding: 8px 0; }
+.payee-alert {
+  display: flex; align-items: center;
+  padding: 12px 16px; background: #fdf6ec;
+  border: 1px solid #faecd8; border-radius: 8px;
+  color: #666; font-size: 13px; line-height: 1.6;
+}
+.highlight-value { font-weight: 600; font-family: monospace; }
+.highlight-value.money { color: #1976D2; font-size: 16px; }
 </style>

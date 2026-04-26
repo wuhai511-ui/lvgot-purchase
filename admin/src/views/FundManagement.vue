@@ -232,7 +232,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getMerchantList } from '@/api/merchant'
-import { getAccountBalance } from '@/api/account'
+import { getBalanceByAccountNo } from '@/api/account'
 import { applyWithdraw } from '@/api/withdraw'
 import { bindBankCard } from '@/api/bankCard'
 
@@ -349,21 +349,25 @@ const fetchAccountList = async () => {
         list = list.filter(item => item.split_role === filterForm.splitRole)
       }
 
-      // 获取每个账户的余额
-      accountList.value = await Promise.all(list.map(async (item) => {
+      // 按 account_no 逐条查询余额（多账户时逐个查询）
+      const resultList = []
+      for (const item of list) {
         let balance = 0
-        try {
-          const balanceRes = await getAccountBalance(item.id)
-          if (balanceRes.code === 0) {
-            balance = balanceRes.data?.balance || 0
+        const accountNo = item.qzt_response?.account_no
+        if (accountNo) {
+          try {
+            const balanceRes = await getBalanceByAccountNo(accountNo)
+            if (balanceRes.code === 0) {
+              balance = balanceRes.data?.balance || 0
+            }
+          } catch (e) {
+            console.error(`获取余额失败 (account_no=${accountNo}):`, e)
           }
-        } catch (e) {
-          console.error('获取余额失败:', e)
         }
 
-        return {
+        resultList.push({
           id: item.id,
-          accountNo: item.qzt_response?.account_no || `TEMP_${item.id}`,
+          accountNo: accountNo || `TEMP_${item.id}`,
           accountName: item.register_name,
           enterpriseType: item.enterprise_type,
           splitRole: item.split_role || 'other',
@@ -380,9 +384,10 @@ const fetchAccountList = async () => {
           bankName: getBankNameByCode(item.qzt_response?.bank_code),
           bankCode: item.qzt_response?.bank_code,
           rawBankCardNo: item.qzt_response?.bank_card_no,
-          qztAccountNo: item.qzt_response?.account_no
-        }
-      }))
+          qztAccountNo: accountNo
+        })
+      }
+      accountList.value = resultList
 
       pagination.total = accountList.value.length
     }

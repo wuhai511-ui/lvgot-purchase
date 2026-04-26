@@ -4,11 +4,19 @@
 import { get, post } from './request.js'
 
 /**
- * 查询账户余额（含账户列表）
+ * 按商户ID查询账户余额
  * GET /api/account/balance?merchant_id=xxx
  */
 export const getAccountBalance = (merchantId) => {
   return get('/api/account/balance', { merchant_id: merchantId })
+}
+
+/**
+ * 按账户编号查询余额
+ * GET /api/account/balance?account_no=xxx
+ */
+export const getBalanceByAccountNo = (accountNo) => {
+  return get('/api/account/balance', { account_no: accountNo })
 }
 
 /**

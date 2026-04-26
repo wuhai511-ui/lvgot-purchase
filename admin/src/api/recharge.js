@@ -11,7 +11,6 @@ export const applyRecharge = (data) => {
   return post('/api/recharge/apply', {
     merchant_id: data.merchant_id,
     amount: data.amount,
-    bank_card_no: data.bank_card_no,
     remark: data.remark || ''
   })
 }

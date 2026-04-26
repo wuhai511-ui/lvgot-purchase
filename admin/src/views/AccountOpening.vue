@@ -204,63 +204,6 @@
         </div>
       </div>
 
-      <!-- 银行卡信息（个人开户必填） -->
-      <div class="card">
-        <div class="card-header">
-          银行卡信息
-          <span class="required-tag">（必填）</span>
-        </div>
-        <div class="card-body">
-          <el-form :model="personalForm" :rules="personalRules" ref="personalBankFormRef" label-width="140px">
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="银行账户类型" prop="bankType">
-                  <el-radio-group v-model="personalForm.bankType">
-                    <el-radio value="2">对私（个人银行卡）</el-radio>
-                  </el-radio-group>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="开户银行" prop="bankCode">
-                  <el-select v-model="personalForm.bankCode" placeholder="选择银行" filterable style="width: 100%">
-                    <el-option v-for="bank in bankList" :key="bank.code" :label="bank.name" :value="bank.code"/>
-                  </el-select>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="12">
-                <el-form-item label="银行卡号" prop="bankCardNo">
-                  <el-input v-model="personalForm.bankCardNo" placeholder="请输入银行卡号" maxlength="19"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="12">
-                <el-form-item label="持卡人姓名" prop="bankCardName">
-                  <el-input v-model="personalForm.bankCardName" placeholder="请输入持卡人姓名（与身份证一致）"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-            <el-row :gutter="20">
-              <el-col :span="8">
-                <el-form-item label="开户省份" prop="bankProvince">
-                  <el-input v-model="personalForm.bankProvince" placeholder="省份"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="开户城市" prop="bankCity">
-                  <el-input v-model="personalForm.bankCity" placeholder="城市"/>
-                </el-form-item>
-              </el-col>
-              <el-col :span="8">
-                <el-form-item label="开户支行" prop="bankBranch">
-                  <el-input v-model="personalForm.bankBranch" placeholder="支行名称"/>
-                </el-form-item>
-              </el-col>
-            </el-row>
-          </el-form>
-        </div>
-      </div>
-
       <!-- 证件信息（可选） -->
       <div class="card">
         <div class="card-header">
@@ -403,14 +346,6 @@ const personalForm = reactive({
   mobile: '',
   idCard: '',
   address: '',
-  // 银行卡信息
-  bankType: '2', // 默认对私
-  bankCode: '',
-  bankCardNo: '',
-  bankCardName: '',
-  bankProvince: '',
-  bankCity: '',
-  bankBranch: '',
   // 证件照片
   idCardFrontImg: '',
   idCardBackImg: '',
@@ -418,25 +353,6 @@ const personalForm = reactive({
   guideCertImg: '',
   guideCertNo: '',
 })
-
-// 银行列表
-const bankList = [
-  { code: '01020000', name: '中国工商银行' },
-  { code: '01030000', name: '中国农业银行' },
-  { code: '01040000', name: '中国银行' },
-  { code: '01050000', name: '中国建设银行' },
-  { code: '03080000', name: '招商银行' },
-  { code: '03030000', name: '光大银行' },
-  { code: '03020000', name: '中信银行' },
-  { code: '03050000', name: '民生银行' },
-  { code: '03060000', name: '广发银行' },
-  { code: '03070000', name: '平安银行' },
-  { code: '03100000', name: '浦发银行' },
-  { code: '03090000', name: '兴业银行' },
-  { code: '04012900', name: '北京银行' },
-  { code: '04031000', name: '上海银行' },
-  { code: '04083300', name: '宁波银行' }
-]
 
 // 企业商户校验规则
 const enterpriseRules = {
@@ -465,15 +381,6 @@ const personalRules = {
     { required: true, message: '请输入身份证号', trigger: 'blur' },
     { pattern: /^[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[\dXx]$/, message: '身份证号格式不正确', trigger: 'blur' }
   ],
-  bankCode: [{ required: true, message: '请选择开户银行', trigger: 'change' }],
-  bankCardNo: [
-    { required: true, message: '请输入银行卡号', trigger: 'blur' },
-    { pattern: /^\d{16,19}$/, message: '银行卡号格式不正确', trigger: 'blur' }
-  ],
-  bankCardName: [{ required: true, message: '请输入持卡人姓名', trigger: 'blur' }],
-  bankProvince: [{ required: true, message: '请输入开户省份', trigger: 'blur' }],
-  bankCity: [{ required: true, message: '请输入开户城市', trigger: 'blur' }],
-  bankBranch: [{ required: true, message: '请输入开户支行', trigger: 'blur' }],
 }
 
 // 文件上传处理
@@ -562,16 +469,7 @@ const submitPersonal = async () => {
       legal_id_card: personalForm.idCard,
       address: personalForm.address,
       enterprise_type: '3', // 个人
-      split_role: splitRole.value, // 分账角色
-      // 银行卡信息
-      bank_type: personalForm.bankType,
-      bank_code: personalForm.bankCode,
-      bank_card_no: personalForm.bankCardNo,
-      bank_card_name: personalForm.bankCardName,
-      bank_province: personalForm.bankProvince,
-      bank_city: personalForm.bankCity,
-      bank_branch: personalForm.bankBranch,
-      // 导游证信息
+      split_role: splitRole.value,
       guide_cert_img: personalForm.guideCertImg,
       guide_cert_no: personalForm.guideCertNo,
       back_url: window.location.origin + '/api/merchant/callback',
