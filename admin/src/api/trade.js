@@ -1,66 +1,23 @@
 /**
- * 交易模块 API
+ * 交易订单 API（多账户模式）
  */
 import { get, post } from './request.js'
 
 /**
- * 创建支付
- * @param {Object} data - 支付数据
+ * 获取交易订单列表
+ * GET /api/orders
  */
-export function createPayment(data) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      paymentId: 'P' + Date.now(),
-      qrCode: 'https://bgualqb.cn/qr/' + Date.now(),
-      amount: data.amount,
-      status: 'pending',
-    },
+export const getTradeOrders = (params) => {
+  return get('/api/orders', {
+    page: params.page || 1,
+    page_size: params.pageSize || 20
   })
 }
 
 /**
- * 获取分账记录
- * @param {Object} params - 查询参数
+ * 获取指定商户的交易流水
+ * GET /api/merchant/:id/flow
  */
-export function getSplitRecords(params) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      list: [
-        {
-          recordId: 'SR001',
-          orderId: 'O001',
-          amount: 100.00,
-          splitRatio: 0.6,
-          status: 'completed',
-        },
-      ],
-      total: 1,
-    },
-  })
-}
-
-/**
- * 获取交易消息
- * @param {Object} params - 查询参数
- */
-export function getTradeMessages(params) {
-  return Promise.resolve({
-    code: 0,
-    message: 'success',
-    data: {
-      list: [
-        {
-          messageId: 'MSG001',
-          type: 'payment',
-          content: '收到一笔支付',
-          createTime: new Date().toISOString(),
-        },
-      ],
-      total: 1,
-    },
-  })
+export const getMerchantFlow = (merchantId, params) => {
+  return get(`/api/merchant/${merchantId}/flow`, params)
 }

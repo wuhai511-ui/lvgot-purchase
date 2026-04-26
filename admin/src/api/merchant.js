@@ -3,9 +3,9 @@
  * BFF Base URL: https://bgualqb.cn
  * 所有请求由 BFF 代理转发到钱账通，解决前端 CORS 问题
  */
-import { post, upload } from './request.js'
+import { get, post, upload } from './request.js'
 
-const BASE = '/api/v1/merchant'
+const BASE = '/api/merchant'
 
 /**
  * 手机号+验证码登录（Mock）
@@ -46,7 +46,7 @@ export const uploadFile = async (file) => {
   }
   const fileContent = btoa(binary)
   
-  return post('/api/v1/merchant/upload', {
+  return post('/api/merchant/upload', {
     file_name: file.name,
     file_type: file.name.split('.').pop() || 'jpg',
     file_content: fileContent
@@ -61,18 +61,29 @@ export const openAccount = (data) => {
   return post(BASE, {
     name: data.name,
     legal_mobile: data.legal_mobile,
+    legal_name: data.legal_name,
+    legal_id_card: data.legal_id_card,
+    license_no: data.license_no,
+    enterprise_type: data.enterprise_type,
+    split_role: data.split_role,
+    address: data.address,
+    email: data.email,
+    bank_type: data.bank_type,
+    bank_code: data.bank_code,
+    bank_card_no: data.bank_card_no,
+    bank_card_name: data.bank_card_name,
+    bank_branch: data.bank_branch,
+    bank_province: data.bank_province,
+    bank_city: data.bank_city,
+    bank_area: data.bank_area,
     back_url: data.back_url || location.origin + '/merchant/callback',
     source: data.source || 'WORKBENCH'
   })
 }
 
-export const getMerchantStatus = (merchantId) => {
-  return post(`${BASE}/status`, { merchant_id: merchantId })
-}
-
-export const getMerchantInfo = (merchantId) => {
-  return post(`${BASE}/detail`, { merchant_id: merchantId })
-}
+// 注：以下函数已废弃，使用 getMerchantList 或直接查数据库
+// export const getMerchantStatus = (merchantId) => { ... }
+// export const getMerchantInfo = (merchantId) => { ... }
 
 export const getMerchantList = (params) => {
   return post(`${BASE}/list`, params)
@@ -121,7 +132,7 @@ export const callOCR = (fileKey, type) => {
  * POST /api/qzt/recharge/pre-order
  */
 export const rechargePreOrder = (data) => {
-  return post('/api/v1/recharge/pre-order', {
+  return post('/api/qzt/recharge/pre-order', {
     amount: data.amount,
     account_type: data.accountType || 'lakala',
   })
@@ -132,7 +143,7 @@ export const rechargePreOrder = (data) => {
  * GET /api/qzt/recharge/status?order_no=xxx
  */
 export const rechargeStatus = (orderNo) => {
-  return post('/api/v1/recharge/status', { order_no: orderNo })
+  return post('/api/qzt/recharge/status', { order_no: orderNo })
 }
 
 /**
@@ -140,7 +151,7 @@ export const rechargeStatus = (orderNo) => {
  * POST /api/qzt/split/pre-order
  */
 export const splitPreOrder = (data) => {
-  return post('/api/v1/split/pre-order', data)
+  return post('/api/qzt/split/pre-order', data)
 }
 
 /**
@@ -148,7 +159,7 @@ export const splitPreOrder = (data) => {
  * POST /api/qzt/split/confirm
  */
 export const splitConfirm = (data) => {
-  return post('/api/v1/split/confirm', data)
+  return post('/api/qzt/split/confirm', data)
 }
 
 /**
@@ -156,7 +167,7 @@ export const splitConfirm = (data) => {
  * POST /api/qzt/withdraw/pre-order
  */
 export const withdrawPreOrder = (data) => {
-  return post('/api/v1/withdraw/pre-order', data)
+  return post('/api/qzt/withdraw/pre-order', data)
 }
 
 /**
@@ -164,5 +175,5 @@ export const withdrawPreOrder = (data) => {
  * GET /api/merchant/:id/face-recognition-url
  */
 export const getFaceRecognitionUrl = (merchantId) => {
-  return post(`${BASE}/${merchantId}/face-recognition-url`, {})
+  return get(`${BASE}/${merchantId}/face-recognition-url`)
 }

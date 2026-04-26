@@ -15,6 +15,12 @@ export default defineConfig({
     assetsDir: 'static',
     sourcemap: false,
     minify: false,
-    chunkSizeWarningLimit: 2000
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        admin: path.resolve(__dirname, 'index.admin.html')
+      }
+    }
   }
 })

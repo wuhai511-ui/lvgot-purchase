@@ -21,6 +21,7 @@ import TourGroup from '../views/TourGroup.vue'
 import AiSplit from '../views/AiSplit.vue'
 import SplitTemplate from '../views/SplitTemplate.vue'
 import Reconciliation from '../views/Reconciliation.vue'
+import FundManagement from '../views/FundManagement.vue'
 
 const routes = [
   {
@@ -105,6 +106,12 @@ const routes = [
     name: 'Reconciliation',
     meta: { requiresAuth: true },
     component: Reconciliation,
+  },
+  {
+    path: '/fund-management',
+    name: 'FundManagement',
+    meta: { requiresAuth: true },
+    component: FundManagement,
   },
   {
     path: '/store',

@@ -2,6 +2,35 @@
   <div class="page">
     <div class="page-title">🔄 账户充值</div>
 
+    <!-- 账户选择器 -->
+    <div class="card">
+      <div class="card-header">充值账户</div>
+      <div class="card-body">
+        <el-row :gutter="20" align="middle">
+          <el-col :span="6">
+            <el-select v-model="selectedMerchantId" placeholder="选择充值账户" style="width: 100%" @change="handleAccountChange">
+              <el-option v-for="acc in accountList" :key="acc.id" :label="acc.accountName" :value="acc.id">
+                <span>{{ acc.accountName }}</span>
+                <span style="float: right; color: #999; font-size: 12px">{{ acc.mobile }}</span>
+              </el-option>
+            </el-select>
+          </el-col>
+          <el-col :span="6">
+            <div class="balance-display">
+              <span class="balance-label">账户余额：</span>
+              <span class="balance-value">¥{{ accountBalance.toFixed(2) }}</span>
+            </div>
+          </el-col>
+          <el-col :span="6">
+            <div class="balance-display">
+              <span class="balance-label">可充值额度：</span>
+              <span class="balance-value available">¥{{ availableAmount.toFixed(2) }}</span>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+    </div>
+
     <!-- 充值表单 -->
     <div class="card" v-if="!showResult">
       <div class="card-header">充值信息</div>
@@ -21,7 +50,8 @@
             <el-input v-model="form.remark" placeholder="选填" style="width:300px"/>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" :loading="submitting" @click="handleRecharge">确认充值</el-button>
+            <el-button type="primary" :loading="submitting" @click="handleRecharge" :disabled="!selectedMerchantId">确认充值</el-button>
+            <span v-if="!selectedMerchantId" style="color: #999; margin-left: 12px">请先选择充值账户</span>
           </el-form-item>
         </el-form>
       </div>
@@ -73,15 +103,24 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { applyRecharge, getRechargeRecords } from '@/api/recharge'
 import { getBankCards } from '@/api/bankCard'
+import { getAccountBalance } from '@/api/account'
+import { getMerchantList } from '@/api/merchant'
 
+const route = useRoute()
 const formRef = ref()
 const submitting = ref(false)
 const showResult = ref(false)
 const loadingRecords = ref(false)
+
+const selectedMerchantId = ref(null)
+const accountList = ref([])
+const accountBalance = ref(0)
+const availableAmount = ref(0)
 
 const form = reactive({
   amount: null,
@@ -119,21 +158,66 @@ const formatTime = (time) => {
   return time.replace('T', ' ').substring(0, 19)
 }
 
-const fetchBankCards = async () => {
+const fetchAccountList = async () => {
   try {
-    const res = await getBankCards()
+    const res = await getMerchantList({ status: 'ACTIVE' })
+    if (res.code === 0) {
+      accountList.value = (res.data || []).map((item) => ({
+        id: item.id,
+        accountName: item.register_name,
+        mobile: item.legal_mobile,
+        accountNo: item.qzt_response?.account_no
+      }))
+
+      // 如果 URL 带有 merchant_id 参数，自动选中
+      if (route.query.merchant_id) {
+        selectedMerchantId.value = parseInt(route.query.merchant_id)
+        handleAccountChange(selectedMerchantId.value)
+      } else if (accountList.value.length > 0) {
+        // 默认选中第一个账户
+        selectedMerchantId.value = accountList.value[0].id
+        handleAccountChange(selectedMerchantId.value)
+      }
+    }
+  } catch (e) {
+    console.error('获取账户列表失败:', e)
+  }
+}
+
+const handleAccountChange = async (merchantId) => {
+  if (!merchantId) return
+
+  // 获取余额
+  try {
+    const res = await getAccountBalance(merchantId)
+    if (res.code === 0) {
+      accountBalance.value = res.data?.balance || 0
+      availableAmount.value = res.data?.available_amount || 0
+    }
+  } catch (e) {
+    console.error('获取余额失败:', e)
+  }
+
+  // 获取银行卡
+  try {
+    const res = await getBankCards(merchantId)
     if (res.code === 0) {
       bankCards.value = res.data || []
     }
   } catch (e) {
     console.error('获取银行卡失败:', e)
   }
+
+  // 获取充值记录
+  fetchRecords()
 }
 
 const fetchRecords = async () => {
+  if (!selectedMerchantId.value) return
+
   loadingRecords.value = true
   try {
-    const res = await getRechargeRecords({ pageSize: 5 })
+    const res = await getRechargeRecords({ merchant_id: selectedMerchantId.value, pageSize: 5 })
     if (res.code === 0) {
       records.value = res.data || []
     }
@@ -145,22 +229,30 @@ const fetchRecords = async () => {
 }
 
 const handleRecharge = async () => {
+  if (!selectedMerchantId.value) {
+    ElMessage.warning('请先选择充值账户')
+    return
+  }
+
   await formRef.value?.validate()
-  
+
   submitting.value = true
   try {
     const res = await applyRecharge({
+      merchant_id: selectedMerchantId.value,
       amount: form.amount,
       bank_card_no: form.bank_card_no,
       remark: form.remark
     })
-    
+
     if (res.code === 0) {
       result.status = res.data.status || 'PENDING'
       result.amount = form.amount
       result.message = res.data.message || ''
       showResult.value = true
       fetchRecords()
+      // 刷新余额
+      handleAccountChange(selectedMerchantId.value)
     } else {
       ElMessage.error(res.message || '充值申请失败')
     }
@@ -179,15 +271,18 @@ const resetForm = () => {
 }
 
 onMounted(() => {
-  fetchBankCards()
-  fetchRecords()
+  fetchAccountList()
 })
 </script>
 
 <style scoped>
 .page { padding: 20px 24px; }
 .page-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
-.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+.card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
 .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; }
 .card-body { padding: 20px; }
+.balance-display { display: flex; align-items: center; }
+.balance-label { color: #666; font-size: 14px; }
+.balance-value { font-size: 20px; font-weight: 700; color: #1976D2; margin-left: 8px; }
+.balance-value.available { color: #4CAF50; }
 </style>

@@ -28,6 +28,7 @@
               <span class="menu-name">账户中心</span>
             </template>
             <el-menu-item index="/account">账户列表</el-menu-item>
+            <el-menu-item index="/fund-management">账户资金</el-menu-item>
             <el-menu-item index="/bank-card">银行卡管理</el-menu-item>
           </el-sub-menu>
 
@@ -135,6 +136,7 @@ const isCollapse = ref(false)
 const menuNameMap = {
   '/': '工作台',
   '/account': '账户列表',
+  '/fund-management': '账户资金',
   '/bank-card': '银行卡管理',
   '/recharge': '充值',
   '/withdraw': '提现申请',

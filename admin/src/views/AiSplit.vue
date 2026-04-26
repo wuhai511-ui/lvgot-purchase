@@ -258,7 +258,7 @@ const executeSplit = async () => {
   
   try {
     // 调用分账接口
-    const res = await axios.post('/api/split/balance', {
+    const res = await axios.post('/api/balance/split', {
       split_items: currentSplit.value.splitItems.map(item => ({
         target_merchant_id: item.merchant_id || 1,
         split_amount: parseFloat(item.amount)
