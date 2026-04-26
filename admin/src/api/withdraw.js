@@ -10,6 +10,7 @@ import { get, post } from './request.js'
 export const applyWithdraw = (data) => {
   return post('/api/withdraw/apply', {
     merchant_id: data.merchant_id,
+    account_no: data.account_no,
     amount: data.amount,
     bank_card_no: data.bank_card_no,
     remark: data.remark || ''
