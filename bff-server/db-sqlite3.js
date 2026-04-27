@@ -840,13 +840,17 @@ async function getGuides(filters = {}) {
 }
 
 async function updateTenantStatus(id, status) {
-  await runAsync(`UPDATE merchants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, parseInt(id)]);
-  return await getTenantById(id);
+  const idNum = parseInt(id);
+  if (isNaN(idNum)) return null;
+  await runAsync(`UPDATE merchants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, idNum]);
+  return await getTenantById(idNum);
 }
 
 async function getMerchantFeatures(merchant_id) {
   return await getAsync(`SELECT * FROM merchant_features WHERE merchant_id = ?`, [parseInt(merchant_id)]);
 }
+
+const toBool = v => v === 'false' ? false : !!v;
 
 async function saveMerchantFeatures(features) {
   const { merchant_id, enable_split, enable_withdraw, enable_reconciliation, enable_store_management, max_stores } = features;
@@ -854,12 +858,12 @@ async function saveMerchantFeatures(features) {
   if (existing) {
     await runAsync(
       `UPDATE merchant_features SET enable_split=?, enable_withdraw=?, enable_reconciliation=?, enable_store_management=?, max_stores=?, updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?`,
-      [enable_split ? 1 : 0, enable_withdraw ? 1 : 0, enable_reconciliation ? 1 : 0, enable_store_management ? 1 : 0, max_stores || 10, parseInt(merchant_id)]
+      [toBool(enable_split) ? 1 : 0, toBool(enable_withdraw) ? 1 : 0, toBool(enable_reconciliation) ? 1 : 0, toBool(enable_store_management) ? 1 : 0, max_stores || 10, parseInt(merchant_id)]
     );
   } else {
     await runAsync(
       `INSERT INTO merchant_features (merchant_id, enable_split, enable_withdraw, enable_reconciliation, enable_store_management, max_stores) VALUES (?, ?, ?, ?, ?, ?)`,
-      [parseInt(merchant_id), enable_split ? 1 : 0, enable_withdraw ? 1 : 0, enable_reconciliation ? 1 : 0, enable_store_management ? 1 : 0, max_stores || 10]
+      [parseInt(merchant_id), toBool(enable_split) ? 1 : 0, toBool(enable_withdraw) ? 1 : 0, toBool(enable_reconciliation) ? 1 : 0, toBool(enable_store_management) ? 1 : 0, max_stores || 10]
     );
   }
   return await getMerchantFeatures(merchant_id);
