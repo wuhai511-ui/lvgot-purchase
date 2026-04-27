@@ -55,6 +55,7 @@ module.exports = function createAdminRouter(deps) {
 
   // 获取导游详情
   router.get('/guides/:id', async (req, res) => {
+    // 导游存储在 merchants 表，通过 split_role='guide' 标识
     const guide = await db.getTenantById(req.params.id);
     if (!guide || guide.split_role !== 'guide') {
       return res.status(404).json({ code: 404, message: '导游不存在' });
