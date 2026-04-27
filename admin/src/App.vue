@@ -88,6 +88,7 @@
             <el-menu-item index="/employee">员工管理</el-menu-item>
             <el-menu-item index="/role">角色管理</el-menu-item>
             <el-menu-item index="/permission">权限管理</el-menu-item>
+            <el-menu-item index="/ai-models">AI 模型配置</el-menu-item>
           </el-sub-menu>
         </el-menu>
       </div>
@@ -148,7 +149,8 @@ const menuNameMap = {
   '/split-record': '分账记录',
   '/employee': '员工管理',
   '/role': '角色管理',
-  '/permission': '权限管理'
+  '/permission': '权限管理',
+  '/ai-models': 'AI 模型配置'
 }
 
 const merchantInfo = ref(getMerchantInfo())

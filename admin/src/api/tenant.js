@@ -31,3 +31,10 @@ export function updateTenantFeatures(id, features) {
     data: features
   })
 }
+
+export function getTenantOptions() {
+  return request({
+    url: '/api/admin/tenants/options',
+    method: 'get'
+  })
+}

@@ -1,5 +1,6 @@
 // admin/src/api/index.js
 import * as account from './account'
+import * as aimodel from './aimodel'
 import * as bank from './bank'
 import * as bankCard from './bankCard'
 import * as guide from './guide'
@@ -15,6 +16,7 @@ import * as withdraw from './withdraw'
 
 export default {
   account,
+  aimodel,
   bank,
   bankCard,
   guide,
@@ -29,4 +31,4 @@ export default {
   withdraw
 }
 
-export { account, bank, bankCard, guide, merchant, order, recharge, split, store, system, tenant, trade, withdraw }
+export { account, aimodel, bank, bankCard, guide, merchant, order, recharge, split, store, system, tenant, trade, withdraw }

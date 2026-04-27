@@ -379,6 +379,17 @@ function createTables() {
       max_stores INTEGER DEFAULT 10,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS ai_models (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_id TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      api_endpoint TEXT NOT NULL,
+      api_key TEXT NOT NULL,
+      model_type TEXT NOT NULL DEFAULT 'chat',
+      status TEXT DEFAULT 'ACTIVE',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -818,20 +829,36 @@ async function generateStoreId() {
 
 // ========== Tenant 相关 ==========
 async function getTenantById(id) {
-  return await getAsync(`SELECT * FROM merchants WHERE id = ?`, [parseInt(id)]);
+  return await getAsync(
+    `SELECT m.*, mt.register_name AS tenant_name
+     FROM merchants m
+     LEFT JOIN merchants mt ON m.tenant_id = mt.id
+     WHERE m.id = ?`,
+    [parseInt(id)]
+  );
 }
 
 async function getTenants(filters = {}) {
-  let query = 'SELECT * FROM merchants WHERE 1=1';
+  let query = `SELECT m.*, mt.register_name AS tenant_name
+    FROM merchants m
+    LEFT JOIN merchants mt ON m.tenant_id = mt.id
+    WHERE 1=1`;
   const params = [];
-  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
-  if (filters.split_role) { query += ' AND split_role = ?'; params.push(filters.split_role); }
+  if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
+  if (filters.split_role) { query += ' AND m.split_role = ?'; params.push(filters.split_role); }
+  if (filters.tenant_id) { query += ' AND m.tenant_id = ?'; params.push(parseInt(filters.tenant_id)); }
   if (filters.keyword) {
-    query += ' AND (register_name LIKE ? OR legal_mobile LIKE ?)';
+    query += ' AND (m.register_name LIKE ? OR m.legal_mobile LIKE ?)';
     params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
   }
-  query += ' ORDER BY created_at DESC';
+  query += ' ORDER BY m.created_at DESC';
   return await allAsync(query, params);
+}
+
+async function getTenantOptions() {
+  return await allAsync(
+    `SELECT id, register_name FROM merchants WHERE status = 'ACTIVE' ORDER BY register_name ASC`
+  );
 }
 
 async function getGuides(filters = {}) {
@@ -867,6 +894,62 @@ async function saveMerchantFeatures(features) {
     );
   }
   return await getMerchantFeatures(merchant_id);
+}
+
+// ========== AI 模型配置 ==========
+async function getAIModels(filters = {}) {
+  let query = 'SELECT * FROM ai_models WHERE 1=1';
+  const params = [];
+  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+  if (filters.model_type) { query += ' AND model_type = ?'; params.push(filters.model_type); }
+  if (filters.keyword) {
+    query += ' AND (name LIKE ? OR model_id LIKE ?)';
+    params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
+  }
+  query += ' ORDER BY created_at DESC';
+  const rows = await allAsync(query, params);
+  return rows.map(r => ({
+    ...r,
+    api_key: r.api_key ? '••••••••' + decrypt(r.api_key).slice(-4) : ''
+  }));
+}
+
+async function getAIModelById(id) {
+  const row = await getAsync(`SELECT * FROM ai_models WHERE id = ?`, [parseInt(id)]);
+  if (!row) return null;
+  return { ...row, api_key: row.api_key ? decrypt(row.api_key) : '' };
+}
+
+async function saveAIModel(model) {
+  const { id, model_id, name, api_endpoint, api_key, model_type, status } = model;
+  const encryptedKey = api_key ? encrypt(api_key) : undefined;
+
+  if (id) {
+    const fields = [];
+    const vals = [];
+    if (model_id !== undefined) { fields.push('model_id = ?'); vals.push(model_id); }
+    if (name !== undefined) { fields.push('name = ?'); vals.push(name); }
+    if (api_endpoint !== undefined) { fields.push('api_endpoint = ?'); vals.push(api_endpoint); }
+    if (encryptedKey !== undefined) { fields.push('api_key = ?'); vals.push(encryptedKey); }
+    if (model_type !== undefined) { fields.push('model_type = ?'); vals.push(model_type); }
+    if (status !== undefined) { fields.push('status = ?'); vals.push(status); }
+    if (fields.length > 0) {
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      await runAsync(`UPDATE ai_models SET ${fields.join(', ')} WHERE id = ?`, [...vals, parseInt(id)]);
+    }
+    return await getAIModelById(id);
+  }
+
+  const result = await runAsync(
+    `INSERT INTO ai_models (model_id, name, api_endpoint, api_key, model_type, status) VALUES (?, ?, ?, ?, ?, ?)`,
+    [model_id, name, api_endpoint, encryptedKey || '', model_type || 'chat', status || 'ACTIVE']
+  );
+  return { id: result.lastID, model_id, name, api_endpoint, model_type: model_type || 'chat', status: status || 'ACTIVE' };
+}
+
+async function deleteAIModel(id) {
+  await runAsync(`DELETE FROM ai_models WHERE id = ?`, [parseInt(id)]);
+  return { success: true };
 }
 
 module.exports = {
@@ -958,10 +1041,16 @@ module.exports = {
   // Tenant
   getTenantById,
   getTenants,
+  getTenantOptions,
   getGuides,
   updateTenantStatus,
   getMerchantFeatures,
   saveMerchantFeatures,
+  // AI 模型
+  getAIModels,
+  getAIModelById,
+  saveAIModel,
+  deleteAIModel,
 };
 
 // ========== 门店 ==========

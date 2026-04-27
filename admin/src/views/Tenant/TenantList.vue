@@ -30,6 +30,16 @@
             <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
+        <el-form-item label="所属租户">
+          <el-select v-model="searchForm.tenant_id" placeholder="全部" clearable filterable>
+            <el-option
+              v-for="t in tenantOptions"
+              :key="t.id"
+              :label="t.register_name"
+              :value="t.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -40,6 +50,12 @@
       <el-table :data="tableData" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="register_name" label="商户名称" min-width="150" />
+        <el-table-column prop="tenant_name" label="所属租户" width="150">
+          <template #default="{ row }">
+            <span v-if="row.tenant_name">{{ row.tenant_name }}</span>
+            <el-tag v-else size="small">自身</el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="legal_mobile" label="手机号" width="130" />
         <el-table-column prop="split_role" label="角色" width="100">
           <template #default="{ row }">
@@ -125,14 +141,16 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTenants, getTenantDetail, updateTenantStatus, updateTenantFeatures } from '@/api/tenant'
+import { getTenants, getTenantDetail, getTenantOptions, updateTenantStatus, updateTenantFeatures } from '@/api/tenant'
 
 const loading = ref(false)
 const tableData = ref([])
+const tenantOptions = ref([])
 const searchForm = reactive({
   keyword: '',
   status: '',
-  split_role: ''
+  split_role: '',
+  tenant_id: ''
 })
 const pagination = reactive({
   page: 1,
@@ -156,7 +174,8 @@ async function fetchData() {
     const res = await getTenants({
       keyword: searchForm.keyword,
       status: searchForm.status,
-      split_role: searchForm.split_role
+      split_role: searchForm.split_role,
+      tenant_id: searchForm.tenant_id
     })
     if (res.code === 0) {
       tableData.value = res.data || []
@@ -181,6 +200,7 @@ function handleReset() {
   searchForm.keyword = ''
   searchForm.status = ''
   searchForm.split_role = ''
+  searchForm.tenant_id = ''
   handleSearch()
 }
 
@@ -275,8 +295,16 @@ async function submitFeatures() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   fetchData()
+  try {
+    const res = await getTenantOptions()
+    if (res.code === 0) {
+      tenantOptions.value = res.data || []
+    }
+  } catch (err) {
+    console.error('获取租户选项失败:', err)
+  }
 })
 </script>
 

@@ -129,5 +129,51 @@ module.exports = function createAdminRouter(deps) {
     res.json({ code: 0, data: Object.values(accountsMap) });
   });
 
+  // 获取可选租户列表（用于过滤下拉框）
+  router.get('/tenants/options', async (req, res) => {
+    const options = await db.getTenantOptions();
+    res.json({ code: 0, data: options });
+  });
+
+  // ========== AI 模型配置 ==========
+
+  // 获取 AI 模型列表
+  router.get('/ai-models', async (req, res) => {
+    const { status, model_type, keyword } = req.query;
+    const models = await db.getAIModels({ status, model_type, keyword });
+    res.json({ code: 0, data: models });
+  });
+
+  // 获取 AI 模型详情（含明文 api_key）
+  router.get('/ai-models/:id', async (req, res) => {
+    const model = await db.getAIModelById(req.params.id);
+    if (!model) {
+      return res.status(404).json({ code: 404, message: 'AI 模型不存在' });
+    }
+    res.json({ code: 0, data: model });
+  });
+
+  // 新增 AI 模型
+  router.post('/ai-models', async (req, res) => {
+    const { model_id, name, api_endpoint, api_key, model_type } = req.body;
+    if (!model_id || !name || !api_endpoint) {
+      return res.status(400).json({ code: 400, message: '缺少必填字段: model_id, name, api_endpoint' });
+    }
+    const model = await db.saveAIModel({ model_id, name, api_endpoint, api_key, model_type });
+    res.json({ code: 0, data: model });
+  });
+
+  // 更新 AI 模型
+  router.put('/ai-models/:id', async (req, res) => {
+    const model = await db.saveAIModel({ id: req.params.id, ...req.body });
+    res.json({ code: 0, data: model });
+  });
+
+  // 删除 AI 模型
+  router.delete('/ai-models/:id', async (req, res) => {
+    await db.deleteAIModel(req.params.id);
+    res.json({ code: 0, message: '删除成功' });
+  });
+
   return router;
 };
