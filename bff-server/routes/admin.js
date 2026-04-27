@@ -14,6 +14,12 @@ module.exports = function createAdminRouter(deps) {
     res.json({ code: 0, data: tenants });
   });
 
+  // 获取可选租户列表（必须在 /tenants/:id 之前注册，否则会被 :id 截获）
+  router.get('/tenants/options', async (req, res) => {
+    const options = await db.getTenantOptions();
+    res.json({ code: 0, data: options });
+  });
+
   // 获取租户详情
   router.get('/tenants/:id', async (req, res) => {
     const tenant = await db.getTenantById(req.params.id);
@@ -127,12 +133,6 @@ module.exports = function createAdminRouter(deps) {
       }
     }
     res.json({ code: 0, data: Object.values(accountsMap) });
-  });
-
-  // 获取可选租户列表（用于过滤下拉框）
-  router.get('/tenants/options', async (req, res) => {
-    const options = await db.getTenantOptions();
-    res.json({ code: 0, data: options });
   });
 
   // ========== AI 模型配置 ==========
