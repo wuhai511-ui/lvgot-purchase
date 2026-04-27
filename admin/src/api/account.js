@@ -33,3 +33,17 @@ export const getAccountList = (merchantId) => {
 export const bindMerchant = (merchantId, merchantNo) => {
   return post('/api/account/bind-merchant', { merchant_id: merchantId, merchant_no: merchantNo })
 }
+
+/**
+ * 获取账户动账明细
+ * GET /api/account/flow?account_no=xxx&page=1&page_size=20&start_date=&end_date=
+ */
+export const getAccountFlow = (params) => {
+  return get('/api/account/flow', {
+    account_no: params.account_no,
+    page: params.page || 1,
+    page_size: params.pageSize || 20,
+    start_date: params.start_date || '',
+    end_date: params.end_date || ''
+  })
+}

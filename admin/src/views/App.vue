@@ -32,11 +32,20 @@
             </template>
             <el-menu-item index="/fund-management">账户资金</el-menu-item>
             <el-menu-item index="/recharge">充值</el-menu-item>
-            <el-menu-item index="/payment">付款订单</el-menu-item>
             <el-menu-item index="/split-record">分账记录</el-menu-item>
             <el-menu-item index="/withdraw">提现管理</el-menu-item>
             <el-menu-item index="/bank-card">银行卡管理</el-menu-item>
             <el-menu-item index="/reconciliation">对账中心</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="order-center">
+            <template #title>
+              <span class="menu-emoji">📋</span>
+              <span>订单管理</span>
+            </template>
+            <el-menu-item index="/orders/pay">支付订单</el-menu-item>
+            <el-menu-item index="/orders/withdraw">提现订单</el-menu-item>
+            <el-menu-item index="/payment">付款订单</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="merchant-center">
@@ -119,9 +128,12 @@ const menuNameMap = {
   '/bank-card': '银行卡管理',
   '/recharge': '充值中心',
   '/withdraw': '提现管理',
-  '/payment': '支付订单',
+  '/payment': '付款订单',
   '/tour-group': '团队协同',
   '/store': '门店管理',
+  '/orders/pay': '支付订单',
+  '/orders/withdraw': '提现订单',
+  '/account-flow': '账户明细',
   '/ai-split': '智能分账',
   '/split-template': '分账模板',
   '/split-rule': '分账规则',

@@ -21,7 +21,7 @@ const ALGORITHM = 'aes-256-gcm';
  * 返回格式: iv(hex):authTag(hex):ciphertext(hex)
  */
 function encrypt(text) {
-  if (!text) return text;
+  if (!text) return text || '';
   if (!ENCRYPTION_KEY) {
     console.warn('[DB-SECURITY] ENCRYPTION_KEY 未配置，敏感字段将以明文存储（生产环境必须配置）');
     return text;
@@ -151,11 +151,12 @@ function saveMerchant(merchant) {
   const qztResponseStr = qzt_response ? JSON.stringify(qzt_response) : '';
   const existing = getMerchantByOutRequestNo(out_request_no);
   if (existing) {
-    db.run(`UPDATE merchants SET register_name=?, legal_mobile=?, legal_name=?, legal_id_card=?, license_no=?, enterprise_type=?, split_role=?, guide_cert_no=?, guide_cert_img=?, address=?, email=?, back_url=?, status=?, qzt_account_no=?, qzt_merchant_no=?, qzt_response=?, callback_message=?, callback_at=?, updated_at=CURRENT_TIMESTAMP WHERE out_request_no=?`, [register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', qzt_account_no, qzt_merchant_no, qztResponseStr, callback_message, callback_at, out_request_no]);
+    db.run(`UPDATE merchants SET register_name=?, legal_mobile=?, legal_name=?, legal_id_card=?, license_no=?, enterprise_type=?, split_role=?, guide_cert_no=?, guide_cert_img=?, address=?, email=?, back_url=?, status=?, qzt_account_no=?, qzt_merchant_no=?, qzt_response=?, callback_message=?, callback_at=?, updated_at=CURRENT_TIMESTAMP WHERE out_request_no=?`, [register_name || '', legal_mobile || '', legal_name || '', encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img || null, address || null, email || null, back_url || null, status||'PENDING', qzt_account_no || null, qzt_merchant_no || null, qztResponseStr, callback_message || null, callback_at || null, out_request_no]);
     saveDatabase();
     return { ...existing, ...merchant, id: existing.id };
   }
-  db.run(`INSERT INTO merchants (out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, qzt_account_no, qzt_merchant_no, qzt_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [out_request_no, register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', qzt_account_no, qzt_merchant_no, qztResponseStr]);
+  db.run(`INSERT INTO merchants (out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, qzt_account_no, qzt_merchant_no, qzt_response) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [out_request_no || '', register_name || '', legal_mobile || '', legal_name || '', encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img || null, address || null, email || null, back_url || null, status||'PENDING', qzt_account_no || null, qzt_merchant_no || null, qztResponseStr]);
+  console.log("[DEBUG] INSERT values:", [out_request_no, register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type, split_role, encryptedGuideCertNo, guide_cert_img || null, address, email, back_url, status, qzt_account_no, qzt_merchant_no, qztResponseStr].map(v => v === undefined ? "UNDEF" : (v === null ? "NULL" : typeof v)));
   saveDatabase();
   const r = db.exec('SELECT MAX(id) as id FROM merchants');
   return { id: r[0]?.values[0]?.[0]||0, ...merchant };
@@ -565,5 +566,106 @@ module.exports = {
   // 对账
   saveReconciliationTask, getReconciliationTask, getReconciliationTasks, updateReconciliationTask,
   saveReconciliationDetail, getReconciliationDetails,
-  saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference
-};
+  saveReconciliationDifference, getReconciliationDifferences, updateReconciliationDifference,
+  // 门店
+  getStores, getStoreById, getStoreByStoreId, saveStore, deleteStore,
+  // 门店终端
+  getStoreTerminals, saveStoreTerminal, deleteStoreTerminal,
+  // 订单
+  getOrders, getOrderById, getOrderByOrderNo, getOrdersByTourGroup, saveOrder, updateOrderStatus};
+
+// ========== 门店 ==========
+function getStores() {
+  const stmt = db.prepare('SELECT * FROM stores ORDER BY created_at DESC');
+  return stmt.all();
+}
+
+function getStoreById(id) {
+  const stmt = db.prepare('SELECT * FROM stores WHERE id = ?');
+  return stmt.get(id);
+}
+
+function getStoreByStoreId(store_id) {
+  const stmt = db.prepare('SELECT * FROM stores WHERE store_id = ?');
+  return stmt.get(store_id);
+}
+
+function saveStore(store) {
+  if (store.id) {
+    const stmt = db.prepare(`UPDATE stores SET store_name=?, account_no=?, merchant_id=?, tour_group_id=?, status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
+    stmt.run(store.store_name, store.account_no, store.merchant_id, store.tour_group_id, store.status || 'ACTIVE', store.id);
+    return store.id;
+  } else {
+    const store_id = 'S' + Date.now();
+    const stmt = db.prepare(`INSERT INTO stores (store_id, store_name, account_no, merchant_id, tour_group_id, status) VALUES (?, ?, ?, ?, ?, ?)`);
+    const result = stmt.run(store_id, store.store_name, store.account_no, store.merchant_id, store.tour_group_id, store.status || 'ACTIVE');
+    return result.lastInsertRowid;
+  }
+}
+
+function deleteStore(id) {
+  const stmt = db.prepare('DELETE FROM stores WHERE id = ?');
+  stmt.run(id);
+}
+
+// ========== 门店终端 ==========
+function getStoreTerminals(store_id) {
+  const stmt = db.prepare('SELECT * FROM store_terminals WHERE store_id = ? ORDER BY created_at DESC');
+  return stmt.all(store_id);
+}
+
+function saveStoreTerminal(terminal) {
+  if (terminal.id) {
+    const stmt = db.prepare(`UPDATE store_terminals SET merchant_no=?, terminal_no=?, merchant_name=?, bind_status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
+    stmt.run(terminal.merchant_no, terminal.terminal_no, terminal.merchant_name, terminal.bind_status || 'BOUND', terminal.id);
+    return terminal.id;
+  } else {
+    const stmt = db.prepare(`INSERT INTO store_terminals (store_id, merchant_no, terminal_no, merchant_name, bind_status) VALUES (?, ?, ?, ?, ?)`);
+    const result = stmt.run(terminal.store_id, terminal.merchant_no, terminal.terminal_no, terminal.merchant_name, terminal.bind_status || 'BOUND');
+    return result.lastInsertRowid;
+  }
+}
+
+function deleteStoreTerminal(id) {
+  const stmt = db.prepare('DELETE FROM store_terminals WHERE id = ?');
+  stmt.run(id);
+}
+
+// ========== 订单 ==========
+function getOrders(limit = 100, offset = 0) {
+  const stmt = db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT ? OFFSET ?');
+  return stmt.all(limit, offset);
+}
+
+function getOrderById(id) {
+  const stmt = db.prepare('SELECT * FROM orders WHERE id = ?');
+  return stmt.get(id);
+}
+
+function getOrderByOrderNo(order_no) {
+  const stmt = db.prepare('SELECT * FROM orders WHERE order_no = ?');
+  return stmt.get(order_no);
+}
+
+function getOrdersByTourGroup(tour_group_id) {
+  const stmt = db.prepare('SELECT * FROM orders WHERE tour_group_id = ? ORDER BY created_at DESC');
+  return stmt.all(tour_group_id);
+}
+
+function saveOrder(order) {
+  if (order.id) {
+    const stmt = db.prepare(`UPDATE orders SET store_id=?, tour_group_id=?, merchant_id=?, amount=?, status=?, split_status=?, split_rule_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
+    stmt.run(order.store_id, order.tour_group_id, order.merchant_id, order.amount, order.status || 'PENDING', order.split_status || 'PENDING', order.split_rule_id, order.id);
+    return order.id;
+  } else {
+    const order_no = 'O' + Date.now();
+    const stmt = db.prepare(`INSERT INTO orders (order_no, store_id, tour_group_id, merchant_id, amount, status, split_status, split_rule_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    const result = stmt.run(order_no, order.store_id, order.tour_group_id, order.merchant_id, order.amount, order.status || 'PENDING', order.split_status || 'PENDING', order.split_rule_id);
+    return result.lastInsertRowid;
+  }
+}
+
+function updateOrderStatus(id, status, split_status) {
+  const stmt = db.prepare('UPDATE orders SET status=?, split_status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?');
+  stmt.run(status, split_status, id);
+}

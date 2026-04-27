@@ -1,94 +1,88 @@
 <template>
   <div class="page">
-    <div class="page-title">🏪 门店管理</div>
+    <div class="page-title">门店管理</div>
 
-    <!-- 筛选和操作 -->
-    <div class="card">
-      <div class="card-body search-bar">
-        <el-select v-model="filterAccountId" placeholder="筛选账户" clearable style="width: 200px" @change="fetchTerminals">
-          <el-option v-for="acc in accountList" :key="acc.id" :label="acc.accountName" :value="acc.accountNo" />
-        </el-select>
-        <el-button type="primary" @click="showBindDialog = true">+ 绑定商终</el-button>
-      </div>
-    </div>
-
-    <!-- 商终列表 -->
-    <div class="card">
-      <div class="card-header">商终列表</div>
-      <div class="card-body">
-        <el-table :data="terminals" v-loading="loading" stripe>
-          <el-table-column prop="merchant_no" label="商户号" width="180"/>
-          <el-table-column prop="merchant_name" label="商户名称" width="180"/>
-          <el-table-column prop="terminal_no" label="终端号" width="150"/>
-          <el-table-column prop="account_no" label="绑定账户号" width="200"/>
-          <el-table-column prop="bind_status" label="绑定状态" width="100">
-            <template #default="{ row }">
-              <el-tag size="small" :type="row.bind_status === '00' ? 'success' : 'warning'">
-                {{ row.bind_status === '00' ? '已绑定' : '未绑定' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="绑定时间" width="170">
-            <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="150">
-            <template #default="{ row }">
-              <el-button v-if="row.bind_status !== '00'" type="primary" link size="small" @click="handleBind(row)">绑定</el-button>
-              <el-button v-else type="danger" link size="small" @click="handleUnbind(row)">解绑</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <div class="pagination">
-          <el-pagination
-            v-model:current-page="pagination.page"
-            v-model:page-size="pagination.pageSize"
-            :total="pagination.total"
-            layout="total, sizes, prev, pager, next"
-            @size-change="fetchTerminals"
-            @current-change="fetchTerminals"
-          />
+    <!-- 搜索区 -->
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="search-area">
+          <el-input v-model="search.store_id" placeholder="门店ID" style="width:160px;margin-right:12px;" clearable @keyup.enter="loadData"/>
+          <el-input v-model="search.store_name" placeholder="门店名称" style="width:200px;margin-right:12px;" clearable @keyup.enter="loadData"/>
+          <el-button type="primary" @click="loadData">查询</el-button>
+          <el-button @click="search = {store_id:'',store_name:''}; loadData()">重置</el-button>
         </div>
+        <el-button type="primary" @click="showCreate = true">+ 新增门店</el-button>
       </div>
     </div>
 
-    <!-- 绑定商终弹窗 -->
-    <el-dialog v-model="showBindDialog" title="绑定商终" width="500px">
-      <el-form :model="bindForm" :rules="bindRules" ref="bindFormRef" label-width="100px">
-        <el-form-item label="选择账户" prop="account_no">
-          <el-select v-model="bindForm.account_no" placeholder="请选择要绑定的账户" style="width: 100%">
-            <el-option v-for="acc in accountList" :key="acc.id" :label="acc.accountName" :value="acc.accountNo">
-              <span>{{ acc.accountName }}</span>
-              <span style="float: right; color: #999; font-size: 12px">{{ acc.mobile }}</span>
-            </el-option>
+    <!-- 门店列表 -->
+    <div class="card">
+      <el-table :data="tableData" v-loading="loading" stripe @row-click="handleRowClick" style="cursor:pointer;">
+        <el-table-column prop="store_id" label="门店ID" width="200"/>
+        <el-table-column prop="store_name" label="门店名称" min-width="160"/>
+        <el-table-column prop="account_no" label="绑定账户" width="200">
+          <template #default="{row}">{{ row.qzt_account_no || row.account_no || '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="merchant_name" label="商户名称" width="150"/>
+        <el-table-column prop="terminal_count" label="终端数" width="80" align="center"/>
+        <el-table-column prop="tour_group_count" label="关联旅行团" width="100" align="center"/>
+        <el-table-column prop="status" label="状态" width="80">
+          <template #default="{row}">
+            <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'danger'" size="small">
+              {{ row.status === 'ACTIVE' ? '启用' : '停用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="170">
+          <template #default="{row}">{{ formatTime(row.created_at) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" fixed="right">
+          <template #default="{row}">
+            <el-button type="primary" link size="small" @click.stop="handleView(row)">详情</el-button>
+            <el-button type="danger" link size="small" @click.stop="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div style="padding:16px;display:flex;justify-content:flex-end;">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @size-change="loadData"
+          @current-change="loadData"
+        />
+      </div>
+    </div>
+
+    <!-- 新增门店弹窗 -->
+    <el-dialog v-model="showCreate" title="新增门店" width="500px">
+      <el-form :model="createForm" :rules="formRules" ref="formRef" label-width="100px">
+        <el-form-item label="门店名称" prop="store_name">
+          <el-input v-model="createForm.store_name" placeholder="请输入门店名称"/>
+        </el-form-item>
+        <el-form-item label="绑定账户" prop="merchant_id">
+          <el-select v-model="createForm.merchant_id" placeholder="请选择已开通账户" style="width:100%" filterable>
+            <el-option v-for="acc in availableAccounts" :key="acc.id" :label="acc.register_name + ' (' + (acc.qzt_account_no || '-') + ')'" :value="acc.id"/>
           </el-select>
-        </el-form-item>
-        <el-form-item label="商户号" prop="merchant_no">
-          <el-input v-model="bindForm.merchant_no" placeholder="请输入商户号"/>
-        </el-form-item>
-        <el-form-item label="商户名称" prop="merchant_name">
-          <el-input v-model="bindForm.merchant_name" placeholder="请输入商户名称"/>
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showBindDialog = false">取消</el-button>
-        <el-button type="primary" :loading="binding" @click="handleBindSubmit">确认绑定</el-button>
+        <el-button @click="showCreate = false">取消</el-button>
+        <el-button type="primary" :loading="creating" @click="handleCreate">确认创建</el-button>
       </template>
     </el-dialog>
 
-    <!-- 解绑确认弹窗 -->
-    <el-dialog v-model="showUnbindDialog" title="解绑商终" width="400px">
-      <el-alert type="warning" :closable="false" style="margin-bottom: 20px">
-        <template #title>解绑后该商终将无法使用支付功能，确定要解绑吗？</template>
+    <!-- 删除确认弹窗 -->
+    <el-dialog v-model="showDelete" title="删除门店" width="400px">
+      <el-alert type="warning" :closable="false">
+        <template #title>确定要删除门店「{{ deleteTarget?.store_name }}」吗？此操作不可恢复。</template>
       </el-alert>
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="商户号">{{ unbindTarget?.merchant_no }}</el-descriptions-item>
-        <el-descriptions-item label="商户名称">{{ unbindTarget?.merchant_name }}</el-descriptions-item>
-        <el-descriptions-item label="绑定账户">{{ unbindTarget?.account_no }}</el-descriptions-item>
-      </el-descriptions>
       <template #footer>
-        <el-button @click="showUnbindDialog = false">取消</el-button>
-        <el-button type="danger" :loading="unbinding" @click="handleUnbindConfirm">确认解绑</el-button>
+        <el-button @click="showDelete = false">取消</el-button>
+        <el-button type="danger" :loading="deleting" @click="handleDeleteConfirm">确认删除</el-button>
       </template>
     </el-dialog>
   </div>
@@ -96,153 +90,124 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getTerminals, bindTerminal, unbindTerminal } from '@/api/store'
-import { getMerchantList } from '@/api/merchant'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getStoreList, deleteStore, getAvailableAccounts } from '@/api/store'
+import { createStore } from '@/api/store'
+
+const router = useRouter()
 
 const loading = ref(false)
-const binding = ref(false)
-const unbinding = ref(false)
-const showBindDialog = ref(false)
-const showUnbindDialog = ref(false)
-const bindFormRef = ref()
-const unbindTarget = ref(null)
+const creating = ref(false)
+const deleting = ref(false)
+const showCreate = ref(false)
+const showDelete = ref(false)
+const formRef = ref()
+const deleteTarget = ref(null)
 
-const accountList = ref([])
-const terminals = ref([])
-const filterAccountId = ref(null)
+const search = reactive({ store_id: '', store_name: '' })
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const tableData = ref([])
+const availableAccounts = ref([])
+const createForm = reactive({ store_name: '', merchant_id: null })
 
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0
-})
-
-const bindForm = reactive({
-  account_no: '',
-  merchant_no: '',
-  merchant_name: ''
-})
-
-const bindRules = {
-  account_no: [{ required: true, message: '请选择账户', trigger: 'change' }],
-  merchant_no: [{ required: true, message: '请输入商户号', trigger: 'blur' }],
-  merchant_name: [{ required: true, message: '请输入商户名称', trigger: 'blur' }]
+const formRules = {
+  store_name: [{ required: true, message: '请输入门店名称', trigger: 'blur' }],
+  merchant_id: [{ required: true, message: '请选择绑定账户', trigger: 'change' }]
 }
 
 const formatTime = (time) => time ? time.replace('T', ' ').substring(0, 19) : '-'
 
-const fetchAccountList = async () => {
-  try {
-    const res = await getMerchantList({ status: 'ACTIVE' })
-    if (res.code === 0) {
-      accountList.value = (res.data || []).map((item) => ({
-        id: item.id,
-        accountName: item.register_name,
-        mobile: item.legal_mobile,
-        accountNo: item.qzt_response?.account_no
-      }))
-    }
-  } catch (e) {
-    console.error('获取账户列表失败:', e)
-  }
-}
-
-const fetchTerminals = async () => {
+const loadData = async () => {
   loading.value = true
   try {
-    const res = await getTerminals({
-      account_no: filterAccountId.value || undefined,
-      page: pagination.page,
-      page_size: pagination.pageSize
+    const res = await getStoreList({
+      store_id: search.store_id || undefined,
+      store_name: search.store_name || undefined,
+      page: page.value,
+      pageSize: pageSize.value
     })
     if (res.code === 0) {
-      terminals.value = (res.data?.list || res.data || []).map((item, idx) => ({
-        id: idx,
-        merchant_no: item.merchant_no || item.merchantNo,
-        merchant_name: item.merchant_name || item.merchantName || '-',
-        terminal_no: item.terminal_no || item.terminalNo || '-',
-        account_no: item.account_no || item.accountNo || '-',
-        bind_status: item.bind_status || item.bindStatus || '00',
-        created_at: item.created_at || item.bindTime || new Date().toISOString()
-      }))
-      pagination.total = terminals.value.length
+      tableData.value = res.data?.list || []
+      total.value = res.data?.total || 0
     }
   } catch (e) {
-    console.error('获取商终列表失败:', e)
+    console.error('获取门店列表失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-const handleBind = (row) => {
-  bindForm.account_no = row.account_no
-  bindForm.merchant_no = row.merchant_no
-  bindForm.merchant_name = row.merchant_name
-  showBindDialog.value = true
-}
-
-const handleBindSubmit = async () => {
-  await bindFormRef.value?.validate()
-
-  binding.value = true
+const fetchAccounts = async () => {
   try {
-    const res = await bindTerminal({
-      account_no: bindForm.account_no,
-      merchant_no: bindForm.merchant_no,
-      merchant_name: bindForm.merchant_name
-    })
-
+    const res = await getAvailableAccounts()
     if (res.code === 0) {
-      ElMessage.success('绑定成功')
-      showBindDialog.value = false
-      bindForm.account_no = ''
-      bindForm.merchant_no = ''
-      bindForm.merchant_name = ''
-      fetchTerminals()
-    } else {
-      ElMessage.error(res.message || '绑定失败')
+      availableAccounts.value = res.data || []
     }
   } catch (e) {
-    ElMessage.error(e.message || '绑定失败')
-  } finally {
-    binding.value = false
+    console.error('获取可用账户列表失败:', e)
   }
 }
 
-const handleUnbind = (row) => {
-  unbindTarget.value = row
-  showUnbindDialog.value = true
-}
-
-const handleUnbindConfirm = async () => {
-  if (!unbindTarget.value) return
-
-  unbinding.value = true
+const handleCreate = async () => {
+  await formRef.value?.validate()
+  creating.value = true
   try {
-    const res = await unbindTerminal({
-      account_no: unbindTarget.value.account_no,
-      merchant_no: unbindTarget.value.merchant_no
-    })
-
+    const res = await createStore(createForm)
     if (res.code === 0) {
-      ElMessage.success('解绑成功')
-      showUnbindDialog.value = false
-      unbindTarget.value = null
-      fetchTerminals()
+      ElMessage.success('创建成功')
+      showCreate.value = false
+      createForm.store_name = ''
+      createForm.merchant_id = null
+      loadData()
     } else {
-      ElMessage.error(res.message || '解绑失败')
+      ElMessage.error(res.message || '创建失败')
     }
   } catch (e) {
-    ElMessage.error(e.message || '解绑失败')
+    ElMessage.error(e.message || '创建失败')
   } finally {
-    unbinding.value = false
+    creating.value = false
+  }
+}
+
+const handleRowClick = (row) => {
+  router.push(`/store/${row.id}`)
+}
+
+const handleView = (row) => {
+  router.push(`/store/${row.id}`)
+}
+
+const handleDelete = (row) => {
+  deleteTarget.value = row
+  showDelete.value = true
+}
+
+const handleDeleteConfirm = async () => {
+  if (!deleteTarget.value) return
+  deleting.value = true
+  try {
+    const res = await deleteStore(deleteTarget.value.id)
+    if (res.code === 0) {
+      ElMessage.success('删除成功')
+      showDelete.value = false
+      deleteTarget.value = null
+      loadData()
+    } else {
+      ElMessage.error(res.message || '删除失败')
+    }
+  } catch (e) {
+    ElMessage.error(e.message || '删除失败')
+  } finally {
+    deleting.value = false
   }
 }
 
 onMounted(() => {
-  fetchAccountList()
-  fetchTerminals()
+  loadData()
+  fetchAccounts()
 })
 </script>
 
@@ -252,6 +217,5 @@ onMounted(() => {
 .card { background: #fff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
 .card-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; font-size: 15px; font-weight: 600; }
 .card-body { padding: 20px; }
-.search-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.pagination { margin-top: 16px; display: flex; justify-content: flex-end; }
+.search-area { display: flex; align-items: center; flex-wrap: wrap; }
 </style>

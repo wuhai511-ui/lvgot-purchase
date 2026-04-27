@@ -288,12 +288,12 @@ merchantRouter.post('/apply', requireAuth, async (req, res) => {
     merchant_shortname,
     service_phone,
     business_license_type,
-    business_license_no,
+    business_license_no: license_no,
     business_license_province,
     business_license_city,
-    business_license_address,
-    business_address,
-    legal_name,
+    business_license_address: address,
+    business_address: businessAddress,
+    legal_name: legal_name,
     legal_id_card_no,
     legal_id_card_expire,
     legal_phone,
@@ -336,9 +336,9 @@ merchantRouter.post('/apply', requireAuth, async (req, res) => {
     business_license_type: parseInt(business_license_type),
     business_license_province,
     business_license_city,
-    business_license_address,
-    business_address,
-    legal_name,
+    business_license_address: address,
+    business_address: businessAddress,
+    legal_name: legal_name,
     legal_id_card_no,
     legal_id_card_expire,
     legal_phone,
@@ -379,17 +379,22 @@ merchantRouter.post('/apply', requireAuth, async (req, res) => {
     }
 
     const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
       out_request_no: outRequestNo,
       merchant_name,
       merchant_shortname,
       service_phone,
       business_license_type,
-      business_license_no,
+      business_license_no: license_no,
       business_license_province,
       business_license_city,
-      business_license_address,
-      business_address,
-      legal_name,
+      business_license_address: address,
+      business_address: businessAddress,
+      legal_name: legal_name,
       legal_id_card_no,
       legal_id_card_expire,
       legal_phone,
@@ -503,10 +508,10 @@ app.use('/api/v1/merchants', merchantRouter);
 app.post('/api/merchant', async (req, res) => {
   const { 
     name, 
-    legal_mobile, 
-    legal_name,
-    legal_id_card,
-    license_no,
+    legal_mobile: legal_mobile, 
+    legal_name: legal_name,
+    legal_id_card: legal_id_card,
+    license_no: license_no,
     enterprise_type,
     address,
     email,
@@ -522,7 +527,8 @@ app.post('/api/merchant', async (req, res) => {
     bank_province,
     bank_city,
     bank_area,
-    source 
+    source,
+    split_role
   } = req.body;
   
   const outRequestNo = `M${Date.now()}`;
@@ -534,6 +540,63 @@ app.post('/api/merchant', async (req, res) => {
   try {
     // 个人开户：使用 open.split.account.apply (6.9) 直接申请
     // 注意：个人开户需要归属商户账户标识(mer_account_no)，如果没有则使用 H5 页面方式
+
+    // shop/agency 角色：使用 open.pay.account.page.url (6.2) 获取支付开户页面
+    // 注意：shop(旅行商店) 和 agency(旅行社) 需要先开支付账户(6.2)
+    if (split_role === 'shop' || split_role === 'agency') {
+      console.log('[开店账户] shop/agency角色，使用6.2支付账户接口');
+      const result = await callQzt('open.pay.account.page.url', {
+        out_request_no: outRequestNo,
+        register_name: name || '商户',
+        legal_mobile: legal_mobile || '',
+        legal_name: legal_name || '',
+        legal_id_card: legal_id_card || '',
+        license_no: license_no || '',
+        enterprise_type: entType,
+        address: address || '',
+        email: email || '',
+        back_url: back_url || defaultBackUrl
+      });
+      let parsed = { url: '', account_no: ''  };
+      if (result.result) {
+        if (typeof result.result === 'object') {
+          parsed = result.result;
+        } else if (typeof result.result === 'string') {
+          try {
+            parsed = JSON.parse(Buffer.from(result.result, 'base64').toString('utf8'));
+          } catch(e) {
+            parsed = JSON.parse(result.result);
+          }
+        }
+      }
+
+      const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
+        license_no: license_no,
+        enterprise_type: entType,
+        split_role: split_role || null,
+        address,
+        email,
+        back_url: back_url || defaultBackUrl,
+        status: 'ENTERPRISE_PENDING',
+        qzt_response: parsed
+      });
+
+      return res.json({
+        code: 0,
+        data: {
+          merchant_id: merchant.id,
+          out_request_no: outRequestNo,
+          redirectUrl: parsed.url || '',
+          h5Url: parsed.url || ''
+        }
+      });
+    }
+
     if (entType === '3' || entType === 3) {
       // 检查是否有平台商户账户
       const merchants = getMerchants();
@@ -564,11 +627,16 @@ app.post('/api/merchant', async (req, res) => {
         }
         
         const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
           out_request_no: outRequestNo,
           register_name: name,
-          legal_mobile,
-          legal_name,
-          legal_id_card,
+          legal_mobile: legal_mobile,
+          legal_name: legal_name,
+          legal_id_card: legal_id_card,
           enterprise_type: '3',
           address,
           email,
@@ -632,9 +700,14 @@ app.post('/api/merchant', async (req, res) => {
       const merchant = saveMerchant({
         out_request_no: outRequestNo,
         register_name: name,
-        legal_mobile,
-        legal_name,
-        legal_id_card,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
         enterprise_type: '3',
         address,
         email,
@@ -685,10 +758,15 @@ app.post('/api/merchant', async (req, res) => {
       const merchant = saveMerchant({
         out_request_no: outRequestNo,
         register_name: name,
-        legal_mobile,
-        legal_name,
-        legal_id_card,
-        license_no,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
+        license_no: license_no,
         enterprise_type: entType,
         address,
         email,
@@ -708,7 +786,7 @@ app.post('/api/merchant', async (req, res) => {
       });
     }
   } catch (error) {
-    console.error('商户开户失败:', error.message);
+    console.error("商户开户失败:", error);
     res.status(500).json({ code: 500, message: '商户开户失败', error: error.message });
   }
 });
@@ -797,6 +875,36 @@ app.post('/api/qzt/event/callback', async (req, res) => {
 
     res.send('SUCCESS');
   } catch (error) {
+
+
+// DEBUG ENDPOINT - Direct saveMerchant test
+app.post('/api/debug-save', async (req, res) => {
+  const { out_request_no, register_name, legal_mobile: legal_mobile, legal_name: legal_name, legal_id_card: legal_id_card, enterprise_type, address, email, status, qzt_response } = req.body;
+  try {
+    console.log('[DEBUG] Request body keys:', Object.keys(req.body));
+    const merchant = {
+      out_request_no: out_request_no || 'DEBUG_' + Date.now(),
+      register_name: register_name || 'Debug',
+      legal_mobile: legal_mobile || '13800000000',
+      legal_name: legal_name || 'Debug',
+      legal_id_card: legal_id_card || '110101199001010001',
+      enterprise_type: enterprise_type || '3',
+      address: address || 'Debug',
+      email: email || 'debug@test.com',
+      back_url: 'http://test.com',
+      status: status || 'PENDING',
+      qzt_response: qzt_response || { url: 'http://test.com', account_no: '123' }
+    };
+    console.log('[DEBUG] Calling saveMerchant with keys:', Object.keys(merchant));
+    console.log('[DEBUG] merchant.out_request_no:', merchant.out_request_no);
+    console.log('[DEBUG] merchant.status:', merchant.status);
+    const result = saveMerchant(merchant);
+    res.json({ code: 0, data: result });
+  } catch(e) {
+    console.error('[DEBUG] Error:', e);
+    res.status(500).json({ code: 500, message: String(e) });
+  }
+});
     console.error('处理钱账通事件回调失败:', error);
     res.status(500).send('FAIL');
   }
@@ -1011,7 +1119,7 @@ app.post('/api/merchant/ocr', async (req, res) => {
  *      open.split.account.apply (6.9) 作为补充直接申请（不走 H5）。
  *
  * service: open.split.account.page.url (6.3)
- * 参数: out_request_no, register_name, legal_mobile, enterprise_type, back_url
+ * 参数: out_request_no, register_name, legal_mobile: legal_mobile, enterprise_type, back_url
  * 响应: { url, account_no }
  */
 app.post('/api/merchant/apply-personal', async (req, res) => {
@@ -1019,7 +1127,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
     const {
       out_request_no,
       register_name,   // 注册名称（商户姓名）
-      legal_mobile,    // 法人手机号
+      legal_mobile: legal_mobile,    // 法人手机号
       enterprise_type, // 1=企业 / 2=个体工商户 / 3=个人
       back_url,       // 开户完成后跳转 URL
       split_role,     // 分账角色: travel_shop=旅游商店, travel_agency=旅行社, guide=导游, driver=司机, other=其他
@@ -1038,7 +1146,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
     } = req.body;
 
     if (!out_request_no || !register_name || !legal_mobile || !enterprise_type) {
-      return res.status(400).json({ code: 400, message: '缺少必填字段: out_request_no, register_name, legal_mobile, enterprise_type' });
+      return res.status(400).json({ code: 400, message: '缺少必填字段: out_request_no, register_name, legal_mobile: legal_mobile, enterprise_type' });
     }
 
     // 根据 enterprise_type 选择不同的钱账通接口
@@ -1053,7 +1161,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
         out_request_no,
         register_name,
         enterprise_type: String(entType),
-        legal_mobile,
+        legal_mobile: legal_mobile,
         legal_name: '',
         legal_id_card: '',
         back_url: back_url || QZT_CALLBACK_URL + '/'
@@ -1063,7 +1171,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
       result = await callQzt('open.split.account.page.url', {
         out_request_no,
         register_name,
-        legal_mobile,
+        legal_mobile: legal_mobile,
         enterprise_type: entType,
         back_url: back_url || QZT_CALLBACK_URL + '/'
       });
@@ -1081,12 +1189,17 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
 
     // 保存到 merchant.json，status=PENDING（H5 填写中人脸识别待完成）
     const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
       out_request_no,
       register_name,
-      legal_mobile,
+      legal_mobile: legal_mobile,
       enterprise_type,
       back_url,
-      split_role,
+      split_role: split_role || null,
       name,
       id_card_no,
       id_card_front,
@@ -1126,7 +1239,7 @@ app.post('/api/merchant/apply-personal', async (req, res) => {
  */
 app.post('/api/merchant/split-account-page', async (req, res) => {
   try {
-    const { out_request_no, register_name, legal_mobile, enterprise_type, back_url } = req.body;
+    const { out_request_no, register_name, legal_mobile: legal_mobile, enterprise_type, back_url } = req.body;
     const required = ['out_request_no', 'register_name', 'legal_mobile', 'enterprise_type'];
     for (const f of required) {
       if (!req.body[f]) return res.status(400).json({ code: 400, message: `缺少必填参数: ${f}` });
@@ -1135,7 +1248,7 @@ app.post('/api/merchant/split-account-page', async (req, res) => {
     const result = await callQzt('open.split.account.page.url', {
       out_request_no,
       register_name,
-      legal_mobile,
+      legal_mobile: legal_mobile,
       enterprise_type: parseInt(enterprise_type),
       back_url: back_url || ''
     });
@@ -1207,6 +1320,11 @@ app.post('/api/merchant/split-account-apply', async (req, res) => {
 
     // status: 00=申请受理 / 01=开户成功 / 02=开户失败 / 03=电子签约
     const merchant = saveMerchant({
+        out_request_no: outRequestNo,
+        register_name: name,
+        legal_mobile: legal_mobile,
+        legal_name: legal_name,
+        legal_id_card: legal_id_card,
       out_request_no,
       register_name,
       mobile,
@@ -3473,7 +3591,7 @@ app.post('/api/ai/parse-split', async (req, res) => {
     // Prompt 注入防护：限制长度 + 过滤特殊字符
     const MAX_INPUT_LEN = 500;
     const inputText = String(text).slice(0, MAX_INPUT_LEN)
-      .replace(/[{}$`\\]/g, ''); // 移除模板注入字符
+      .replace(/[{}$`  ]/g, ''); // 移除模板注入字符
     
     // MiniMax API 配置
     const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY;
@@ -3537,7 +3655,7 @@ app.post('/api/ai/parse-split', async (req, res) => {
     let result;
     try {
       // 尝试提取 JSON
-      const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+      const jsonMatch = aiContent.match(/ {[ s S]* }/);
       if (jsonMatch) {
         result = JSON.parse(jsonMatch[0]);
       } else {
@@ -3561,17 +3679,17 @@ app.post('/api/ai/parse-split', async (req, res) => {
 // 规则解析（降级方案）
 function parseSplitByRules(text, context = {}) {
   // 提取金额
-  const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*元/);
+  const amountMatch = text.match(/( d+(?: . d+)?) s*元/);
   const totalAmount = amountMatch ? parseFloat(amountMatch[1]) : 10000;
   
   const items = [];
   
   // 检测分账对象
   const patterns = [
-    { pattern: /导游[^0-9]*(\d+)%/, role: '导游', defaultPercent: 40 },
-    { pattern: /司机[^0-9]*(\d+)%/, role: '司机', defaultPercent: 20 },
-    { pattern: /旅行社[^0-9]*(\d+)%/, role: '旅行社', defaultPercent: 30 },
-    { pattern: /平台[^0-9]*(\d+)%/, role: '平台', defaultPercent: 10 }
+    { pattern: /导游[^0-9]*( d+)%/, role: '导游', defaultPercent: 40 },
+    { pattern: /司机[^0-9]*( d+)%/, role: '司机', defaultPercent: 20 },
+    { pattern: /旅行社[^0-9]*( d+)%/, role: '旅行社', defaultPercent: 30 },
+    { pattern: /平台[^0-9]*( d+)%/, role: '平台', defaultPercent: 10 }
   ];
   
   let totalPercent = 0;

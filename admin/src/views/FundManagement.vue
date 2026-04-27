@@ -142,8 +142,9 @@
               <span class="remark-text">{{ row.remark || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="160" fixed="right">
+          <el-table-column label="操作" width="240" fixed="right">
             <template #default="{ row }">
+              <el-button type="primary" link size="small" @click="viewDetail(row)">查看明细</el-button>
               <el-button type="primary" link size="small" @click="handleWithdraw(row)">提现</el-button>
               <el-button type="warning" link size="small" @click="handleChangeBankCard(row)">变更结算卡</el-button>
             </template>
@@ -365,6 +366,12 @@ const fetchAccountList = async () => {
           }
         }
 
+        // 解析 qzt_response（JSON 字符串 → 对象）
+        let qztResp = {}
+        try {
+          qztResp = typeof item.qzt_response === 'string' ? JSON.parse(item.qzt_response) : (item.qzt_response || {})
+        } catch (e) {}
+
         resultList.push({
           id: item.id,
           accountNo: accountNo || `TEMP_${item.id}`,
@@ -379,11 +386,11 @@ const fetchAccountList = async () => {
           withdrawPeriod: 1,
           createdAt: item.created_at,
           remark: item.remark || '',
-          bankCardName: item.qzt_response?.bank_card_name || item.legal_name,
-          bankCardNo: maskBankCard(item.qzt_response?.bank_card_no),
-          bankName: getBankNameByCode(item.qzt_response?.bank_code),
-          bankCode: item.qzt_response?.bank_code,
-          rawBankCardNo: item.qzt_response?.bank_card_no,
+          bankCardName: qztResp.bank_card_name || '',
+          bankCardNo: maskBankCard(qztResp.bank_card_no || item.qzt_account_no),
+          bankName: getBankNameByCode(qztResp.bank_code),
+          bankCode: qztResp.bank_code,
+          rawBankCardNo: qztResp.bank_card_no,
           qztAccountNo: accountNo
         })
       }
@@ -417,6 +424,10 @@ const handleExpandChange = (row, expandedRows) => {
 
 const viewBills = (row) => {
   router.push({ path: '/trade-message', query: { merchant_id: row.id } })
+}
+
+const viewDetail = (row) => {
+  router.push({ path: '/account-flow', query: { account_no: row.qztAccountNo } })
 }
 
 const viewSettleRecords = (row) => {

@@ -22,6 +22,10 @@ import AiSplit from '../views/AiSplit.vue'
 import SplitTemplate from '../views/SplitTemplate.vue'
 import Reconciliation from '../views/Reconciliation.vue'
 import FundManagement from '../views/FundManagement.vue'
+import StoreDetail from '../views/StoreDetail.vue'
+import AccountFlow from '../views/AccountFlow.vue'
+import OrderPay from '../views/OrderPay.vue'
+import OrderWithdraw from '../views/OrderWithdraw.vue'
 
 const routes = [
   {
@@ -118,6 +122,30 @@ const routes = [
     name: 'Store',
     meta: { requiresAuth: true },
     component: Store,
+  },
+  {
+    path: '/store/:id',
+    name: 'StoreDetail',
+    meta: { requiresAuth: true },
+    component: StoreDetail,
+  },
+  {
+    path: '/account-flow',
+    name: 'AccountFlow',
+    meta: { requiresAuth: true },
+    component: AccountFlow,
+  },
+  {
+    path: '/orders/pay',
+    name: 'OrderPay',
+    meta: { requiresAuth: true },
+    component: OrderPay,
+  },
+  {
+    path: '/orders/withdraw',
+    name: 'OrderWithdraw',
+    meta: { requiresAuth: true },
+    component: OrderWithdraw,
   },
   {
     path: '/role',
