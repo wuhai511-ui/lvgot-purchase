@@ -144,35 +144,35 @@ async function createApp() {
   // ========== 挂载路由 ==========
   // 商终路由（必须在 /api/merchant 前面，避免被 merchant router 捕获）
   app.use('/api/merchant/terminals', createTerminalRouter({}));
-  app.use('/api/store', createStoreRouter(deps));
-  app.use("/api/orders", createOrderRouter(deps));
+  app.use('/api/store', requireAuth, createStoreRouter(deps));
+  app.use("/api/orders", requireAuth, createOrderRouter(deps));
     app.use('/api/webhook', createWebhookRouter(deps));
 
-  // 商户路由
+  // 商户路由（部分端点需要认证）
   app.use('/api/merchant', createMerchantRouter(deps));
   app.use('/api/v1/merchant', createMerchantRouter(deps));
 
   // 账户路由
-  app.use('/api/account', createAccountRouter(deps));
-  app.use('/api/v1/account', createAccountRouter(deps));
+  app.use('/api/account', requireAuth, createAccountRouter(deps));
+  app.use('/api/v1/account', requireAuth, createAccountRouter(deps));
 
   // 银行卡路由
-  app.use('/api/bank-cards', createBankCardRouter(deps));
-  app.use('/api/v1/bank-cards', createBankCardRouter(deps));
+  app.use('/api/bank-cards', requireAuth, createBankCardRouter(deps));
+  app.use('/api/v1/bank-cards', requireAuth, createBankCardRouter(deps));
 
   // 充值路由
-  app.use('/api/recharge', createRechargeRouter(deps));
+  app.use('/api/recharge', requireAuth, createRechargeRouter(deps));
   app.use("/api/reconciliation", createReconciliationRouter(deps));
-  app.use('/api/v1/recharge', createRechargeRouter(deps));
+  app.use('/api/v1/recharge', requireAuth, createRechargeRouter(deps));
 
   // 提现路由
-  app.use('/api/withdraw', createWithdrawRouter(deps));
-  app.use('/api/v1/withdraw', createWithdrawRouter(deps));
+  app.use('/api/withdraw', requireAuth, createWithdrawRouter(deps));
+  app.use('/api/v1/withdraw', requireAuth, createWithdrawRouter(deps));
 
   // 分账路由
-  app.use('/api/split', createSplitRouter(deps));
-  app.use("/api/split-templates", createSplitTemplateRouter(deps));
-  app.use('/api/v1/split', createSplitRouter(deps));
+  app.use('/api/split', requireAuth, createSplitRouter(deps));
+  app.use("/api/split-templates", requireAuth, createSplitTemplateRouter(deps));
+  app.use('/api/v1/split', requireAuth, createSplitRouter(deps));
 
   // 商终管理路由
 
@@ -183,10 +183,15 @@ async function createApp() {
   app.use('/api/admin', createAdminRouter(deps));
 
   // ========== 兼容旧接口 ==========
-  // 商户列表
-  app.post('/api/merchant/list', async (req, res) => {
+  // 商户列表（按租户隔离）
+  app.post('/api/merchant/list', requireAuth, async (req, res) => {
     const { keyword, status, page = 1, pageSize = 20 } = req.body;
     let merchants = await getMerchants();
+    // 租户隔离：只返回当前租户的商户
+    const tenant_id = req.auth?.tenant_id;
+    if (tenant_id) {
+      merchants = merchants.filter(m => m.tenant_id === tenant_id);
+    }
 
     if (keyword) {
       const kw = keyword.toLowerCase();
@@ -204,9 +209,13 @@ async function createApp() {
   });
 
   // v1 版本商户列表
-  app.post("/api/v1/merchant/list", async (req, res) => {
+  app.post("/api/v1/merchant/list", requireAuth, async (req, res) => {
     const { keyword, status, page = 1, pageSize = 20 } = req.body;
     let merchants = await getMerchants();
+    const tenant_id = req.auth?.tenant_id;
+    if (tenant_id) {
+      merchants = merchants.filter(m => m.tenant_id === tenant_id);
+    }
     if (keyword) {
       const kw = keyword.toLowerCase();
       merchants = merchants.filter(m =>
@@ -220,10 +229,14 @@ async function createApp() {
     }
     res.json({ code: 0, data: merchants });
   });
-  // 所有商户
-  app.get('/api/merchants', async (req, res) => {
+  // 所有商户（按租户隔离）
+  app.get('/api/merchants', requireAuth, async (req, res) => {
     let merchants = await getMerchants();
     const { split_role, status } = req.query;
+    const tenant_id = req.auth?.tenant_id;
+    if (tenant_id) {
+      merchants = merchants.filter(m => m.tenant_id === tenant_id);
+    }
     if (split_role) merchants = merchants.filter(m => m.split_role === split_role);
     if (status) merchants = merchants.filter(m => m.status === status);
     res.json({ code: 0, data: merchants });

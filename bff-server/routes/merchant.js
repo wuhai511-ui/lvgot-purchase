@@ -80,8 +80,13 @@ module.exports = function ({ db, getMerchants, saveMerchant, getMerchantByOutReq
   });
 
   // ========== 商户列表 ==========
-  router.get('/', async (req, res) => {
-    const merchants = await getMerchants();
+  router.get('/', requireAuth, async (req, res) => {
+    let merchants = await getMerchants();
+    // 租户隔离
+    const tenant_id = req.auth?.tenant_id;
+    if (tenant_id) {
+      merchants = merchants.filter(m => m.tenant_id === tenant_id);
+    }
     res.json({ code: 0, data: merchants });
   });
 

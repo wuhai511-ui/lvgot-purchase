@@ -8,6 +8,13 @@ module.exports = function ({ db, getMerchants }) {
     try {
       const { store_id, store_name, page = 1, page_size = 20 } = req.query;
       let stores = await db.getStores();
+      // 租户隔离：只返回当前租户的门店
+      const tenant_id = req.auth?.tenant_id;
+      if (tenant_id) {
+        const tenantMerchants = await db.getMerchantsByTenant(tenant_id);
+        const tenantMerchantIds = tenantMerchants.map(m => m.id);
+        stores = stores.filter(s => tenantMerchantIds.includes(s.merchant_id));
+      }
 
       // 获取终端和旅行团关联数据
       const terminals = await db.getStoreTerminals();

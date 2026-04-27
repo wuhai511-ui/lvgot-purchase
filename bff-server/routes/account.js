@@ -128,6 +128,14 @@ module.exports = function ({ db, getAccountsByMerchantId, getBankCardsByMerchant
 
       let transactions = await db.getTransactions({ merchant_id, type, limit: parseInt(page_size), offset: (parseInt(page) - 1) * parseInt(page_size) });
 
+      // 租户隔离
+      const tenant_id = req.auth?.tenant_id;
+      if (tenant_id) {
+        const tenantMerchants = await db.getMerchantsByTenant(tenant_id);
+        const tenantMerchantIds = tenantMerchants.map(m => m.id);
+        transactions = transactions.filter(t => tenantMerchantIds.includes(t.merchant_id));
+      }
+
       // 获取商户信息用于关联
       const merchants = await db.getMerchants();
 

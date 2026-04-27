@@ -10,12 +10,19 @@ module.exports = function (deps) {
     try {
       // 获取所有数据
       let orders = await db.getOrders()
-      
+      // 租户隔离
+      const tenant_id = req.auth?.tenant_id;
+      if (tenant_id) {
+        const tenantMerchants = await db.getMerchantsByTenant(tenant_id);
+        const tenantMerchantIds = tenantMerchants.map(m => m.id);
+        orders = orders.filter(o => tenantMerchantIds.includes(o.merchant_id));
+      }
+
       // 按 order_type 过滤
       if (order_type) {
         orders = orders.filter(o => o.order_type === order_type)
       }
-      
+
       let merchants = await getMerchants()
       let stores = await db.getStores()
 
