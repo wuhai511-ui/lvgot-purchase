@@ -119,7 +119,7 @@ const router = useRouter()
 const route = useRoute()
 
 const merchantInfo = ref(getMerchantInfo())
-const merchantName = ref('旅购通示例商户')
+const merchantName = ref(merchantInfo.value?.tenant_name || '旅购通商户工作台')
 
 const menuNameMap = {
   '/': '商户工作台',

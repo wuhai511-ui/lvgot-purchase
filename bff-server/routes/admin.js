@@ -5,19 +5,37 @@ const router = express.Router();
 module.exports = function createAdminRouter(deps) {
   const { db } = deps;
 
-  // ========== 租户管理 ==========
+  // ========== 租户管理（独立 tenants 表）==========
 
   // 获取租户列表
   router.get('/tenants', async (req, res) => {
-    const { status, split_role, keyword } = req.query;
-    const tenants = await db.getTenants({ status, split_role, keyword });
-    res.json({ code: 0, data: tenants });
+    const { status, keyword } = req.query;
+    const tenants = await db.getTenants({ status, keyword });
+    // 为每个租户附加商户数量
+    const result = await Promise.all(tenants.map(async t => {
+      const count = await db.getTenantMerchantCount(t.id);
+      return { ...t, merchant_count: count };
+    }));
+    res.json({ code: 0, data: result });
   });
 
-  // 获取可选租户列表（必须在 /tenants/:id 之前注册，否则会被 :id 截获）
+  // 获取可选租户列表（必须在 /tenants/:id 之前）
   router.get('/tenants/options', async (req, res) => {
     const options = await db.getTenantOptions();
     res.json({ code: 0, data: options });
+  });
+
+  // 新增租户
+  router.post('/tenants', async (req, res) => {
+    const { tenant_name, username, password, qzt_account_no, contact_name, contact_mobile } = req.body;
+    if (!tenant_name || !username || !password) {
+      return res.status(400).json({ code: 400, message: '缺少必填字段: tenant_name, username, password' });
+    }
+    const password_hash = require('../middleware/auth').hashPassword(password);
+    const tenant = await db.saveTenant({
+      tenant_name, username, password_hash, qzt_account_no, contact_name, contact_mobile
+    });
+    res.json({ code: 0, data: tenant });
   });
 
   // 获取租户详情
@@ -26,28 +44,40 @@ module.exports = function createAdminRouter(deps) {
     if (!tenant) {
       return res.status(404).json({ code: 404, message: '租户不存在' });
     }
-    // 获取功能权限
-    const features = await db.getMerchantFeatures(req.params.id);
-    res.json({ code: 0, data: { ...tenant, features } });
+    const merchantCount = await db.getTenantMerchantCount(req.params.id);
+    const merchants = await db.getTenantMerchants(req.params.id);
+    res.json({ code: 0, data: { ...tenant, password_hash: undefined, merchant_count: merchantCount, merchants } });
   });
 
-  // 更新租户状态
-  router.put('/tenants/:id/status', async (req, res) => {
-    const { status } = req.body;
-    if (!status) {
-      return res.status(400).json({ code: 400, message: '缺少 status 参数' });
+  // 更新租户
+  router.put('/tenants/:id', async (req, res) => {
+    const { tenant_name, username, qzt_account_no, contact_name, contact_mobile, status } = req.body;
+    const updates = { id: req.params.id };
+    if (tenant_name !== undefined) updates.tenant_name = tenant_name;
+    if (username !== undefined) updates.username = username;
+    if (qzt_account_no !== undefined) updates.qzt_account_no = qzt_account_no;
+    if (contact_name !== undefined) updates.contact_name = contact_name;
+    if (contact_mobile !== undefined) updates.contact_mobile = contact_mobile;
+    if (status !== undefined) updates.status = status;
+    // 密码单独处理
+    if (req.body.password) {
+      updates.password_hash = require('../middleware/auth').hashPassword(req.body.password);
     }
-    const tenant = await db.updateTenantStatus(req.params.id, status);
+    const tenant = await db.saveTenant(updates);
     res.json({ code: 0, data: tenant });
   });
 
-  // 更新租户功能权限
-  router.put('/tenants/:id/features', async (req, res) => {
-    const features = await db.saveMerchantFeatures({
-      merchant_id: req.params.id,
-      ...req.body
-    });
-    res.json({ code: 0, data: features });
+  // 删除租户（软删除）
+  router.delete('/tenants/:id', async (req, res) => {
+    await db.deleteTenant(req.params.id);
+    res.json({ code: 0, message: '删除成功' });
+  });
+
+  // 获取租户下的商户列表
+  router.get('/tenants/:id/merchants', async (req, res) => {
+    const { split_role, status, keyword } = req.query;
+    const merchants = await db.getMerchantsByTenant(req.params.id, { split_role, status, keyword });
+    res.json({ code: 0, data: merchants });
   });
 
   // ========== 导游管理 ==========

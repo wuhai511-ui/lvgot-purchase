@@ -16,25 +16,33 @@ export function getTenantDetail(id) {
   })
 }
 
-export function updateTenantStatus(id, status) {
+export function createTenant(data) {
   return request({
-    url: `/api/admin/tenants/${id}/status`,
-    method: 'put',
-    data: { status }
+    url: '/api/admin/tenants',
+    method: 'post',
+    data
   })
 }
 
-export function updateTenantFeatures(id, features) {
+export function updateTenant(id, data) {
   return request({
-    url: `/api/admin/tenants/${id}/features`,
+    url: `/api/admin/tenants/${id}`,
     method: 'put',
-    data: features
+    data
   })
 }
 
-export function getTenantOptions() {
+export function deleteTenant(id) {
   return request({
-    url: '/api/admin/tenants/options',
-    method: 'get'
+    url: `/api/admin/tenants/${id}`,
+    method: 'delete'
+  })
+}
+
+export function getTenantMerchants(tenantId, params) {
+  return request({
+    url: `/api/admin/tenants/${tenantId}/merchants`,
+    method: 'get',
+    params
   })
 }

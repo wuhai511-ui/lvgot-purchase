@@ -390,6 +390,18 @@ function createTables() {
       status TEXT DEFAULT 'ACTIVE',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`,
+    `CREATE TABLE IF NOT EXISTS tenants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_name TEXT NOT NULL,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      qzt_account_no TEXT,
+      contact_name TEXT,
+      contact_mobile TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -827,49 +839,106 @@ async function generateStoreId() {
   return prefix + seq;
 }
 
-// ========== Tenant 相关 ==========
+// ========== Tenant 相关（独立租户表）==========
 async function getTenantById(id) {
-  return await getAsync(
-    `SELECT m.*, mt.register_name AS tenant_name
-     FROM merchants m
-     LEFT JOIN merchants mt ON m.tenant_id = mt.id
-     WHERE m.id = ?`,
-    [parseInt(id)]
-  );
+  return await getAsync(`SELECT * FROM tenants WHERE id = ? AND status != 'DELETED'`, [parseInt(id)]);
+}
+
+async function getTenantByUsername(username) {
+  return await getAsync(`SELECT * FROM tenants WHERE username = ? AND status != 'DELETED'`, [username]);
 }
 
 async function getTenants(filters = {}) {
-  let query = `SELECT m.*, mt.register_name AS tenant_name
-    FROM merchants m
-    LEFT JOIN merchants mt ON m.tenant_id = mt.id
-    WHERE 1=1`;
+  let query = 'SELECT * FROM tenants WHERE status != "DELETED"';
   const params = [];
-  if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
-  if (filters.split_role) { query += ' AND m.split_role = ?'; params.push(filters.split_role); }
-  if (filters.tenant_id) { query += ' AND m.tenant_id = ?'; params.push(parseInt(filters.tenant_id)); }
+  if (filters.status && filters.status !== 'ALL') { query += ' AND status = ?'; params.push(filters.status); }
   if (filters.keyword) {
-    query += ' AND (m.register_name LIKE ? OR m.legal_mobile LIKE ?)';
+    query += ' AND (tenant_name LIKE ? OR username LIKE ?)';
     params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
   }
-  query += ' ORDER BY m.created_at DESC';
+  query += ' ORDER BY created_at DESC';
   return await allAsync(query, params);
 }
 
 async function getTenantOptions() {
+  return await allAsync(`SELECT id, tenant_name FROM tenants WHERE status = 'ACTIVE' ORDER BY tenant_name ASC`);
+}
+
+async function saveTenant(tenant) {
+  const { id, tenant_name, username, password_hash, qzt_account_no, contact_name, contact_mobile, status } = tenant;
+  if (id) {
+    const fields = [];
+    const vals = [];
+    if (tenant_name !== undefined) { fields.push('tenant_name = ?'); vals.push(tenant_name); }
+    if (username !== undefined) { fields.push('username = ?'); vals.push(username); }
+    if (password_hash !== undefined) { fields.push('password_hash = ?'); vals.push(password_hash); }
+    if (qzt_account_no !== undefined) { fields.push('qzt_account_no = ?'); vals.push(qzt_account_no); }
+    if (contact_name !== undefined) { fields.push('contact_name = ?'); vals.push(contact_name); }
+    if (contact_mobile !== undefined) { fields.push('contact_mobile = ?'); vals.push(contact_mobile); }
+    if (status !== undefined) { fields.push('status = ?'); vals.push(status); }
+    if (fields.length > 0) {
+      fields.push('updated_at = CURRENT_TIMESTAMP');
+      await runAsync(`UPDATE tenants SET ${fields.join(', ')} WHERE id = ?`, [...vals, parseInt(id)]);
+    }
+    return await getTenantById(id);
+  }
+  const result = await runAsync(
+    `INSERT INTO tenants (tenant_name, username, password_hash, qzt_account_no, contact_name, contact_mobile, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [tenant_name, username, password_hash, qzt_account_no || null, contact_name || null, contact_mobile || null, status || 'ACTIVE']
+  );
+  return { id: result.lastID, tenant_name, username, status: status || 'ACTIVE' };
+}
+
+async function deleteTenant(id) {
+  await runAsync(`UPDATE tenants SET status = 'DELETED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [parseInt(id)]);
+  return { success: true };
+}
+
+async function getTenantMerchants(tenant_id) {
   return await allAsync(
-    `SELECT id, register_name FROM merchants WHERE status = 'ACTIVE' ORDER BY register_name ASC`
+    `SELECT * FROM merchants WHERE tenant_id = ? ORDER BY created_at DESC`,
+    [parseInt(tenant_id)]
   );
 }
 
+async function getTenantMerchantCount(tenant_id) {
+  const row = await getAsync(
+    `SELECT COUNT(*) as count FROM merchants WHERE tenant_id = ? AND status != 'DELETED'`,
+    [parseInt(tenant_id)]
+  );
+  return row ? row.count : 0;
+}
+
+// 商户查询（保留原 merchants 表查询，供管理员查看商户列表）
+async function getMerchantsByTenant(tenant_id, filters = {}) {
+  let query = 'SELECT * FROM merchants WHERE tenant_id = ?';
+  const params = [parseInt(tenant_id)];
+  if (filters.split_role) { query += ' AND split_role = ?'; params.push(filters.split_role); }
+  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+  if (filters.keyword) {
+    query += ' AND (register_name LIKE ? OR legal_mobile LIKE ?)';
+    params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
+  }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
 async function getGuides(filters = {}) {
-  // 导游是 split_role = 'guide' 的商户
-  return await getTenants({ ...filters, split_role: 'guide' });
+  let query = 'SELECT * FROM merchants WHERE split_role = "guide" AND status != "DELETED"';
+  const params = [];
+  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+  if (filters.keyword) {
+    query += ' AND (register_name LIKE ? OR legal_mobile LIKE ?)';
+    params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
+  }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
 }
 
 async function updateTenantStatus(id, status) {
   const idNum = parseInt(id);
   if (isNaN(idNum)) return null;
-  await runAsync(`UPDATE merchants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, idNum]);
+  await runAsync(`UPDATE tenants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, idNum]);
   return await getTenantById(idNum);
 }
 
@@ -1040,8 +1109,14 @@ module.exports = {
 
   // Tenant
   getTenantById,
+  getTenantByUsername,
   getTenants,
   getTenantOptions,
+  saveTenant,
+  deleteTenant,
+  getTenantMerchants,
+  getTenantMerchantCount,
+  getMerchantsByTenant,
   getGuides,
   updateTenantStatus,
   getMerchantFeatures,

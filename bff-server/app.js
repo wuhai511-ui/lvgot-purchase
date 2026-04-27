@@ -29,6 +29,7 @@ const createSplitTemplateRouter = require('./routes/split-template');
 const createOrderRouter = require('./routes/order');
 const createWebhookRouter = require('./routes/webhook');
 const createAdminRouter = require('./routes/admin');
+const createAuthRouter = require('./routes/auth');
 // 中间件
 const { requireAuth } = require('./middleware/auth');
 
@@ -174,6 +175,9 @@ async function createApp() {
   app.use('/api/v1/split', createSplitRouter(deps));
 
   // 商终管理路由
+
+  // 认证路由（登录）
+  app.use('/api/auth', createAuthRouter(deps));
 
   // 管理员路由
   app.use('/api/admin', createAdminRouter(deps));

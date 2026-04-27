@@ -11,14 +11,50 @@ module.exports = function ({ db, getAccountsByMerchantId, getBankCardsByMerchant
   router.get('/balance', async (req, res) => {
     try {
       const { merchant_id, account_no } = req.query;
+      let qztAccountNo = account_no;
 
-      // 从数据库获取账户信息
+      // 如果未指定 account_no，尝试从租户 JWT 获取
+      if (!qztAccountNo && req.auth?.tenant_id) {
+        const tenant = await db.getTenantById(req.auth.tenant_id);
+        if (tenant?.qzt_account_no) {
+          qztAccountNo = tenant.qzt_account_no;
+        }
+      }
+
+      // 如果仍未找到 account_no 且租户存在，返回备选门店账号列表
+      if (!qztAccountNo && req.auth?.tenant_id) {
+        const stores = await db.getMerchantsByTenant(req.auth.tenant_id, { split_role: 'store' });
+        const storeAccounts = stores.filter(s => s.qzt_account_no).map(s => ({
+          id: s.id,
+          store_name: s.register_name,
+          qzt_account_no: s.qzt_account_no
+        }));
+        if (storeAccounts.length > 0) {
+          return res.json({
+            code: 0,
+            data: {
+              need_select_account: true,
+              store_accounts: storeAccounts
+            }
+          });
+        }
+      }
+
+      // 从本地数据库获取账户信息
       let accounts = await getAccountsByMerchantId(merchant_id || 1);
 
       if (!accounts || accounts.length === 0) {
         // 调用钱账通余额查询接口
+        const queryAccountNo = qztAccountNo || req.query.account_no;
+        if (!queryAccountNo) {
+          return res.json({
+            code: 0,
+            data: { balance: '0.00', frozen_amount: '0.00', available_amount: '0.00', no_account: true }
+          });
+        }
+
         const result = await callQzt('account.balance.query', {
-          account_no: account_no || '7445380068781174784'
+          account_no: queryAccountNo
         });
 
         const parsed = parseQztResult(result.result);
@@ -30,7 +66,8 @@ module.exports = function ({ db, getAccountsByMerchantId, getBankCardsByMerchant
           data: {
             balance: toYuan(qztBalance),
             frozen_amount: toYuan(qztFrozen),
-            available_amount: toYuan(qztBalance - qztFrozen)
+            available_amount: toYuan(qztBalance - qztFrozen),
+            qzt_account_no: queryAccountNo
           }
         });
       } else {

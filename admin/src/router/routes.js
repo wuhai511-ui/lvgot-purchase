@@ -28,6 +28,7 @@ import OrderPay from '../views/OrderPay.vue'
 import OrderWithdraw from '../views/OrderWithdraw.vue'
 import GuideList from '../views/Guide/GuideList.vue'
 import TenantList from '../views/Tenant/TenantList.vue'
+import TenantDetail from '../views/Tenant/TenantDetail.vue'
 import AIModelList from '../views/AIModel/AIModelList.vue'
 
 const routes = [
@@ -47,6 +48,12 @@ const routes = [
     name: 'TenantList',
     meta: { requiresAuth: true },
     component: TenantList,
+  },
+  {
+    path: '/tenants/:id',
+    name: 'TenantDetail',
+    meta: { requiresAuth: true },
+    component: TenantDetail,
   },
   {
     path: '/ai-models',

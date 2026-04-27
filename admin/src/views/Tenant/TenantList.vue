@@ -5,39 +5,19 @@
       <template #header>
         <div class="card-header">
           <span>租户管理</span>
+          <el-button type="primary" size="small" @click="handleCreate">新增租户</el-button>
         </div>
       </template>
 
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="关键词">
-          <el-input v-model="searchForm.keyword" placeholder="名称/手机号" clearable />
+          <el-input v-model="searchForm.keyword" placeholder="租户名/账号" clearable />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部" clearable>
-            <el-option label="待审核" value="PENDING" />
-            <el-option label="已通过" value="APPROVED" />
-            <el-option label="已激活" value="ACTIVE" />
-            <el-option label="已驳回" value="REJECTED" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="searchForm.split_role" placeholder="全部" clearable>
-            <el-option label="商户" value="merchant" />
-            <el-option label="门店" value="store" />
-            <el-option label="旅行社" value="agency" />
-            <el-option label="导游" value="guide" />
-            <el-option label="其他" value="other" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="所属租户">
-          <el-select v-model="searchForm.tenant_id" placeholder="全部" clearable filterable>
-            <el-option
-              v-for="t in tenantOptions"
-              :key="t.id"
-              :label="t.register_name"
-              :value="t.id"
-            />
+            <el-option label="启用" value="ACTIVE" />
+            <el-option label="禁用" value="DISABLED" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -49,90 +29,57 @@
       <!-- 表格 -->
       <el-table :data="tableData" v-loading="loading">
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="register_name" label="商户名称" min-width="150" />
-        <el-table-column prop="tenant_name" label="所属租户" width="150">
-          <template #default="{ row }">
-            <span v-if="row.tenant_name">{{ row.tenant_name }}</span>
-            <el-tag v-else size="small">自身</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="legal_mobile" label="手机号" width="130" />
-        <el-table-column prop="split_role" label="角色" width="100">
-          <template #default="{ row }">
-            <el-tag v-if="row.split_role === 'merchant'" type="primary">商户</el-tag>
-            <el-tag v-else-if="row.split_role === 'store'" type="success">门店</el-tag>
-            <el-tag v-else-if="row.split_role === 'agency'" type="warning">旅行社</el-tag>
-            <el-tag v-else-if="row.split_role === 'guide'" type="info">导游</el-tag>
-            <el-tag v-else>{{ row.split_role }}</el-tag>
-          </template>
-        </el-table-column>
+        <el-table-column prop="tenant_name" label="租户名称" min-width="150" />
+        <el-table-column prop="username" label="登录账号" width="140" />
+        <el-table-column prop="contact_name" label="联系人" width="120" />
+        <el-table-column prop="contact_mobile" label="联系电话" width="130" />
         <el-table-column prop="qzt_account_no" label="钱账通账号" width="200" />
+        <el-table-column prop="merchant_count" label="子商户数" width="100" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.status === 'PENDING'" type="warning">待审核</el-tag>
-            <el-tag v-else-if="row.status === 'APPROVED'" type="success">已通过</el-tag>
-            <el-tag v-else-if="row.status === 'REJECTED'" type="danger">已驳回</el-tag>
-            <el-tag v-else-if="row.status === 'ACTIVE'" type="success">已激活</el-tag>
-            <el-tag v-else type="info">{{ row.status }}</el-tag>
+            <el-tag v-if="row.status === 'ACTIVE'" type="success">启用</el-tag>
+            <el-tag v-else type="danger">禁用</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="注册时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" @click="handleView(row)">详情</el-button>
-            <el-button
-              v-if="row.status === 'PENDING'"
-              link
-              type="success"
-              @click="handleApprove(row)"
-            >
-              通过
-            </el-button>
-            <el-button
-              v-if="row.status === 'ACTIVE'"
-              link
-              type="danger"
-              @click="handleDisable(row)"
-            >
-              禁用
-            </el-button>
-            <el-button link type="primary" @click="handleFeatures(row)">功能权限</el-button>
+            <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
-
-      <!-- 分页 -->
-      <el-pagination
-        v-model:current-page="pagination.page"
-        v-model:page-size="pagination.pageSize"
-        :total="pagination.total"
-        layout="total, prev, pager, next"
-        @current-change="fetchData"
-      />
     </el-card>
 
-    <!-- 功能权限对话框 -->
-    <el-dialog v-model="featuresDialogVisible" title="功能权限配置" width="500px">
-      <el-form :model="featuresForm" label-width="120px">
-        <el-form-item label="分账功能">
-          <el-switch v-model="featuresForm.enable_split" />
+    <!-- 新增/编辑对话框 -->
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑租户' : '新增租户'" width="550px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="租户名称" prop="tenant_name">
+          <el-input v-model="form.tenant_name" placeholder="例如：某某旅游公司" />
         </el-form-item>
-        <el-form-item label="提现功能">
-          <el-switch v-model="featuresForm.enable_withdraw" />
+        <el-form-item label="登录账号" prop="username">
+          <el-input v-model="form.username" placeholder="用于登录商户工作台" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="对账功能">
-          <el-switch v-model="featuresForm.enable_reconciliation" />
+        <el-form-item label="登录密码" :prop="isEdit ? '' : 'password'">
+          <el-input v-model="form.password" type="password" show-password :placeholder="isEdit ? '留空则不修改密码' : '请设置登录密码'" />
         </el-form-item>
-        <el-form-item label="门店管理">
-          <el-switch v-model="featuresForm.enable_store_management" />
+        <el-form-item label="钱账通账号">
+          <el-input v-model="form.qzt_account_no" placeholder="绑定钱账通账号（选填）" />
         </el-form-item>
-        <el-form-item label="最大门店数">
-          <el-input-number v-model="featuresForm.max_stores" :min="1" :max="100" />
+        <el-form-item label="联系人">
+          <el-input v-model="form.contact_name" placeholder="联系人姓名（选填）" />
+        </el-form-item>
+        <el-form-item label="联系电话">
+          <el-input v-model="form.contact_mobile" placeholder="联系电话（选填）" />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="form.status_active" active-text="启用" inactive-text="禁用" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="featuresDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitFeatures">保存</el-button>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -140,46 +87,48 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTenants, getTenantDetail, getTenantOptions, updateTenantStatus, updateTenantFeatures } from '@/api/tenant'
+import { getTenants, getTenantDetail, createTenant, updateTenant, deleteTenant } from '@/api/tenant'
 
+const router = useRouter()
 const loading = ref(false)
+const submitting = ref(false)
 const tableData = ref([])
-const tenantOptions = ref([])
 const searchForm = reactive({
   keyword: '',
-  status: '',
-  split_role: '',
-  tenant_id: ''
-})
-const pagination = reactive({
-  page: 1,
-  pageSize: 20,
-  total: 0
+  status: ''
 })
 
-const featuresDialogVisible = ref(false)
-const featuresForm = reactive({
-  merchant_id: null,
-  enable_split: false,
-  enable_withdraw: false,
-  enable_reconciliation: false,
-  enable_store_management: false,
-  max_stores: 10
+const dialogVisible = ref(false)
+const isEdit = ref(false)
+const formRef = ref()
+const form = reactive({
+  id: null,
+  tenant_name: '',
+  username: '',
+  password: '',
+  qzt_account_no: '',
+  contact_name: '',
+  contact_mobile: '',
+  status_active: true
 })
+
+const rules = {
+  tenant_name: [{ required: true, message: '请输入租户名称', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入登录账号', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+}
 
 async function fetchData() {
   loading.value = true
   try {
     const res = await getTenants({
       keyword: searchForm.keyword,
-      status: searchForm.status,
-      split_role: searchForm.split_role,
-      tenant_id: searchForm.tenant_id
+      status: searchForm.status
     })
     if (res.code === 0) {
       tableData.value = res.data || []
-      pagination.total = tableData.value.length
     } else {
       ElMessage.error(res.message || '获取租户列表失败')
     }
@@ -192,119 +141,119 @@ async function fetchData() {
 }
 
 function handleSearch() {
-  pagination.page = 1
   fetchData()
 }
 
 function handleReset() {
   searchForm.keyword = ''
   searchForm.status = ''
-  searchForm.split_role = ''
-  searchForm.tenant_id = ''
   handleSearch()
 }
 
-function handleView(row) {
-  ElMessage.info('租户详情功能开发中')
+function resetForm() {
+  form.id = null
+  form.tenant_name = ''
+  form.username = ''
+  form.password = ''
+  form.qzt_account_no = ''
+  form.contact_name = ''
+  form.contact_mobile = ''
+  form.status_active = true
 }
 
-async function handleApprove(row) {
-  try {
-    await ElMessageBox.confirm(`确认通过商户「${row.register_name}」的申请？`, '审核确认', {
-      confirmButtonText: '确认通过',
-      type: 'success'
-    })
-    const res = await updateTenantStatus(row.id, 'APPROVED')
-    if (res.code === 0) {
-      ElMessage.success('已通过')
-      fetchData()
-    } else {
-      ElMessage.error(res.message || '操作失败')
-    }
-  } catch (err) {
-    if (err !== 'cancel') {
-      ElMessage.error('操作失败')
-    }
-  }
+function handleCreate() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
 }
 
-async function handleDisable(row) {
-  try {
-    await ElMessageBox.confirm(`确认禁用商户「${row.register_name}」？`, '禁用确认', {
-      confirmButtonText: '确认禁用',
-      type: 'warning'
-    })
-    const res = await updateTenantStatus(row.id, 'DISABLED')
-    if (res.code === 0) {
-      ElMessage.success('已禁用')
-      fetchData()
-    } else {
-      ElMessage.error(res.message || '操作失败')
-    }
-  } catch (err) {
-    if (err !== 'cancel') {
-      ElMessage.error('操作失败')
-    }
-  }
-}
-
-async function handleFeatures(row) {
-  // 获取现有功能权限
+async function handleEdit(row) {
+  isEdit.value = true
+  resetForm()
   try {
     const res = await getTenantDetail(row.id)
-    if (res.code === 0 && res.data.features) {
-      const f = res.data.features
-      featuresForm.merchant_id = row.id
-      featuresForm.enable_split = !!f.enable_split
-      featuresForm.enable_withdraw = !!f.enable_withdraw
-      featuresForm.enable_reconciliation = !!f.enable_reconciliation
-      featuresForm.enable_store_management = !!f.enable_store_management
-      featuresForm.max_stores = f.max_stores || 10
-    } else {
-      featuresForm.merchant_id = row.id
-      featuresForm.enable_split = false
-      featuresForm.enable_withdraw = false
-      featuresForm.enable_reconciliation = false
-      featuresForm.enable_store_management = false
-      featuresForm.max_stores = 10
+    if (res.code === 0) {
+      const d = res.data
+      form.id = d.id
+      form.tenant_name = d.tenant_name
+      form.username = d.username
+      form.qzt_account_no = d.qzt_account_no || ''
+      form.contact_name = d.contact_name || ''
+      form.contact_mobile = d.contact_mobile || ''
+      form.status_active = d.status === 'ACTIVE'
     }
-    featuresDialogVisible.value = true
   } catch (err) {
-    ElMessage.error('获取功能权限失败')
+    ElMessage.error('获取租户详情失败')
   }
+  dialogVisible.value = true
 }
 
-async function submitFeatures() {
+async function handleSubmit() {
   try {
-    const res = await updateTenantFeatures(featuresForm.merchant_id, {
-      enable_split: featuresForm.enable_split,
-      enable_withdraw: featuresForm.enable_withdraw,
-      enable_reconciliation: featuresForm.enable_reconciliation,
-      enable_store_management: featuresForm.enable_store_management,
-      max_stores: featuresForm.max_stores
-    })
+    await formRef.value.validate()
+  } catch {
+    return
+  }
+  submitting.value = true
+  try {
+    const data = {
+      tenant_name: form.tenant_name,
+      username: form.username,
+      qzt_account_no: form.qzt_account_no,
+      contact_name: form.contact_name,
+      contact_mobile: form.contact_mobile,
+      status: form.status_active ? 'ACTIVE' : 'DISABLED'
+    }
+    if (form.password) {
+      data.password = form.password
+    }
+    let res
+    if (isEdit.value) {
+      res = await updateTenant(form.id, data)
+    } else {
+      res = await createTenant(data)
+    }
     if (res.code === 0) {
-      ElMessage.success('功能权限已保存')
-      featuresDialogVisible.value = false
+      ElMessage.success(isEdit.value ? '更新成功' : '创建成功')
+      dialogVisible.value = false
+      fetchData()
     } else {
       ElMessage.error(res.message || '保存失败')
     }
   } catch (err) {
-    console.error('保存功能权限失败:', err)
+    console.error('保存租户失败:', err)
     ElMessage.error('保存失败')
+  } finally {
+    submitting.value = false
   }
 }
 
-onMounted(async () => {
-  fetchData()
+async function handleDelete(row) {
   try {
-    const res = await getTenantOptions()
+    await ElMessageBox.confirm(`确认删除租户「${row.tenant_name}」？删除后该租户将无法登录。`, '删除确认', {
+      confirmButtonText: '确认删除',
+      type: 'warning'
+    })
+    const res = await deleteTenant(row.id)
     if (res.code === 0) {
-      tenantOptions.value = res.data || []
+      ElMessage.success('删除成功')
+      fetchData()
+    } else {
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (err) {
-    console.error('获取租户选项失败:', err)
+    if (err !== 'cancel') {
+      ElMessage.error('删除失败')
+    }
   }
+}
+
+function handleView(row) {
+  router.push(`/tenants/${row.id}`)
+}
+
+onMounted(() => {
+  fetchData()
 })
 </script>
 
@@ -314,5 +263,10 @@ onMounted(async () => {
 }
 .search-form {
   margin-bottom: 20px;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>
