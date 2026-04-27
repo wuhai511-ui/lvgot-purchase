@@ -1,5 +1,5 @@
 // admin/src/api/tenant.js
-import request from '@/utils/request'
+import { request } from './request'
 
 export function getTenants(params) {
   return request({

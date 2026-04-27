@@ -1,5 +1,5 @@
 // admin/src/api/guide.js
-import request from '@/utils/request'
+import { request } from './request'
 
 export function getGuides(params) {
   return request({
