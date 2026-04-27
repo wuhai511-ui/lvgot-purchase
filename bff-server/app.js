@@ -28,6 +28,7 @@ const createStoreRouter = require('./routes/store');
 const createSplitTemplateRouter = require('./routes/split-template');
 const createOrderRouter = require('./routes/order');
 const createWebhookRouter = require('./routes/webhook');
+const createAdminRouter = require('./routes/admin');
 // 中间件
 const { requireAuth } = require('./middleware/auth');
 
@@ -173,6 +174,9 @@ async function createApp() {
   app.use('/api/v1/split', createSplitRouter(deps));
 
   // 商终管理路由
+
+  // 管理员路由
+  app.use('/api/admin', createAdminRouter(deps));
 
   // ========== 兼容旧接口 ==========
   // 商户列表
