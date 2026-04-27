@@ -135,9 +135,14 @@ async function fetchData() {
       keyword: searchForm.keyword,
       status: searchForm.status
     })
-    tableData.value = res.data || []
-    pagination.total = tableData.value.length
+    if (res.code === 0) {
+      tableData.value = res.data || []
+      pagination.total = tableData.value.length
+    } else {
+      ElMessage.error(res.message || '获取导游列表失败')
+    }
   } catch (err) {
+    console.error('获取导游列表失败:', err)
     ElMessage.error('获取导游列表失败')
   } finally {
     loading.value = false
@@ -156,7 +161,7 @@ function handleReset() {
 }
 
 function handleView(row) {
-  console.log('查看导游:', row.id)
+  ElMessage.info('查看导游详情功能开发中')
 }
 
 function handleAudit(row) {
@@ -167,15 +172,24 @@ function handleAudit(row) {
 }
 
 async function submitAudit() {
+  if (auditForm.status === 'REJECTED' && !auditForm.reject_reason.trim()) {
+    ElMessage.warning('请填写驳回原因')
+    return
+  }
   try {
-    await auditGuide(auditForm.id, {
+    const res = await auditGuide(auditForm.id, {
       status: auditForm.status,
       reject_reason: auditForm.reject_reason
     })
-    ElMessage.success('审核提交成功')
-    auditDialogVisible.value = false
-    fetchData()
+    if (res.code === 0) {
+      ElMessage.success('审核提交成功')
+      auditDialogVisible.value = false
+      fetchData()
+    } else {
+      ElMessage.error(res.message || '审核提交失败')
+    }
   } catch (err) {
+    console.error('审核提交失败:', err)
     ElMessage.error('审核提交失败')
   }
 }
