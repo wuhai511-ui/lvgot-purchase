@@ -438,7 +438,7 @@ async function getUserByUsername(username) {
 
 // ========== 商户 ==========
 async function saveMerchant(merchant) {
-  const { out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, pay_account_status, bank_account_status, face_verify_status, bank_account_url, qzt_account_no, qzt_merchant_no, qzt_response, callback_message, callback_at } = merchant;
+  const { out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, pay_account_status, bank_account_status, face_verify_status, bank_account_url, qzt_account_no, qzt_merchant_no, qzt_response, callback_message, callback_at, tenant_id } = merchant;
 
   const encryptedIdCard = encrypt(legal_id_card);
   const encryptedLicenseNo = encrypt(license_no);
@@ -449,15 +449,15 @@ async function saveMerchant(merchant) {
 
   if (existing) {
     await runAsync(
-      `UPDATE merchants SET register_name=?, legal_mobile=?, legal_name=?, legal_id_card=?, license_no=?, enterprise_type=?, split_role=?, guide_cert_no=?, guide_cert_img=?, address=?, email=?, back_url=?, status=?, pay_account_status=?, bank_account_status=?, face_verify_status=?, bank_account_url=?, qzt_account_no=?, qzt_merchant_no=?, qzt_response=?, callback_message=?, callback_at=?, updated_at=CURRENT_TIMESTAMP WHERE out_request_no=?`,
-      [register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', pay_account_status||'PENDING', bank_account_status||'PENDING', face_verify_status||'PENDING', bank_account_url, qzt_account_no, qzt_merchant_no, qztResponseStr, callback_message, callback_at, out_request_no]
+      `UPDATE merchants SET register_name=?, legal_mobile=?, legal_name=?, legal_id_card=?, license_no=?, enterprise_type=?, split_role=?, guide_cert_no=?, guide_cert_img=?, address=?, email=?, back_url=?, status=?, pay_account_status=?, bank_account_status=?, face_verify_status=?, bank_account_url=?, qzt_account_no=?, qzt_merchant_no=?, qzt_response=?, callback_message=?, callback_at=?, tenant_id=COALESCE(?, tenant_id), updated_at=CURRENT_TIMESTAMP WHERE out_request_no=?`,
+      [register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', pay_account_status||'PENDING', bank_account_status||'PENDING', face_verify_status||'PENDING', bank_account_url, qzt_account_no, qzt_merchant_no, qztResponseStr, callback_message, callback_at, tenant_id || null, out_request_no]
     );
-    return { ...existing, ...merchant, id: existing.id };
+    return { ...existing, ...merchant, tenant_id: tenant_id || existing.tenant_id, id: existing.id };
   }
 
   const result = await runAsync(
-    `INSERT INTO merchants (out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, pay_account_status, bank_account_status, face_verify_status, bank_account_url, qzt_account_no, qzt_merchant_no, qzt_response, callback_message, callback_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [out_request_no, register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', pay_account_status||'PENDING', bank_account_status||'PENDING', face_verify_status||'PENDING', bank_account_url, qzt_account_no, qzt_merchant_no, qztResponseStr, callback_message||null, callback_at||null]
+    `INSERT INTO merchants (out_request_no, register_name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, guide_cert_no, guide_cert_img, address, email, back_url, status, pay_account_status, bank_account_status, face_verify_status, bank_account_url, qzt_account_no, qzt_merchant_no, qzt_response, callback_message, callback_at, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [out_request_no, register_name, legal_mobile, legal_name, encryptedIdCard, encryptedLicenseNo, enterprise_type||'3', split_role||'other', encryptedGuideCertNo, guide_cert_img, address, email, back_url, status||'PENDING', pay_account_status||'PENDING', bank_account_status||'PENDING', face_verify_status||'PENDING', bank_account_url, qzt_account_no, qzt_merchant_no, qztResponseStr, callback_message||null, callback_at||null, tenant_id || null]
   );
   return { id: result.lastID, ...merchant };
 }

@@ -43,6 +43,7 @@ module.exports = function ({ db, getMerchants, saveMerchant, getMerchantByOutReq
 
       const parsed = parseQztResult(result.result);
 
+      const tenant_id = req.auth?.tenant_id;
       await saveMerchant({
         out_request_no: outRequestNo,
         register_name: name,
@@ -55,7 +56,8 @@ module.exports = function ({ db, getMerchants, saveMerchant, getMerchantByOutReq
         email: email || null,
         back_url: back_url || defaultBackUrl,
         status: 'ENTERPRISE_PENDING',
-        qzt_response: parsed
+        qzt_response: parsed,
+        tenant_id
       });
 
       res.json({

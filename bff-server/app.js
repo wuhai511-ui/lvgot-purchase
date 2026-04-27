@@ -242,9 +242,13 @@ async function createApp() {
     res.json({ code: 0, data: merchants });
   });
 
-  // ========== 商户开户（多账户模式）==========
-  app.post('/api/merchant', async (req, res) => {
+  // ========== 商户开户（多账户模式，需租户登录）==========
+  app.post('/api/merchant', requireAuth, async (req, res) => {
     try {
+      const tenant_id = req.auth?.tenant_id;
+      if (!tenant_id) {
+        return res.status(401).json({ code: 401, message: '请先登录租户账号' });
+      }
       const { name, legal_mobile, legal_name, legal_id_card, license_no, enterprise_type, split_role, address, email, bank_type, bank_code, bank_card_no, bank_card_name, bank_branch, bank_province, bank_city, bank_area, back_url, source } = req.body;
 
       const outRequestNo = `M${Date.now()}`;
@@ -288,7 +292,8 @@ async function createApp() {
         email: email || null,
         back_url: back_url || defaultBackUrl,
         status: 'ENTERPRISE_PENDING',
-        qzt_response: parsed
+        qzt_response: parsed,
+        tenant_id
       });
 
       const merchant = await getMerchantByOutRequestNo(outRequestNo);
