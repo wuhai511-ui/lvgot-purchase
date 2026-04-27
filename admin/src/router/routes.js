@@ -26,6 +26,7 @@ import StoreDetail from '../views/StoreDetail.vue'
 import AccountFlow from '../views/AccountFlow.vue'
 import OrderPay from '../views/OrderPay.vue'
 import OrderWithdraw from '../views/OrderWithdraw.vue'
+import GuideList from '../views/Guide/GuideList.vue'
 
 const routes = [
   {
@@ -38,6 +39,12 @@ const routes = [
     name: 'Dashboard',
     meta: { requiresAuth: true },
     component: Dashboard,
+  },
+  {
+    path: '/guides',
+    name: 'GuideList',
+    meta: { requiresAuth: true },
+    component: GuideList,
   },
   {
     path: '/account',
