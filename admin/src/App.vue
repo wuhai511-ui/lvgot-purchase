@@ -21,36 +21,51 @@
             </template>
           </el-menu-item>
 
-          <!-- 账户中心 -->
-          <el-sub-menu index="account-center">
+          <!-- 租户管理 -->
+          <el-menu-item index="/tenants">
+            <span class="menu-icon">🏢</span>
             <template #title>
-              <span class="menu-icon">💼</span>
-              <span class="menu-name">账户中心</span>
+              <span class="menu-name">租户管理</span>
+            </template>
+          </el-menu-item>
+
+          <!-- 导游管理 -->
+          <el-menu-item index="/guides">
+            <span class="menu-icon">👨‍✈️</span>
+            <template #title>
+              <span class="menu-name">导游管理</span>
+            </template>
+          </el-menu-item>
+
+          <!-- 门店管理 -->
+          <el-menu-item index="/store">
+            <span class="menu-icon">🏪</span>
+            <template #title>
+              <span class="menu-name">门店管理</span>
+            </template>
+          </el-menu-item>
+
+          <!-- 旅行社管理 -->
+          <el-menu-item index="/tour-group">
+            <span class="menu-icon">🚌</span>
+            <template #title>
+              <span class="menu-name">旅行社管理</span>
+            </template>
+          </el-menu-item>
+
+          <!-- 交易数据 -->
+          <el-sub-menu index="transaction-data">
+            <template #title>
+              <span class="menu-icon">💵</span>
+              <span class="menu-name">交易数据</span>
             </template>
             <el-menu-item index="/account">账户列表</el-menu-item>
             <el-menu-item index="/fund-management">账户资金</el-menu-item>
+            <el-menu-item index="/account-flow">账户流水</el-menu-item>
             <el-menu-item index="/bank-card">银行卡管理</el-menu-item>
-          </el-sub-menu>
-
-          <!-- 资金管理 -->
-          <el-sub-menu index="fund-management">
-            <template #title>
-              <span class="menu-icon">💵</span>
-              <span class="menu-name">资金管理</span>
-            </template>
-            <el-menu-item index="/recharge">充值</el-menu-item>
-            <el-menu-item index="/withdraw">提现申请</el-menu-item>
+            <el-menu-item index="/recharge">充值记录</el-menu-item>
+            <el-menu-item index="/withdraw">提现记录</el-menu-item>
             <el-menu-item index="/payment">付款订单</el-menu-item>
-          </el-sub-menu>
-
-          <!-- 业务管理 -->
-          <el-sub-menu index="business-management">
-            <template #title>
-              <span class="menu-icon">🎒</span>
-              <span class="menu-name">业务管理</span>
-            </template>
-            <el-menu-item index="/tour-group">旅行团管理</el-menu-item>
-            <el-menu-item index="/store">门店管理</el-menu-item>
           </el-sub-menu>
 
           <!-- 分账管理 -->
@@ -59,27 +74,10 @@
               <span class="menu-icon">📐</span>
               <span class="menu-name">分账管理</span>
             </template>
-            <el-menu-item index="/ai-split">🤖 AI智能分账</el-menu-item>
-            <el-menu-item index="/split-template">分账模板</el-menu-item>
             <el-menu-item index="/split-rule">分账规则</el-menu-item>
+            <el-menu-item index="/split-template">分账模板</el-menu-item>
             <el-menu-item index="/split-record">分账记录</el-menu-item>
           </el-sub-menu>
-          
-          <!-- 对账管理 -->
-          <el-menu-item index="/reconciliation">
-            <span class="menu-icon">📊</span>
-            <template #title>
-              <span class="menu-name">对账管理</span>
-            </template>
-          </el-menu-item>
-
-          <!-- 消息中心 -->
-          <el-menu-item index="/trade-message">
-            <span class="menu-icon">🔔</span>
-            <template #title>
-              <span class="menu-name">消息中心</span>
-            </template>
-          </el-menu-item>
 
           <!-- 系统设置 -->
           <el-sub-menu index="system-settings">
@@ -88,7 +86,6 @@
               <span class="menu-name">系统设置</span>
             </template>
             <el-menu-item index="/employee">员工管理</el-menu-item>
-            <el-menu-item index="/department">部门管理</el-menu-item>
             <el-menu-item index="/role">角色管理</el-menu-item>
             <el-menu-item index="/permission">权限管理</el-menu-item>
           </el-sub-menu>
@@ -129,28 +126,27 @@ import 'element-plus/dist/index.css'
 const router = useRouter()
 const route = useRoute()
 
-const merchantName = ref('钱账通运营后台')
+const merchantName = ref('旅购通运营后台')
 const isCollapse = ref(false)
 
 // 菜单名称映射（用于面包屑）
 const menuNameMap = {
   '/': '工作台',
+  '/tenants': '租户管理',
+  '/guides': '导游管理',
+  '/tour-group': '旅行社管理',
+  '/store': '门店管理',
   '/account': '账户列表',
   '/fund-management': '账户资金',
+  '/account-flow': '账户流水',
   '/bank-card': '银行卡管理',
-  '/recharge': '充值',
-  '/withdraw': '提现申请',
+  '/recharge': '充值记录',
+  '/withdraw': '提现记录',
   '/payment': '付款订单',
-  '/tour-group': '旅行团管理',
-  '/store': '门店管理',
-  '/ai-split': 'AI智能分账',
-  '/split-template': '分账模板',
   '/split-rule': '分账规则',
+  '/split-template': '分账模板',
   '/split-record': '分账记录',
-  '/reconciliation': '对账管理',
-  '/trade-message': '消息中心',
   '/employee': '员工管理',
-  '/department': '部门管理',
   '/role': '角色管理',
   '/permission': '权限管理'
 }

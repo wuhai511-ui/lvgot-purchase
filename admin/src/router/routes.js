@@ -27,6 +27,7 @@ import AccountFlow from '../views/AccountFlow.vue'
 import OrderPay from '../views/OrderPay.vue'
 import OrderWithdraw from '../views/OrderWithdraw.vue'
 import GuideList from '../views/Guide/GuideList.vue'
+import TenantList from '../views/Tenant/TenantList.vue'
 
 const routes = [
   {
@@ -39,6 +40,12 @@ const routes = [
     name: 'Dashboard',
     meta: { requiresAuth: true },
     component: Dashboard,
+  },
+  {
+    path: '/tenants',
+    name: 'TenantList',
+    meta: { requiresAuth: true },
+    component: TenantList,
   },
   {
     path: '/guides',
