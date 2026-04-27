@@ -808,6 +808,10 @@ async function generateStoreId() {
 module.exports = {
   initDatabase,
   closeDatabase,
+  // Promise 化数据库操作（供迁移脚本使用）
+  runAsync,
+  getAsync,
+  allAsync,
   // 用户
   createUser,
   getUserByUsername,
