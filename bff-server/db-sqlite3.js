@@ -368,6 +368,17 @@ function createTables() {
       store_id TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(tour_group_id, store_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS merchant_features (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      merchant_id INTEGER NOT NULL UNIQUE,
+      enable_split INTEGER DEFAULT 0,
+      enable_withdraw INTEGER DEFAULT 0,
+      enable_reconciliation INTEGER DEFAULT 0,
+      enable_store_management INTEGER DEFAULT 0,
+      max_stores INTEGER DEFAULT 10,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
@@ -805,6 +816,55 @@ async function generateStoreId() {
   return prefix + seq;
 }
 
+// ========== Tenant 相关 ==========
+async function getTenantById(id) {
+  return await getAsync(`SELECT * FROM merchants WHERE id = ?`, [parseInt(id)]);
+}
+
+async function getTenants(filters = {}) {
+  let query = 'SELECT * FROM merchants WHERE 1=1';
+  const params = [];
+  if (filters.status) { query += ' AND status = ?'; params.push(filters.status); }
+  if (filters.split_role) { query += ' AND split_role = ?'; params.push(filters.split_role); }
+  if (filters.keyword) {
+    query += ' AND (register_name LIKE ? OR legal_mobile LIKE ?)';
+    params.push(`%${filters.keyword}%`, `%${filters.keyword}%`);
+  }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getGuides(filters = {}) {
+  // 导游是 split_role = 'guide' 的商户
+  return await getTenants({ ...filters, split_role: 'guide' });
+}
+
+async function updateTenantStatus(id, status) {
+  await runAsync(`UPDATE merchants SET status=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`, [status, parseInt(id)]);
+  return await getTenantById(id);
+}
+
+async function getMerchantFeatures(merchant_id) {
+  return await getAsync(`SELECT * FROM merchant_features WHERE merchant_id = ?`, [parseInt(merchant_id)]);
+}
+
+async function saveMerchantFeatures(features) {
+  const { merchant_id, enable_split, enable_withdraw, enable_reconciliation, enable_store_management, max_stores } = features;
+  const existing = await getMerchantFeatures(merchant_id);
+  if (existing) {
+    await runAsync(
+      `UPDATE merchant_features SET enable_split=?, enable_withdraw=?, enable_reconciliation=?, enable_store_management=?, max_stores=?, updated_at=CURRENT_TIMESTAMP WHERE merchant_id=?`,
+      [enable_split ? 1 : 0, enable_withdraw ? 1 : 0, enable_reconciliation ? 1 : 0, enable_store_management ? 1 : 0, max_stores || 10, parseInt(merchant_id)]
+    );
+  } else {
+    await runAsync(
+      `INSERT INTO merchant_features (merchant_id, enable_split, enable_withdraw, enable_reconciliation, enable_store_management, max_stores) VALUES (?, ?, ?, ?, ?, ?)`,
+      [parseInt(merchant_id), enable_split ? 1 : 0, enable_withdraw ? 1 : 0, enable_reconciliation ? 1 : 0, enable_store_management ? 1 : 0, max_stores || 10]
+    );
+  }
+  return await getMerchantFeatures(merchant_id);
+}
+
 module.exports = {
   initDatabase,
   closeDatabase,
@@ -889,7 +949,15 @@ module.exports = {
   // 订单状态更新
   updateOrderSplitStatus,
   // 门店旅行团关联
-  getTourGroupStoresByStoreId
+  getTourGroupStoresByStoreId,
+
+  // Tenant
+  getTenantById,
+  getTenants,
+  getGuides,
+  updateTenantStatus,
+  getMerchantFeatures,
+  saveMerchantFeatures,
 };
 
 // ========== 门店 ==========
