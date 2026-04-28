@@ -57,6 +57,29 @@ sudo nginx -s reload
 
 ---
 
+## WSL2 浏览器兼容性
+
+gstack `/browse`、`/qa` 等涉及 Chromium 的命令通过 CDP 连接 Windows Edge 实现：
+
+**第一步（Windows）**：启动 Edge 远程调试 + TCP 代理：
+```powershell
+# PowerShell 窗口 1：启动 Edge
+msedge.exe --remote-debugging-port=9222 --remote-debugging-address=0.0.0.0 --user-data-dir=C:\edge-debug
+
+# PowerShell 窗口 2：TCP 代理（将 9223 的 WebSocket 连接转发到 9222）
+node -e "const net=require('net');const s=net.createServer();s.on('connection',(a)=>{const d=net.createConnection({host:'127.0.0.1',port:9222});a.pipe(d);d.pipe(a);});s.listen(9223,'0.0.0.0');console.log('proxy 9223->9222')"
+```
+
+**第二步（WSL2）**：获取 WebSocket URL 并启动 gstack：
+```bash
+WS_URL=$(curl -s http://127.0.0.1:9223/json/version | python3 -c "import sys,json;print(json.load(sys.stdin)['webSocketDebuggerUrl'])")
+cd /home/whf/.claude/skills/gstack
+BROWSE_CDP_URL="$WS_URL" BROWSE_STATE_FILE=/tmp/browse.json node browse/dist/server-node.mjs &
+sleep 3 && curl http://localhost:$(lsof -i -n -P | grep $(pgrep -f server-node | head -1) | grep LISTEN | awk '{print $9}' | cut -d: -f2)/health
+```
+
+**注意**：gstack 代码已支持 `BROWSE_CDP_URL` 环境变量（HTTP 或 WS URL）。`bun run` 在 WSL2 中对 WebSocket 支持不稳定，建议用 `node browse/dist/server-node.mjs` 启动 server。
+
 ## 5. 架构与编码规范 (Architecture & Conventions)
 
 ### 目录结构

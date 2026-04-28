@@ -143,7 +143,7 @@
 <script setup>
 import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import { get, post } from '@/api/request'
 
 const inputText = ref('')
 const messages = ref([])
@@ -157,9 +157,9 @@ const messageList = ref(null)
 // 加载模板
 const loadTemplates = async () => {
   try {
-    const res = await axios.get('/api/split-templates')
-    if (res.data.code === 0) {
-      templates.value = res.data.data || []
+    const res = await get('/api/split-templates')
+    if (res.code === 0) {
+      templates.value = res.data || []
     }
   } catch (e) {
     console.error('加载模板失败:', e)
@@ -179,12 +179,12 @@ const sendMessage = async () => {
   await scrollToBottom()
   
   try {
-    const res = await axios.post('/api/ai/parse-split', { text })
+    const res = await post('/api/ai/parse-split', { text })
     
     thinking.value = false
     
-    if (res.data.code === 0 && res.data.data.success) {
-      const result = res.data.data
+    if (res.code === 0 && res.data.success) {
+      const result = res.data
       messages.value.push({
         role: 'assistant',
         type: 'split-result',
@@ -196,7 +196,7 @@ const sendMessage = async () => {
     } else {
       messages.value.push({
         role: 'assistant',
-        content: res.data.data?.message || '抱歉，无法理解您的分账需求，请提供更详细的信息。'
+        content: res.data?.message || '抱歉，无法理解您的分账需求，请提供更详细的信息。'
       })
     }
   } catch (e) {
@@ -235,13 +235,13 @@ const editSplit = (msg) => {
 // 保存为模板
 const saveAsTemplate = async (msg) => {
   try {
-    const res = await axios.post('/api/split-templates', {
+    const res = await post('/api/split-templates', {
       name: `模板${Date.now().toString().slice(-6)}`,
       description: 'AI 生成的分账模板',
       items: msg.splitItems
     })
-    
-    if (res.data.code === 0) {
+
+    if (res.code === 0) {
       ElMessage.success('模板保存成功')
       loadTemplates()
     }
@@ -258,24 +258,24 @@ const executeSplit = async () => {
   
   try {
     // 调用分账接口
-    const res = await axios.post('/api/balance/split', {
+    const res = await post('/api/balance/split', {
       split_items: currentSplit.value.splitItems.map(item => ({
         target_merchant_id: item.merchant_id || 1,
         split_amount: parseFloat(item.amount)
       }))
     })
-    
+
     executing.value = false
     showConfirmDialog.value = false
-    
-    if (res.data.code === 0) {
+
+    if (res.code === 0) {
       messages.value.push({
         role: 'assistant',
-        content: `✅ 分账成功！\n\n分账单号：${res.data.data?.order_no || 'SP' + Date.now()}\n总金额：¥${currentSplit.value.totalAmount}\n\n分账明细已发送至各收款方。`
+        content: `✅ 分账成功！\n\n分账单号：${res.data?.order_no || 'SP' + Date.now()}\n总金额：¥${currentSplit.value.totalAmount}\n\n分账明细已发送至各收款方。`
       })
       ElMessage.success('分账成功')
     } else {
-      ElMessage.error(res.data.message || '分账失败')
+      ElMessage.error(res.message || '分账失败')
     }
   } catch (e) {
     executing.value = false

@@ -105,7 +105,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { get, post, put, del } from '@/api/request'
 
 const templates = ref([])
 const showCreateDialog = ref(false)
@@ -133,9 +133,9 @@ const canSave = computed(() => {
 // 加载模板列表
 const loadTemplates = async () => {
   try {
-    const res = await axios.get('/api/split-templates')
-    if (res.data.code === 0) {
-      templates.value = res.data.data || []
+    const res = await get('/api/split-templates')
+    if (res.code === 0) {
+      templates.value = res.data || []
     }
   } catch (e) {
     console.error('加载模板失败:', e)
@@ -172,13 +172,13 @@ const deleteTemplate = async (tpl) => {
       type: 'warning'
     })
     
-    const res = await axios.delete(`/api/split-templates/${tpl.template_id}`)
-    
-    if (res.data.code === 0) {
+    const res = await del(`/api/split-templates/${tpl.template_id}`)
+
+    if (res.code === 0) {
       ElMessage.success('删除成功')
       loadTemplates()
     } else {
-      ElMessage.error(res.data.message || '删除失败')
+      ElMessage.error(res.message || '删除失败')
     }
   } catch (e) {
     if (e !== 'cancel') {
@@ -190,8 +190,8 @@ const deleteTemplate = async (tpl) => {
 // 使用模板
 const useTemplate = async (tpl) => {
   try {
-    await axios.post(`/api/split-templates/${tpl.template_id}/use`)
-    
+    await post(`/api/split-templates/${tpl.template_id}/use`)
+
     // 跳转到 AI 分账页面
     ElMessage.success('模板已应用，请前往 AI 分账页面操作')
   } catch (e) {
@@ -206,17 +206,17 @@ const saveTemplate = async () => {
   try {
     let res
     if (editingTemplate.value) {
-      res = await axios.put(`/api/split-templates/${editingTemplate.value.template_id}`, form.value)
+      res = await put(`/api/split-templates/${editingTemplate.value.template_id}`, form.value)
     } else {
-      res = await axios.post('/api/split-templates', form.value)
+      res = await post('/api/split-templates', form.value)
     }
-    
-    if (res.data.code === 0) {
+
+    if (res.code === 0) {
       ElMessage.success(editingTemplate.value ? '更新成功' : '创建成功')
       closeCreateDialog()
       loadTemplates()
     } else {
-      ElMessage.error(res.data.message || '保存失败')
+      ElMessage.error(res.message || '保存失败')
     }
   } catch (e) {
     ElMessage.error('保存失败')

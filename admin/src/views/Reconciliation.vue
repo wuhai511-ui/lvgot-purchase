@@ -203,7 +203,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import axios from 'axios'
+import { get, post, put } from '@/api/request'
 
 const loading = ref(false)
 const creating = ref(false)
@@ -248,9 +248,9 @@ const formatTime = (time) => {
 const loadTasks = async () => {
   loading.value = true
   try {
-    const res = await axios.get('/api/reconciliation/tasks')
-    if (res.data.code === 0) {
-      tasks.value = res.data.data || []
+    const res = await get('/api/reconciliation/tasks')
+    if (res.code === 0) {
+      tasks.value = res.data || []
       
       // 更新统计
       const completed = tasks.value.filter(t => t.status === 'completed')
@@ -276,17 +276,17 @@ const createTask = async () => {
   
   creating.value = true
   try {
-    const res = await axios.post('/api/reconciliation/tasks', {
+    const res = await post('/api/reconciliation/tasks', {
       taskType: taskForm.taskType,
       dateRangeStart: taskForm.dateRange[0],
       dateRangeEnd: taskForm.dateRange[1]
     })
-    
-    if (res.data.code === 0) {
+
+    if (res.code === 0) {
       ElMessage.success('对账任务已创建，正在后台执行')
       loadTasks()
     } else {
-      ElMessage.error(res.data.message || '创建失败')
+      ElMessage.error(res.message || '创建失败')
     }
   } catch (e) {
     ElMessage.error('创建任务失败')
@@ -298,10 +298,10 @@ const createTask = async () => {
 // 查看任务详情
 const viewTaskDetail = async (task) => {
   try {
-    const res = await axios.get(`/api/reconciliation/tasks/${task.task_no}`)
-    if (res.data.code === 0) {
-      currentTask.value = res.data.data
-      taskDifferences.value = res.data.data.differences || []
+    const res = await get(`/api/reconciliation/tasks/${task.task_no}`)
+    if (res.code === 0) {
+      currentTask.value = res.data
+      taskDifferences.value = res.data.differences || []
       showDetailDialog.value = true
     }
   } catch (e) {
@@ -312,8 +312,8 @@ const viewTaskDetail = async (task) => {
 // 处理差异
 const resolveDifference = async (diff, action) => {
   try {
-    const res = await axios.put(`/api/reconciliation/differences/${diff.id}`, { action })
-    if (res.data.code === 0) {
+    const res = await put(`/api/reconciliation/differences/${diff.id}`, { action })
+    if (res.code === 0) {
       ElMessage.success(action === 'resolve' ? '已标记为解决' : '已忽略')
       // 刷新详情
       if (currentTask.value) {

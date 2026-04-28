@@ -155,7 +155,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getMerchantList } from '@/api/merchant'
-import axios from 'axios'
+import { post } from '@/api/request'
 
 const router = useRouter()
 
@@ -325,18 +325,18 @@ const continueOpening = (row) => {
 const openBankAccount = async (row) => {
   try {
     ElMessage.info('正在获取银行内部户开户链接...')
-    const res = await axios.post('/api/merchant/bank-account/open', {
+    const res = await post('/api/merchant/bank-account/open', {
       account_no: row.qztAccountNo || row.outRequestNo,
       merchant_id: row.id
     })
 
-    if (res.data.code === 0 && res.data.data?.url) {
+    if (res.code === 0 && res.data?.url) {
       ElMessage.success('已获取开户链接，请在新窗口完成开户')
-      window.open(res.data.data.url, '_blank')
+      window.open(res.data.url, '_blank')
       // 刷新列表
       setTimeout(() => fetchList(), 2000)
     } else {
-      ElMessage.error(res.data.message || '获取银行内部户开户链接失败')
+      ElMessage.error(res.message || '获取银行内部户开户链接失败')
     }
   } catch (error) {
     console.error('开通银行内部户失败:', error)
