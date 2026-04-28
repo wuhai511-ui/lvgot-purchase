@@ -29,9 +29,10 @@ const createSplitTemplateRouter = require('./routes/split-template');
 const createOrderRouter = require('./routes/order');
 const createWebhookRouter = require('./routes/webhook');
 const createAdminRouter = require('./routes/admin');
+const createTourGroupRouter = require('./routes/tour-group');
 const createAuthRouter = require('./routes/auth');
 // 中间件
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, optionalAuth } = require('./middleware/auth');
 
 // 常量
 const MAX_PAGE_SIZE = 100;
@@ -174,6 +175,9 @@ async function createApp() {
   app.use("/api/split-templates", requireAuth, createSplitTemplateRouter(deps));
   app.use('/api/v1/split', requireAuth, createSplitRouter(deps));
 
+  // 旅行社路由
+  app.use('/api/tour-groups', createTourGroupRouter(deps));
+
   // 商终管理路由
 
   // 认证路由（登录）
@@ -229,8 +233,8 @@ async function createApp() {
     }
     res.json({ code: 0, data: merchants });
   });
-  // 所有商户（按租户隔离）
-  app.get('/api/merchants', requireAuth, async (req, res) => {
+  // 所有商户（有 token 则按租户隔离，无 token 返回全部，供 admin 使用）
+  app.get('/api/merchants', optionalAuth, async (req, res) => {
     let merchants = await getMerchants();
     const { split_role, status } = req.query;
     const tenant_id = req.auth?.tenant_id;
