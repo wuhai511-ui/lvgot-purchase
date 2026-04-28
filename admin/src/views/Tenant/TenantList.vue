@@ -46,6 +46,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="handleView(row)">详情</el-button>
             <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="warning" @click="handleResetPwd(row)">重置密码</el-button>
             <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -82,6 +83,22 @@
         <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
       </template>
     </el-dialog>
+
+    <!-- 重置密码对话框 -->
+    <el-dialog v-model="pwdDialogVisible" title="重置密码" width="400px">
+      <el-form :model="pwdForm" label-width="80px">
+        <el-form-item label="租户">
+          <span>{{ pwdForm.tenant_name }}</span>
+        </el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="pwdForm.password" type="password" show-password placeholder="请输入新密码" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="pwdDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="pwdSubmitting" @click="submitResetPwd">确认重置</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -89,7 +106,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTenants, getTenantDetail, createTenant, updateTenant, deleteTenant } from '@/api/tenant'
+import { getTenants, getTenantDetail, createTenant, updateTenant, deleteTenant, resetTenantPassword } from '@/api/tenant'
 
 const router = useRouter()
 const loading = ref(false)
@@ -245,6 +262,39 @@ async function handleDelete(row) {
     if (err !== 'cancel') {
       ElMessage.error('删除失败')
     }
+  }
+}
+
+// 重置密码
+const pwdDialogVisible = ref(false)
+const pwdSubmitting = ref(false)
+const pwdForm = reactive({ tenant_id: null, tenant_name: '', password: '' })
+
+function handleResetPwd(row) {
+  pwdForm.tenant_id = row.id
+  pwdForm.tenant_name = row.tenant_name
+  pwdForm.password = ''
+  pwdDialogVisible.value = true
+}
+
+async function submitResetPwd() {
+  if (!pwdForm.password) {
+    ElMessage.warning('请输入新密码')
+    return
+  }
+  pwdSubmitting.value = true
+  try {
+    const res = await resetTenantPassword(pwdForm.tenant_id, pwdForm.password)
+    if (res.code === 0) {
+      ElMessage.success('密码重置成功')
+      pwdDialogVisible.value = false
+    } else {
+      ElMessage.error(res.message || '重置失败')
+    }
+  } catch (err) {
+    ElMessage.error('重置失败')
+  } finally {
+    pwdSubmitting.value = false
   }
 }
 

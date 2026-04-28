@@ -39,6 +39,14 @@ export function deleteTenant(id) {
   })
 }
 
+export function resetTenantPassword(id, password) {
+  return request({
+    url: `/api/admin/tenants/${id}/reset-password`,
+    method: 'put',
+    data: { password }
+  })
+}
+
 export function getTenantMerchants(tenantId, params) {
   return request({
     url: `/api/admin/tenants/${tenantId}/merchants`,

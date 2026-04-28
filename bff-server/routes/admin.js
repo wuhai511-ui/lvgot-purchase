@@ -49,6 +49,17 @@ module.exports = function createAdminRouter(deps) {
     res.json({ code: 0, data: { ...tenant, password_hash: undefined, merchant_count: merchantCount, merchants } });
   });
 
+  // 重置租户密码（必须在 /tenants/:id 之前）
+  router.put('/tenants/:id/reset-password', async (req, res) => {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ code: 400, message: '请输入新密码' });
+    }
+    const password_hash = require('../middleware/auth').hashPassword(password);
+    const tenant = await db.saveTenant({ id: req.params.id, password_hash });
+    res.json({ code: 0, data: tenant, message: '密码重置成功' });
+  });
+
   // 更新租户
   router.put('/tenants/:id', async (req, res) => {
     const { tenant_name, username, qzt_account_no, contact_name, contact_mobile, status } = req.body;
