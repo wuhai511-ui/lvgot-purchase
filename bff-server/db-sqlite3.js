@@ -869,6 +869,49 @@ async function incrementTemplateUsage(template_id) {
   await runAsync(`UPDATE split_templates SET usage_count = usage_count + 1 WHERE template_id = ?`, [template_id]);
 }
 
+// ========== 分账引擎 ==========
+async function saveSplitEngineScene(scene) {
+  const { tenant_id, name, code, description, status } = scene;
+  const result = await runAsync(
+    `INSERT INTO split_engine_scenes (tenant_id, name, code, description, status) VALUES (?, ?, ?, ?, ?)`,
+    [tenant_id, name, code, description || null, status || 'ACTIVE']
+  );
+  return { id: result.lastID, ...scene };
+}
+
+async function getSplitEngineScenes(tenant_id) {
+  let query = 'SELECT * FROM split_engine_scenes WHERE 1=1';
+  const params = [];
+  if (tenant_id) { query += ' AND tenant_id = ?'; params.push(tenant_id); }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSplitEngineSceneById(id) {
+  return await getAsync(`SELECT * FROM split_engine_scenes WHERE id = ?`, [id]);
+}
+
+async function getSplitEngineSceneByCode(tenant_id, code) {
+  return await getAsync(`SELECT * FROM split_engine_scenes WHERE tenant_id = ? AND code = ?`, [tenant_id, code]);
+}
+
+async function updateSplitEngineScene(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['name', 'code', 'description', 'status'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE split_engine_scenes SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  }
+  return await getSplitEngineSceneById(id);
+}
+
+async function deleteSplitEngineScene(id) {
+  await runAsync(`UPDATE split_engine_scenes SET status = 'DELETED' WHERE id = ?`, [id]);
+}
+
 // ========== 对账 ==========
 async function saveReconciliationTask(task) {
   const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
@@ -1199,6 +1242,9 @@ module.exports = {
   getSplitTemplateById,
   deleteSplitTemplate,
   incrementTemplateUsage,
+  // 分账引擎
+  saveSplitEngineScene, getSplitEngineScenes, getSplitEngineSceneById, getSplitEngineSceneByCode,
+  updateSplitEngineScene, deleteSplitEngineScene,
   // 对账
   saveReconciliationTask,
   getReconciliationTask,
