@@ -150,5 +150,119 @@ module.exports = function (deps) {
     }
   });
 
+  // ========== 规则组管理 ==========
+
+  router.get('/rule-groups', async (req, res) => {
+    try {
+      const { scene_id, page = 1, pageSize = 20 } = req.query;
+      const size = Math.min(parseInt(pageSize) || 20, 100);
+      const offset = (parseInt(page) - 1) * size;
+      const tenant_id = req.auth?.tenant_id;
+      const all = await db.getSplitEngineRuleGroups(tenant_id, scene_id);
+      const total = all.length;
+      const groups = all.slice(offset, offset + size);
+      res.json({ code: 0, data: { list: groups, total, page: parseInt(page), pageSize: size } });
+    } catch (e) {
+      console.error('[split-engine] get rule groups error:', e.message);
+      res.status(500).json({ code: 500, message: '获取规则组列表失败', error: e.message });
+    }
+  });
+
+  router.post('/rule-groups', async (req, res) => {
+    try {
+      const { scene_id, name, effective_from, effective_to, rules } = req.body;
+      if (!scene_id || !name) return res.json({ code: 400, message: '场景ID和名称不能为空' });
+      const scene = await db.getSplitEngineSceneById(scene_id);
+      if (!scene || scene.tenant_id !== req.auth?.tenant_id) {
+        return res.status(403).json({ code: 403, message: '无权操作此场景' });
+      }
+      const group = await db.saveSplitEngineRuleGroup({
+        tenant_id: req.auth?.tenant_id, scene_id, name, effective_from, effective_to
+      });
+      if (rules && Array.isArray(rules)) {
+        await db.saveSplitEngineRulesBatch(group.id, rules);
+      }
+      const result = await db.getSplitEngineRuleGroupById(group.id);
+      res.json({ code: 0, data: result, message: '规则组创建成功' });
+    } catch (e) {
+      console.error('[split-engine] create rule group error:', e.message);
+      res.status(500).json({ code: 500, message: '创建规则组失败', error: e.message });
+    }
+  });
+
+  router.get('/rule-groups/:id', async (req, res) => {
+    try {
+      const group = await db.getSplitEngineRuleGroupById(req.params.id);
+      if (!group) return res.json({ code: 404, message: '规则组不存在' });
+      res.json({ code: 0, data: group });
+    } catch (e) {
+      console.error('[split-engine] get rule group error:', e.message);
+      res.status(500).json({ code: 500, message: '获取规则组详情失败', error: e.message });
+    }
+  });
+
+  router.put('/rule-groups/:id', async (req, res) => {
+    try {
+      const existing = await db.getSplitEngineRuleGroupById(req.params.id);
+      if (!existing) return res.json({ code: 404, message: '规则组不存在' });
+      if (existing.tenant_id !== req.auth?.tenant_id) {
+        return res.status(403).json({ code: 403, message: '无权操作此规则组' });
+      }
+      const updates = {};
+      ['name', 'effective_from', 'effective_to', 'status'].forEach(f => {
+        if (req.body[f] !== undefined) updates[f] = req.body[f];
+      });
+      const updated = await db.updateSplitEngineRuleGroup(req.params.id, updates);
+      res.json({ code: 0, data: updated, message: '规则组更新成功' });
+    } catch (e) {
+      console.error('[split-engine] update rule group error:', e.message);
+      res.status(500).json({ code: 500, message: '更新规则组失败', error: e.message });
+    }
+  });
+
+  // ========== 规则管理 ==========
+
+  router.post('/rule-groups/:id/rules/batch', async (req, res) => {
+    try {
+      const { rules } = req.body;
+      if (!rules || !Array.isArray(rules)) return res.json({ code: 400, message: 'rules 必须为数组' });
+      const group = await db.getSplitEngineRuleGroupById(req.params.id);
+      if (!group) return res.json({ code: 404, message: '规则组不存在' });
+      if (group.tenant_id !== req.auth?.tenant_id) {
+        return res.status(403).json({ code: 403, message: '无权操作此规则组' });
+      }
+      await db.saveSplitEngineRulesBatch(parseInt(req.params.id), rules);
+      const updated = await db.getSplitEngineRuleGroupById(req.params.id);
+      res.json({ code: 0, data: updated, message: '规则已保存' });
+    } catch (e) {
+      console.error('[split-engine] batch save rules error:', e.message);
+      res.status(500).json({ code: 500, message: '保存规则失败', error: e.message });
+    }
+  });
+
+  router.put('/rules/:id', async (req, res) => {
+    try {
+      const updates = {};
+      ['rule_type', 'value', 'priority', 'settle_cycle', 'conditions', 'max_cap', 'min_guarantee', 'status'].forEach(f => {
+        if (req.body[f] !== undefined) updates[f] = req.body[f];
+      });
+      const updated = await db.updateSplitEngineRule(req.params.id, updates);
+      res.json({ code: 0, data: updated, message: '规则更新成功' });
+    } catch (e) {
+      console.error('[split-engine] update rule error:', e.message);
+      res.status(500).json({ code: 500, message: '更新规则失败', error: e.message });
+    }
+  });
+
+  router.delete('/rules/:id', async (req, res) => {
+    try {
+      await db.deleteSplitEngineRule(req.params.id);
+      res.json({ code: 0, message: '规则已删除' });
+    } catch (e) {
+      console.error('[split-engine] delete rule error:', e.message);
+      res.status(500).json({ code: 500, message: '删除规则失败', error: e.message });
+    }
+  });
+
   return router;
 };

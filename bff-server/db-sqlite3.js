@@ -961,6 +961,99 @@ async function getSplitEnginePartiesByScene(scene_id, tenant_id) {
   return await allAsync(query, params);
 }
 
+async function saveSplitEngineRuleGroup(group) {
+  const { tenant_id, scene_id, name, effective_from, effective_to, status } = group;
+  const result = await runAsync(
+    `INSERT INTO split_engine_rule_groups (tenant_id, scene_id, name, effective_from, effective_to, status) VALUES (?, ?, ?, ?, ?, ?)`,
+    [tenant_id, scene_id, name, effective_from || null, effective_to || null, status || 'ACTIVE']
+  );
+  return { id: result.lastID, ...group };
+}
+
+async function getSplitEngineRuleGroups(tenant_id, scene_id) {
+  let query = 'SELECT * FROM split_engine_rule_groups WHERE 1=1';
+  const params = [];
+  if (tenant_id) { query += ' AND tenant_id = ?'; params.push(tenant_id); }
+  if (scene_id) { query += ' AND scene_id = ?'; params.push(scene_id); }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSplitEngineRuleGroupById(id) {
+  const group = await getAsync(`SELECT * FROM split_engine_rule_groups WHERE id = ?`, [id]);
+  if (group) {
+    group.rules = await allAsync(`SELECT * FROM split_engine_rules WHERE group_id = ? ORDER BY priority ASC`, [id]);
+  }
+  return group;
+}
+
+async function updateSplitEngineRuleGroup(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['name', 'effective_from', 'effective_to', 'status'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE split_engine_rule_groups SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...params, id]);
+  }
+  return await getSplitEngineRuleGroupById(id);
+}
+
+async function deleteSplitEngineRuleGroup(id) {
+  await runAsync(`UPDATE split_engine_rule_groups SET status = 'DELETED' WHERE id = ?`, [id]);
+}
+
+async function saveSplitEngineRule(rule) {
+  const { group_id, party_id, rule_type, value, priority, settle_cycle, conditions, max_cap, min_guarantee } = rule;
+  const result = await runAsync(
+    `INSERT INTO split_engine_rules (group_id, party_id, rule_type, value, priority, settle_cycle, conditions, max_cap, min_guarantee) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [group_id, party_id, rule_type, value || null, priority || 100, settle_cycle || null, conditions || null, max_cap || null, min_guarantee || null]
+  );
+  return { id: result.lastID, ...rule };
+}
+
+async function getSplitEngineRules(group_id) {
+  return await allAsync(`SELECT * FROM split_engine_rules WHERE group_id = ? ORDER BY priority ASC`, [group_id]);
+}
+
+async function updateSplitEngineRule(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['rule_type', 'value', 'priority', 'settle_cycle', 'conditions', 'max_cap', 'min_guarantee', 'status'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE split_engine_rules SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...params, id]);
+  }
+  return await getAsync(`SELECT * FROM split_engine_rules WHERE id = ?`, [id]);
+}
+
+async function deleteSplitEngineRule(id) {
+  await runAsync(`UPDATE split_engine_rules SET status = 'DELETED' WHERE id = ?`, [id]);
+}
+
+async function saveSplitEngineRulesBatch(group_id, rules) {
+  await runAsync(`DELETE FROM split_engine_rules WHERE group_id = ?`, [group_id]);
+  for (const rule of rules) {
+    await saveSplitEngineRule({ ...rule, group_id });
+  }
+}
+
+async function getActiveSplitEngineRuleGroup(scene_code, tenant_id) {
+  const now = new Date().toISOString();
+  return await getAsync(
+    `SELECT g.* FROM split_engine_rule_groups g
+     INNER JOIN split_engine_scenes s ON g.scene_id = s.id
+     WHERE s.code = ? AND g.tenant_id = ? AND g.status = 'ACTIVE'
+       AND (g.effective_from IS NULL OR g.effective_from <= ?)
+       AND (g.effective_to IS NULL OR g.effective_to > ?)
+     ORDER BY g.created_at DESC LIMIT 1`,
+    [scene_code, tenant_id, now, now]
+  );
+}
+
 // ========== 对账 ==========
 async function saveReconciliationTask(task) {
   const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
@@ -1296,6 +1389,9 @@ module.exports = {
   updateSplitEngineScene, deleteSplitEngineScene,
   saveSplitEngineParty, getSplitEngineParties, getSplitEnginePartyById, updateSplitEngineParty,
   deleteSplitEngineParty, getSplitEnginePartiesByScene,
+  saveSplitEngineRuleGroup, getSplitEngineRuleGroups, getSplitEngineRuleGroupById, updateSplitEngineRuleGroup,
+  deleteSplitEngineRuleGroup, saveSplitEngineRule, getSplitEngineRules, updateSplitEngineRule,
+  deleteSplitEngineRule, saveSplitEngineRulesBatch, getActiveSplitEngineRuleGroup,
   // 对账
   saveReconciliationTask,
   getReconciliationTask,
