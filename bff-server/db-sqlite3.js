@@ -1054,6 +1054,71 @@ async function getActiveSplitEngineRuleGroup(scene_code, tenant_id) {
   );
 }
 
+async function saveSplitEngineTask(task) {
+  const { tenant_id, scene_id, rule_group_id, total_input_amount, total_split_amount, record_count, status } = task;
+  const result = await runAsync(
+    `INSERT INTO split_engine_tasks (tenant_id, scene_id, rule_group_id, total_input_amount, total_split_amount, record_count, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [tenant_id, scene_id || null, rule_group_id || null, total_input_amount || 0, total_split_amount || 0, record_count || 0, status || 'pending']
+  );
+  return { id: result.lastID, ...task };
+}
+
+async function getSplitEngineTasks(tenant_id) {
+  let query = 'SELECT * FROM split_engine_tasks WHERE 1=1';
+  const params = [];
+  if (tenant_id) { query += ' AND tenant_id = ?'; params.push(tenant_id); }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSplitEngineTaskById(id) {
+  return await getAsync(`SELECT * FROM split_engine_tasks WHERE id = ?`, [id]);
+}
+
+async function updateSplitEngineTask(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['total_input_amount', 'total_split_amount', 'record_count', 'status', 'executed_at'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE split_engine_tasks SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  }
+}
+
+async function saveSplitEngineRecord(record) {
+  const { task_id, payment_id, party_id, expected_amount, actual_amount, discount_share, calc_detail, status } = record;
+  const result = await runAsync(
+    `INSERT INTO split_engine_records (task_id, payment_id, party_id, expected_amount, actual_amount, discount_share, calc_detail, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [task_id, payment_id, party_id, expected_amount, actual_amount || expected_amount, discount_share || 0, calc_detail ? JSON.stringify(calc_detail) : null, status || 'pending']
+  );
+  return { id: result.lastID, ...record };
+}
+
+async function getSplitEngineRecords(filters = {}) {
+  let query = 'SELECT r.*, p.name as party_name FROM split_engine_records r LEFT JOIN split_engine_parties p ON r.party_id = p.id WHERE 1=1';
+  const params = [];
+  if (filters.task_id) { query += ' AND r.task_id = ?'; params.push(filters.task_id); }
+  if (filters.party_id) { query += ' AND r.party_id = ?'; params.push(filters.party_id); }
+  if (filters.payment_id) { query += ' AND r.payment_id = ?'; params.push(filters.payment_id); }
+  if (filters.status) { query += ' AND r.status = ?'; params.push(filters.status); }
+  query += ' ORDER BY r.created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSplitEngineRecordById(id) {
+  return await getAsync(
+    `SELECT r.*, p.name as party_name FROM split_engine_records r LEFT JOIN split_engine_parties p ON r.party_id = p.id WHERE r.id = ?`, [id]
+  );
+}
+
+async function getPaymentSplitEngineRecords(payment_id) {
+  return await allAsync(
+    `SELECT * FROM split_engine_records WHERE payment_id = ?`, [payment_id]
+  );
+}
+
 // ========== 对账 ==========
 async function saveReconciliationTask(task) {
   const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
@@ -1392,6 +1457,9 @@ module.exports = {
   saveSplitEngineRuleGroup, getSplitEngineRuleGroups, getSplitEngineRuleGroupById, updateSplitEngineRuleGroup,
   deleteSplitEngineRuleGroup, saveSplitEngineRule, getSplitEngineRules, updateSplitEngineRule,
   deleteSplitEngineRule, saveSplitEngineRulesBatch, getActiveSplitEngineRuleGroup,
+  // 分账引擎 - 任务与记录
+  saveSplitEngineTask, getSplitEngineTasks, getSplitEngineTaskById, updateSplitEngineTask,
+  saveSplitEngineRecord, getSplitEngineRecords, getSplitEngineRecordById, getPaymentSplitEngineRecords,
   // 对账
   saveReconciliationTask,
   getReconciliationTask,
