@@ -26,6 +26,7 @@ const createTerminalRouter = require('./routes/terminal');
 const createStoreRouter = require('./routes/store');
 
 const createSplitTemplateRouter = require('./routes/split-template');
+const createSplitEngineRouter = require('./routes/split-engine');
 const createOrderRouter = require('./routes/order');
 const createWebhookRouter = require('./routes/webhook');
 const createAdminRouter = require('./routes/admin');
@@ -174,6 +175,9 @@ async function createApp() {
   app.use('/api/split', requireAuth, createSplitRouter(deps));
   app.use("/api/split-templates", requireAuth, createSplitTemplateRouter(deps));
   app.use('/api/v1/split', requireAuth, createSplitRouter(deps));
+  // 分账引擎路由
+  app.use('/api/split-engine', requireAuth, createSplitEngineRouter(deps));
+  app.use('/api/v1/split-engine', requireAuth, createSplitEngineRouter(deps));
 
   // 旅行社路由
   app.use('/api/tour-groups', createTourGroupRouter(deps));

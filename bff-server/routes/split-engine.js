@@ -264,5 +264,43 @@ module.exports = function (deps) {
     }
   });
 
+
+  // ========== 分账记录查询 ==========
+
+  router.get('/records', async (req, res) => {
+    try {
+      const { task_id, party_id, payment_id, status, page = 1, pageSize = 20 } = req.query;
+      const size = Math.min(parseInt(pageSize) || 20, 100);
+      const offset = (parseInt(page) - 1) * size;
+      const filters = {};
+      if (task_id) filters.task_id = task_id;
+      if (party_id) filters.party_id = party_id;
+      if (payment_id) filters.payment_id = payment_id;
+      if (status) filters.status = status;
+      const all = await db.getSplitEngineRecords(filters);
+      const total = all.length;
+      const records = all.slice(offset, offset + size);
+      res.json({ code: 0, data: { list: records, total, page: parseInt(page), pageSize: size } });
+    } catch (e) {
+      console.error('[split-engine] get records error:', e.message);
+      res.status(500).json({ code: 500, message: '获取分账记录失败', error: e.message });
+    }
+  });
+
+  router.get('/records/:id', async (req, res) => {
+    try {
+      const record = await db.getSplitEngineRecordById(req.params.id);
+      if (!record) return res.json({ code: 404, message: '记录不存在' });
+      // Parse calc_detail for display
+      if (record.calc_detail) {
+        try { record.calc_detail = JSON.parse(record.calc_detail); } catch {}
+      }
+      res.json({ code: 0, data: record });
+    } catch (e) {
+      console.error('[split-engine] get record error:', e.message);
+      res.status(500).json({ code: 500, message: '获取记录详情失败', error: e.message });
+    }
+  });
+
   return router;
 };
