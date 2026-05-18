@@ -1119,6 +1119,41 @@ async function getPaymentSplitEngineRecords(payment_id) {
   );
 }
 
+async function saveSettlementBatch(batch) {
+  const { batch_no, party_id, cycle_type, period_start, period_end, total_amount, record_count, status } = batch;
+  const result = await runAsync(
+    `INSERT INTO settlement_batches (batch_no, party_id, cycle_type, period_start, period_end, total_amount, record_count, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [batch_no, party_id, cycle_type, period_start, period_end, total_amount || 0, record_count || 0, status || 'pending']
+  );
+  return { id: result.lastID, ...batch };
+}
+
+async function getSettlementBatches(filters = {}) {
+  let query = 'SELECT b.*, p.name as party_name FROM settlement_batches b LEFT JOIN split_engine_parties p ON b.party_id = p.id WHERE 1=1';
+  const params = [];
+  if (filters.party_id) { query += ' AND b.party_id = ?'; params.push(filters.party_id); }
+  if (filters.status) { query += ' AND b.status = ?'; params.push(filters.status); }
+  if (filters.cycle_type) { query += ' AND b.cycle_type = ?'; params.push(filters.cycle_type); }
+  query += ' ORDER BY b.created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSettlementBatchById(id) {
+  return await getAsync(`SELECT * FROM settlement_batches WHERE id = ?`, [id]);
+}
+
+async function updateSettlementBatch(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['total_amount', 'record_count', 'status', 'settled_at'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE settlement_batches SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+  }
+}
+
 // ========== 对账 ==========
 async function saveReconciliationTask(task) {
   const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
@@ -1460,6 +1495,8 @@ module.exports = {
   // 分账引擎 - 任务与记录
   saveSplitEngineTask, getSplitEngineTasks, getSplitEngineTaskById, updateSplitEngineTask,
   saveSplitEngineRecord, getSplitEngineRecords, getSplitEngineRecordById, getPaymentSplitEngineRecords,
+  // 分账引擎 - 结算批次
+  saveSettlementBatch, getSettlementBatches, getSettlementBatchById, updateSettlementBatch,
   // 对账
   saveReconciliationTask,
   getReconciliationTask,
