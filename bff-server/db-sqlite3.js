@@ -912,6 +912,55 @@ async function deleteSplitEngineScene(id) {
   await runAsync(`UPDATE split_engine_scenes SET status = 'DELETED' WHERE id = ?`, [id]);
 }
 
+
+async function saveSplitEngineParty(party) {
+  const { tenant_id, name, role, merchant_id, account_no, settle_cycle, settle_trigger_value, status } = party;
+  const result = await runAsync(
+    `INSERT INTO split_engine_parties (tenant_id, name, role, merchant_id, account_no, settle_cycle, settle_trigger_value, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [tenant_id, name, role || null, merchant_id || null, account_no || null, settle_cycle || 'daily', settle_trigger_value || null, status || 'ACTIVE']
+  );
+  return { id: result.lastID, ...party };
+}
+
+async function getSplitEngineParties(tenant_id) {
+  let query = 'SELECT * FROM split_engine_parties WHERE 1=1';
+  const params = [];
+  if (tenant_id) { query += ' AND tenant_id = ?'; params.push(tenant_id); }
+  query += ' ORDER BY created_at DESC';
+  return await allAsync(query, params);
+}
+
+async function getSplitEnginePartyById(id) {
+  return await getAsync(`SELECT * FROM split_engine_parties WHERE id = ?`, [id]);
+}
+
+async function updateSplitEngineParty(id, updates) {
+  const fields = [];
+  const params = [];
+  const allowed = ['name', 'role', 'merchant_id', 'account_no', 'settle_cycle', 'settle_trigger_value', 'status'];
+  for (const key of allowed) {
+    if (updates[key] !== undefined) { fields.push(`${key} = ?`); params.push(updates[key]); }
+  }
+  if (fields.length > 0) {
+    await runAsync(`UPDATE split_engine_parties SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, [...params, id]);
+  }
+  return await getSplitEnginePartyById(id);
+}
+
+async function deleteSplitEngineParty(id) {
+  await runAsync(`UPDATE split_engine_parties SET status = 'DELETED' WHERE id = ?`, [id]);
+}
+
+async function getSplitEnginePartiesByScene(scene_id, tenant_id) {
+  let query = `SELECT DISTINCT p.* FROM split_engine_parties p
+    INNER JOIN split_engine_rules r ON p.id = r.party_id
+    INNER JOIN split_engine_rule_groups g ON r.group_id = g.id
+    WHERE g.scene_id = ? AND g.status = 'ACTIVE' AND r.status = 'ACTIVE'`;
+  const params = [scene_id];
+  if (tenant_id) { query += ' AND p.tenant_id = ?'; params.push(tenant_id); }
+  return await allAsync(query, params);
+}
+
 // ========== 对账 ==========
 async function saveReconciliationTask(task) {
   const { task_no, task_type, date_range_start, date_range_end, created_by } = task;
@@ -1245,6 +1294,8 @@ module.exports = {
   // 分账引擎
   saveSplitEngineScene, getSplitEngineScenes, getSplitEngineSceneById, getSplitEngineSceneByCode,
   updateSplitEngineScene, deleteSplitEngineScene,
+  saveSplitEngineParty, getSplitEngineParties, getSplitEnginePartyById, updateSplitEngineParty,
+  deleteSplitEngineParty, getSplitEnginePartiesByScene,
   // 对账
   saveReconciliationTask,
   getReconciliationTask,

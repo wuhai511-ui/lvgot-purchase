@@ -69,5 +69,86 @@ module.exports = function (deps) {
     }
   });
 
+
+  // ========== 参与方管理 ==========
+
+  router.get('/parties', async (req, res) => {
+    try {
+      const { page = 1, pageSize = 20 } = req.query;
+      const size = Math.min(parseInt(pageSize) || 20, 100);
+      const offset = (parseInt(page) - 1) * size;
+      const tenant_id = req.auth?.tenant_id;
+      const all = await db.getSplitEngineParties(tenant_id);
+      const total = all.length;
+      const parties = all.slice(offset, offset + size);
+      res.json({ code: 0, data: { list: parties, total, page: parseInt(page), pageSize: size } });
+    } catch (e) {
+      console.error('[split-engine] get parties error:', e.message);
+      res.status(500).json({ code: 500, message: '获取参与方列表失败', error: e.message });
+    }
+  });
+
+  router.post('/parties', async (req, res) => {
+    try {
+      const { name, role, merchant_id, account_no, settle_cycle } = req.body;
+      if (!name) return res.json({ code: 400, message: '参与方名称不能为空' });
+      const tenant_id = req.auth?.tenant_id;
+      const party = await db.saveSplitEngineParty({
+        tenant_id, name, role, merchant_id, account_no, settle_cycle
+      });
+      res.json({ code: 0, data: party, message: '参与方创建成功' });
+    } catch (e) {
+      console.error('[split-engine] create party error:', e.message);
+      res.status(500).json({ code: 500, message: '创建参与方失败', error: e.message });
+    }
+  });
+
+  router.put('/parties/:id', async (req, res) => {
+    try {
+      const existing = await db.getSplitEnginePartyById(req.params.id);
+      if (!existing) return res.json({ code: 404, message: '参与方不存在' });
+      if (existing.tenant_id !== req.auth?.tenant_id) {
+        return res.status(403).json({ code: 403, message: '无权操作此参与方' });
+      }
+      const updates = {};
+      ['name', 'role', 'merchant_id', 'account_no', 'settle_cycle', 'settle_trigger_value', 'status'].forEach(f => {
+        if (req.body[f] !== undefined) updates[f] = req.body[f];
+      });
+      const updated = await db.updateSplitEngineParty(req.params.id, updates);
+      res.json({ code: 0, data: updated, message: '参与方更新成功' });
+    } catch (e) {
+      console.error('[split-engine] update party error:', e.message);
+      res.status(500).json({ code: 500, message: '更新参与方失败', error: e.message });
+    }
+  });
+
+  router.delete('/parties/:id', async (req, res) => {
+    try {
+      const existing = await db.getSplitEnginePartyById(req.params.id);
+      if (!existing) return res.json({ code: 404, message: '参与方不存在' });
+      if (existing.tenant_id !== req.auth?.tenant_id) {
+        return res.status(403).json({ code: 403, message: '无权操作此参与方' });
+      }
+      await db.deleteSplitEngineParty(req.params.id);
+      res.json({ code: 0, message: '参与方已删除' });
+    } catch (e) {
+      console.error('[split-engine] delete party error:', e.message);
+      res.status(500).json({ code: 500, message: '删除参与方失败', error: e.message });
+    }
+  });
+
+  // 场景下的可用参与方（前端规则分配用）
+  router.get('/scenes/:id/parties', async (req, res) => {
+    try {
+      const tenant_id = req.auth?.tenant_id;
+      const sceneParties = await db.getSplitEnginePartiesByScene(req.params.id, tenant_id);
+      const allParties = await db.getSplitEngineParties(tenant_id);
+      res.json({ code: 0, data: { scene_parties: sceneParties, all_parties: allParties } });
+    } catch (e) {
+      console.error('[split-engine] get scene parties error:', e.message);
+      res.status(500).json({ code: 500, message: '获取场景参与方失败', error: e.message });
+    }
+  });
+
   return router;
 };
