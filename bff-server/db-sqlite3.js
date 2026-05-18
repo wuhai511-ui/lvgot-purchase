@@ -391,6 +391,102 @@ function createTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_scenes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      code TEXT NOT NULL,
+      description TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tenant_id, code)
+    )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_parties (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      role TEXT,
+      merchant_id INTEGER,
+      account_no TEXT,
+      settle_cycle TEXT DEFAULT 'daily',
+      settle_trigger_value TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(tenant_id, name)
+    )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_rule_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL,
+      scene_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT DEFAULT 'ACTIVE',
+      effective_from DATETIME,
+      effective_to DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (scene_id) REFERENCES split_engine_scenes(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_rules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER NOT NULL,
+      party_id INTEGER NOT NULL,
+      rule_type TEXT NOT NULL CHECK(rule_type IN ('fixed_amount','percentage','tiered','conditional')),
+      value TEXT,
+      priority INTEGER DEFAULT 100,
+      settle_cycle TEXT,
+      conditions TEXT,
+      max_cap INTEGER,
+      min_guarantee INTEGER,
+      status TEXT DEFAULT 'ACTIVE',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (group_id) REFERENCES split_engine_rule_groups(id),
+      FOREIGN KEY (party_id) REFERENCES split_engine_parties(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_id TEXT NOT NULL,
+      scene_id INTEGER,
+      rule_group_id INTEGER,
+      total_input_amount INTEGER DEFAULT 0,
+      total_split_amount INTEGER DEFAULT 0,
+      record_count INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'pending',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      executed_at DATETIME,
+      FOREIGN KEY (scene_id) REFERENCES split_engine_scenes(id),
+      FOREIGN KEY (rule_group_id) REFERENCES split_engine_rule_groups(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS split_engine_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      payment_id TEXT NOT NULL,
+      party_id INTEGER NOT NULL,
+      expected_amount INTEGER NOT NULL,
+      actual_amount INTEGER NOT NULL,
+      discount_share INTEGER DEFAULT 0,
+      calc_detail TEXT,
+      status TEXT DEFAULT 'pending',
+      settled_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (task_id) REFERENCES split_engine_tasks(id),
+      FOREIGN KEY (party_id) REFERENCES split_engine_parties(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS settlement_batches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      batch_no TEXT UNIQUE NOT NULL,
+      party_id INTEGER NOT NULL,
+      cycle_type TEXT NOT NULL,
+      period_start DATETIME NOT NULL,
+      period_end DATETIME NOT NULL,
+      total_amount INTEGER DEFAULT 0,
+      record_count INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'pending',
+      settled_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (party_id) REFERENCES split_engine_parties(id)
+    )`,
     `CREATE TABLE IF NOT EXISTS tenants (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       tenant_name TEXT NOT NULL,
@@ -413,6 +509,31 @@ function createTables() {
     });
   });
   console.log('数据表创建完成');
+
+  const splitEngineIndexes = [
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_scenes_tenant ON split_engine_scenes(tenant_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_scenes_tenant_code ON split_engine_scenes(tenant_id, code)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_rule_groups_scene ON split_engine_rule_groups(scene_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_rules_group ON split_engine_rules(group_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_records_task ON split_engine_records(task_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_records_payment ON split_engine_records(payment_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_records_party_status ON split_engine_records(party_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_batches_party_status ON settlement_batches(party_id, status)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_parties_tenant ON split_engine_parties(tenant_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_split_engine_tasks_tenant ON split_engine_tasks(tenant_id)`
+  ];
+  (async () => {
+    for (const sql of splitEngineIndexes) {
+      try {
+        await runAsync(sql);
+      } catch (err) {
+        if (!err.message.includes('already exists')) {
+          console.error('Index creation failed:', err.message);
+        }
+      }
+    }
+    console.log('Split engine indexes created');
+  })();
 }
 
 function closeDatabase() {
