@@ -101,6 +101,7 @@ async function initDatabase() {
         reject(err);
       } else {
         console.log('SQLite 数据库已连接:', DB_PATH);
+        db.run("PRAGMA foreign_keys = ON");
         createTables();
         resolve(db);
       }
@@ -1035,9 +1036,16 @@ async function deleteSplitEngineRule(id) {
 }
 
 async function saveSplitEngineRulesBatch(group_id, rules) {
-  await runAsync(`DELETE FROM split_engine_rules WHERE group_id = ?`, [group_id]);
-  for (const rule of rules) {
-    await saveSplitEngineRule({ ...rule, group_id });
+  await runAsync(`BEGIN`);
+  try {
+    await runAsync(`DELETE FROM split_engine_rules WHERE group_id = ?`, [group_id]);
+    for (const rule of rules) {
+      await saveSplitEngineRule({ ...rule, group_id });
+    }
+    await runAsync(`COMMIT`);
+  } catch (e) {
+    await runAsync(`ROLLBACK`);
+    throw e;
   }
 }
 

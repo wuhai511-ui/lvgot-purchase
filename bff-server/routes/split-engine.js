@@ -264,6 +264,122 @@ module.exports = function (deps) {
     }
   });
 
+  // ========== 分账计算 ==========
+
+  // 舍入策略：Math.round，尾差由最后一方吸收
+  const toYuan = (fen) => (fen / 100).toFixed(2);
+
+  function applyPercentageRules(rules, totalAmountFen) {
+    let remaining = totalAmountFen;
+    const results = [];
+    const sorted = [...rules].sort((a, b) => (a.priority || 100) - (b.priority || 100));
+
+    for (let i = 0; i < sorted.length; i++) {
+      const rule = sorted[i];
+      const isLast = i === sorted.length - 1;
+      let deduction;
+
+      if (rule.rule_type === 'percentage') {
+        deduction = isLast ? remaining : Math.round(remaining * parseFloat(rule.value || '0'));
+      } else if (rule.rule_type === 'fixed_amount') {
+        deduction = Math.min(parseInt(rule.value) || 0, remaining);
+      } else {
+        deduction = 0; // tiered/conditional not supported in Phase 1
+      }
+
+      if (rule.max_cap && deduction > rule.max_cap) deduction = rule.max_cap;
+      if (rule.min_guarantee && deduction < rule.min_guarantee) deduction = Math.min(rule.min_guarantee, remaining);
+
+      results.push({
+        party_id: rule.party_id,
+        rule_id: rule.id,
+        rule_type: rule.rule_type,
+        expected_amount: deduction,
+        calc_detail: {
+          rule_id: rule.id,
+          rule_type: rule.rule_type,
+          base_amount: isLast ? (remaining - deduction + deduction) : remaining,
+          rate: rule.rule_type === 'percentage' ? parseFloat(rule.value || '0') : null,
+          formula: rule.rule_type === 'percentage'
+            ? `${toYuan(remaining)} * ${(parseFloat(rule.value || '0') * 100).toFixed(2)}% = ${toYuan(deduction)}`
+            : `fixed: ${rule.value}`
+        }
+      });
+
+      remaining -= deduction;
+    }
+    return results;
+  }
+
+  router.post('/calculate', async (req, res) => {
+    try {
+      const { scene_code, payments, context } = req.body;
+      if (!scene_code || !payments || !Array.isArray(payments) || payments.length === 0) {
+        return res.json({ code: 400, message: '缺少必填参数: scene_code, payments' });
+      }
+
+      const tenant_id = req.auth?.tenant_id;
+      const ruleGroup = await db.getActiveSplitEngineRuleGroup(scene_code, tenant_id);
+      if (!ruleGroup) {
+        return res.json({ code: 400, message: `未找到场景 "${scene_code}" 的生效规则组` });
+      }
+
+      const rules = await db.getSplitEngineRules(ruleGroup.id);
+      if (!rules || rules.length === 0) {
+        return res.json({ code: 400, message: '规则组内无规则' });
+      }
+
+      // Validate rule types — Phase 1 only supports percentage and fixed_amount
+      const unsupported = rules.filter(r => !['percentage', 'fixed_amount'].includes(r.rule_type));
+      if (unsupported.length > 0) {
+        return res.json({ code: 400, message: `不支持的规则类型: ${unsupported.map(r => r.rule_type).join(', ')}。Phase 1 仅支持 percentage / fixed_amount` });
+      }
+
+      const allRecords = [];
+      let totalInput = 0, totalSplit = 0;
+
+      for (const payment of payments) {
+        if (!payment.payment_id || typeof payment.amount !== 'number' || payment.amount <= 0) {
+          return res.json({ code: 400, message: `支付数据不合法: ${JSON.stringify(payment)}` });
+        }
+        const splits = applyPercentageRules(rules, payment.amount);
+        for (const s of splits) {
+          const party = await db.getSplitEnginePartyById(s.party_id);
+          allRecords.push({
+            payment_id: payment.payment_id,
+            party_id: s.party_id,
+            party_name: party?.name || '未知',
+            rule_id: s.rule_id,
+            rule_type: s.rule_type,
+            expected_amount: s.expected_amount,
+            expected_amount_yuan: toYuan(s.expected_amount),
+            calc_detail: s.calc_detail
+          });
+        }
+        totalInput += payment.amount;
+        totalSplit += splits.reduce((sum, s) => sum + s.expected_amount, 0);
+      }
+
+      res.json({
+        code: 0,
+        data: {
+          rule_group: { id: ruleGroup.id, name: ruleGroup.name },
+          records: allRecords,
+          summary: {
+            total_input: totalInput,
+            total_input_yuan: toYuan(totalInput),
+            total_split: totalSplit,
+            total_split_yuan: toYuan(totalSplit),
+            party_count: new Set(allRecords.map(r => r.party_id)).size,
+            record_count: allRecords.length
+          }
+        }
+      });
+    } catch (e) {
+      console.error('[split-engine] calculate error:', e.message);
+      res.status(500).json({ code: 500, message: '分账计算失败', error: e.message });
+    }
+  });
 
   // ========== 分账记录查询 ==========
 

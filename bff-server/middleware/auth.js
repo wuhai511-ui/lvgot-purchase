@@ -35,7 +35,7 @@ function verifyToken(token) {
 function requireAuth(req, res, next) {
   // 演示模式：放行但记录警告
   if (DEMO_MODE) {
-    req.auth = { demo: true, userId: 'demo-user' };
+    req.auth = { demo: true, userId: 'demo-user', tenant_id: process.env.DEMO_TENANT_ID || 'default' };
     return next();
   }
 
